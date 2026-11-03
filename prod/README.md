@@ -133,9 +133,17 @@ Healthcheck indica falha; `restart: unless-stopped` reinicia processo encerrado,
 - Front publicado só em loopback; Nginx mantém porta interna `8080`. Proxy HTTPS no host aponta para `127.0.0.1:6161`.
 - Se proxy externo também for container, conecte-o à rede `cidoe` e use `front:8080`.
 - HTTPS necessário para cookies `Secure` do backend. Proxy externo sobrescreve `Host`, `X-Forwarded-For` e `X-Forwarded-Proto` com host público, IP real e protocolo HTTPS. Backend usa `TRUST_PROXY=2` para os dois proxies; ajuste se cadeia mudar.
-- `/api` preserva caminho, query, corpo e cookies. Erros da API não viram HTML da SPA; rotas React recebem `index.html`; assets ausentes retornam 404.
+- `/api` preserva caminho, query, corpo e cookies. Erros da API não viram HTML da SPA; páginas públicas recebem HTML próprio gerado no build; somente `/dale` usa fallback SPA com `noindex`; URLs e assets ausentes retornam 404.
 - DNS Docker acompanha mudanças de IP do backend. Sem porta pública da API.
 
 Container sem root, filesystem somente leitura, capabilities removidas, `no-new-privileges`, healthcheck e logs limitados.
 
 Referências: [Bun Docker](https://bun.sh/guides/ecosystem/docker), [Nginx sem root](https://github.com/nginx/docker-nginx-unprivileged), [contexto e ignore do Docker](https://docs.docker.com/build/concepts/context/#filename-and-location), [GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+## SEO após publicar
+
+Build executa `scripts/prerender.mjs`; `.dockerignore` inclui esse script. Publicar imagem atualizada entrega páginas estáticas e Nginx juntos. Home, `/sobre`, `/termos` e `/privacidade` têm HTML e metadados próprios. Entradas admin e erro não são indexáveis.
+
+No checkout local, depois do deploy, `npm run seo:submit` verifica a chave pública hospedada e notifica IndexNow sobre as quatro URLs canônicas. Antes do deploy, `npm run seo:submit -- --dry-run` valida sem rede. Não executado automaticamente no build; não garante indexação nem substitui Search Console.
+
+Search Console, controle de inclusão em IA, Bing Webmaster Tools, HTTPS/host canônico e CDN/WAF: [guia SEO](../doc/seo.md#publicação-e-contas-externas). Conferência HTTP e ferramentas externas pendentes; nenhum servidor de teste necessário para build/checks locais.

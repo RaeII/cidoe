@@ -32,13 +32,13 @@ Esses componentes:
 
 Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
 
-Loading = só página de loading. **Nenhuma imagem** baixa nem aparece até ela sair; sai só com **tudo** carregado. Sem pôster da cidade (removido).
+Primeira viewport = só loading; sai com **tudo** carregado. Imagens aguardam `booted`; menu textual e apresentação disponíveis na seção HTML abaixo da cena, sem esperar API/WebGL. Sem pôster da cidade. [[seo]].
 
 1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
 2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `DonationLoadOverlay cover` com estado `loading`. React limpa `#root` no 1º commit e repõe o mesmo card → sem pisca, sem CLS, sem LCP novo.
 3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (loading) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
 4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas; falha = catálogo vazio) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
-5. **Até `booted`** não montam: [[#Placa da marca (`CitySceneEditor.tsx`)|placa da marca]] (logo), `AuthMenu`, `DonationFilterBar`, `BuildingHeightInput`, `ContributeDialog`, seta/engrenagem, [[#DonationInfoSection.tsx|DonationInfoSection]] (foto, avatares). Sem imagem, sem foco por Tab atrás do loading, sem diálogo de onboarding por cima.
+5. **Até `booted`** não montam: placa da marca (logo), `AuthMenu`, `DonationFilterBar`, `BuildingHeightInput`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` monta desde o início; `mediaReady={booted}` adia logo, foto e avatares. Texto e links acessíveis abaixo da cena, inclusive com falha de API/WebGL; sem onboarding sobre o loading.
 
 > [!note] Custo
 > Loading espera fachadas do cenário inicial (~11 MB medido na beta, headless ~5 Mbps sem cache: última textura 11,24 s → loading sai 11,28 s). Logo e foto começam a baixar no instante da saída. Sem WebGL: hook marca `sceneReady`, loading sai normal.
@@ -51,6 +51,17 @@ Loading = só página de loading. **Nenhuma imagem** baixa nem aparece até ela 
 - **nginx** (`docker/nginx.conf`) — `^~ /assets/`: `Cache-Control: public, max-age=31536000, immutable` (sem `always`: 404 de chunk não fica em cache). Arquivos de `public/` (webp/jpg/png/svg/woff2/ico): `expires 30d`. HTML: `no-cache`. gzip nível 6, ≥ 1 KB, + `text/plain`, `text/javascript`, `application/manifest+json`. `/api` e `/healthz` intactos.
 
 ## Componentes Principais
+
+### Menu público (`PublicPageNav.tsx`)
+
+**Sobre**, **Termos**, **Privacidade**: palavras com links reais, alinhadas à direita no início da `DonationInfoSection`, abaixo da cena. `<a href>` simples; sem fundo, borda, sombra ou formato de botão. Só a seção HTML da home monta esse menu, inclusive no HTML pré-renderizado; canvas, loading e cabeçalhos de Sobre/Termos/Privacidade não montam. Sem dependência de Router, API ou WebGL.
+
+- Alvo mínimo 44px, `touch-manipulation`, quebra de linha e espaçamento horizontal 24px. Primeiro toque já navega.
+- Hover altera cor, sublinha e eleva 2px; clique/toque desloca 1px. Transição 150ms; movimento reduzido desativa animação. Foco visível global preservado.
+- Menu segue fluxo normal do HTML, dentro do limite de 1240px. Marca e conta continuam no topo da cena (`top-4`). **Meus edifícios** oculta seção HTML junto das demais informações públicas.
+- Links de retorno, rodapés e navegação lateral dos documentos preservados.
+- Criador em `/sobre#israel-zeferino`: botões **LinkedIn** e **Instagram** com ícone e texto, nova aba anunciada no nome acessível, `rel="me noopener noreferrer"`. URLs em `CREATOR_SOCIAL_PROFILES` (`src/lib/seo.ts`), mesmas do `Person.sameAs`. LinkedIn extraído do compartilhamento para `ui/social-icons.tsx`; Instagram usa glifo Feather, sem dependência nova.
+- Verificação: `npm run build && npm run check:seo`; menu emitido só na seção HTML da home, links sem formato de botão, destinos sociais e paridade com JSON-LD. Sem servidor/navegador.
 
 ### Teclado no mobile
 
@@ -79,7 +90,9 @@ Placa e `AuthMenu` na mesma linha (`inset-x-4 top-4 z-30`, `justify-between`, ga
 
 ### `DonationInfoSection.tsx`
 
-Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Para onde vai a sua contribuição` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]` (mobile `pt-16 pb-24`). Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé); mobile 80px em todos. Sem hairline: só espaço. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
+H1: **Cidoe: uma cidade 3D pela proteção animal.** Subtítulos H2; nomes de ONG H3. Corpo e links independem de `booted`; `mediaReady` (padrão `true`, cena passa `booted`, build passa `false`) controla apenas imagens. Rodapé inclui Sobre; mesmos componentes no HTML estático, sem dados de conta. [[seo]].
+
+Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: menu de palavras à direita → hero display → `01 Impacto` → `02 Para onde vai a sua contribuição` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-8 pb-[120px]` (mobile `pt-6 pb-24`). Hero 48px abaixo do menu (mobile 32px). Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé); mobile 80px em todos. Sem hairline: só espaço. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
 
 - Hero: kicker mono 13px com logo oficial `public/logo.webp` 48px antes (`loading="lazy"`, abaixo da dobra); título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground`; gap 32px.
 - Impacto: placa `pixel bevel-edge bg-card` com total em display verde (Manrope); três placas contador (ícone pixel + número + `mono-label`). Soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
@@ -798,4 +811,4 @@ Controle de envio real só no Dashboard local; mantém código visível no login
 
 ### SEO dos documentos legais
 
-`LegalPage` recebe `description` de `Terms` e `Privacy`. Títulos e descrições permanentes, iguais em `beta` e `main`, sem referência à fase. Termos descrevem regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos; Privacidade descreve dados pessoais, cookies e direitos. Atualiza título, descrição, canonical, Open Graph e Twitter durante a navegação; cleanup restaura metadados da home. `node scripts/check-branding.mjs` executa esse efeito com os textos reais das duas páginas e verifica restauração. Avisos operacionais da simulação no corpo dos documentos preservados. Ver [[index#Marca, SEO e migração de nomes]].
+`src/lib/seo.ts` centraliza título, descrição, canonical, previews e schema; `RouteMetadata` sincroniza navegação. `LegalPage` só monta layout. Textos completos dos documentos no HTML inicial de `/termos` e `/privacidade`; títulos permanentes iguais entre branches. Sobre e páginas inexistentes com metadados próprios. `npm run check:seo` verifica HTML real e efeito de navegação; `check-branding` inclui esse check. Cláusulas, versão e reaceite da main preservados. [[seo]].

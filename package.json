@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/prerender.mjs",
+    "check:seo": "node scripts/check-seo.mjs",
+    "seo:submit": "node scripts/submit-indexnow.mjs",
     "lint": "eslint .",
     "ui:add": "sh scripts/ui-add.sh",
     "textures:ktx2": "node scripts/encode-ktx2.mjs",

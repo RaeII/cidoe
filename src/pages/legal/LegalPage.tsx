@@ -1,8 +1,9 @@
-import { useEffect, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PixelArrow } from "@/components/ui/pixel-icon";
 import { IS_PRELAUNCH, LEGAL_UPDATED_AT, PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
+import { ABOUT_PATH } from "@/lib/seo";
 
 export type LegalSection = { id: string; title: string; body: ReactNode };
 
@@ -16,42 +17,13 @@ export const docLink = "font-semibold text-secondary-foreground underline decora
  */
 export function LegalPage({
   title,
-  description,
   intro,
   sections,
 }: {
   title: string;
-  description: string;
   intro: ReactNode;
   sections: readonly LegalSection[];
 }) {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = `${title} · Cidoe`;
-    const metadata = [
-      ['meta[name="description"]', "content", description],
-      ['meta[property="og:title"]', "content", document.title],
-      ['meta[property="og:description"]', "content", description],
-      ['meta[property="og:url"]', "content", `https://cidoe.com.br${pathname}`],
-      ['meta[name="twitter:title"]', "content", document.title],
-      ['meta[name="twitter:description"]', "content", description],
-      ['link[rel="canonical"]', "href", `https://cidoe.com.br${pathname}`],
-    ].map(([selector, attribute, value]) => {
-      const element = document.head.querySelector(selector);
-      const previous = element?.getAttribute(attribute);
-      element?.setAttribute(attribute, value);
-      return () => {
-        if (previous != null) element?.setAttribute(attribute, previous);
-      };
-    });
-    return () => {
-      document.title = previousTitle;
-      metadata.forEach((restore) => restore());
-    };
-  }, [title, description, pathname]);
-
   return (
     <main className="h-full overflow-y-auto bg-background pattern-paws text-foreground">
       <div className="mx-auto w-full max-w-[1240px] px-6 pt-10 pb-[120px] sm:px-10 sm:pt-16">
@@ -85,6 +57,7 @@ export function LegalPage({
               ))}
             </ol>
             <p className="mt-8 flex flex-col gap-1.5 text-sm">
+              <Link to={ABOUT_PATH} className={docLink}>Sobre o Cidoe</Link>
               <Link to={TERMS_PATH} className={docLink}>Termos de Uso</Link>
               <Link to={PRIVACY_PATH} className={docLink}>Política de Privacidade</Link>
             </p>

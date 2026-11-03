@@ -1,6 +1,17 @@
 User-agent: *
+# Mesmo grupo: bots específicos recebem também as restrições abaixo.
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Google-Extended
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
 Allow: /
-Disallow: /dale
-Disallow: /api/
+# /dale pode ser lido para que o noindex seja reconhecido; sessão continua obrigatória.
+Disallow: /api
+Disallow: /healthz
 
 Sitemap: https://cidoe.com.br/sitemap.xml

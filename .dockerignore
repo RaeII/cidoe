@@ -10,3 +10,5 @@
 !public/**
 !docker/
 !docker/nginx.conf
+!scripts/
+!scripts/prerender.mjs

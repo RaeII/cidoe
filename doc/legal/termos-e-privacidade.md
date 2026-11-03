@@ -48,10 +48,10 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | `/termos` | `src/pages/legal/Terms.tsx` | nenhuma — fora do `AuthProvider` |
 | `/privacidade` | `src/pages/legal/Privacy.tsx` | nenhuma — fora do `AuthProvider` |
 
-Lazy em `src/App.tsx`. Nginx já cai no `index.html` (`try_files … /index.html`), URL direta funciona. Body da app tem `overflow: hidden` (cena), então `LegalPage` rola no próprio `<main>`.
+Lazy em `src/App.tsx`; `npm run build` pré-renderiza cada documento com metadados próprios. Nginx serve `/termos/index.html` e `/privacidade/index.html` nas URLs canônicas; fallback SPA só em `/dale`. Body com `overflow: hidden` (cena); `LegalPage` rola no próprio `<main>`. [[seo]].
 
 Links:
-- `<noscript>` no `index.html`: descrição do site + links legais para robô sem JavaScript (verificação do Google).
+- HTML pré-renderizado: apresentação completa da home e documentos. `<noscript>` mantém links legais, Sobre e finalidade de nome/e-mail/foto no login com Google (verificação).
 - Rodapé da home ([[html-components#DonationInfoSection.tsx|DonationInfoSection]]) — exigência do Google: política linkada na página inicial.
 - Caixa de aceite (`TermsConsent`) — abre em **nova aba**: prova do e-mail do cadastro vive só no estado React, sair da aba perderia o cadastro.
 - Entre os dois documentos (menu lateral do `LegalPage`).
@@ -159,4 +159,4 @@ Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo d
 
 Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. SEO permanente, idêntico em `beta` e `main`: cidade 3D solidária, doações para ONGs e proteção animal. Nenhuma fase/versão nos títulos, descrições, metadados sociais, JSON-LD ou apresentação `noscript`; lançamento não exige troca. Avisos operacionais da simulação e cláusulas legais da `beta` preservados.
 
-`/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos dos usuários. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. `LegalPage` aplica metadados e canonical por documento após renderização do React; previews sem JavaScript recebem metadados estáticos da home. Sitemap lista as três páginas. `node scripts/check-branding.mjs` verifica textos e restauração ao voltar à home. Ver [[index#Marca, SEO e migração de nomes]].
+`/termos`: **Termos de Uso · Cidoe**; `/privacidade`: **Política de Privacidade · Cidoe**. Descrições, canonical, previews e schema em `src/lib/seo.ts`; `RouteMetadata` aplica head na navegação SPA. HTML inicial já traz texto e metadados próprios; sitemap com quatro URLs, incluindo Sobre. `npm run check:seo` verifica HTML emitido e navegação; `check-branding` também preserva edição launch e imagem main. Autoria e redes sociais em `/sobre`; nenhuma cláusula, versão, controlador ou regra de reaceite alterada. [[seo]].

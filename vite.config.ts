@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { renderSeoHead } from "./src/lib/seo";
 
 /**
  * O manifesto de texturas casa .webp, PNG/JPG **e** .ktx2 do mesmo mapa e usa um só:
@@ -53,7 +54,10 @@ function dropSupersededTextures(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), dropSupersededTextures()],
+  plugins: [react(), tailwindcss(), dropSupersededTextures(), {
+    name: "public-page-metadata",
+    transformIndexHtml: (html) => html.replace("<!--seo-head-->", () => renderSeoHead("/")),
+  }],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

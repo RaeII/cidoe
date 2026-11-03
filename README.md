@@ -2,7 +2,7 @@
 
 Cidade 3D solidária em apoio à proteção animal. Cada contribuição para uma ONG ergue um edifício.
 
-Marca, SEO e migração de nomes: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
+SEO e busca por IA: [guia completo](doc/seo.md). Build com HTML público: `npm run build`; validação: `npm run check:seo`. Migração da marca: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
 
 ## Produção
 
