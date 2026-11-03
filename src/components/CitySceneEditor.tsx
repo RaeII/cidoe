@@ -780,13 +780,14 @@ export function CitySceneEditor() {
         </Button>
       )}
     </div>
-    {booted && (
+    {/* Apresentação pública independe da API, do catálogo e do WebGL. */}
     <div hidden={myBuildingsOpen}>
     <DonationInfoSection
       donations={donations}
       ongs={ongs}
       filter={filter}
       loadState={loadState}
+      mediaReady={booted}
       onFilterChange={setFilter}
       onViewOng={(ongId) => {
         setFilter({ ...filter, ongId });
@@ -795,7 +796,6 @@ export function CitySceneEditor() {
       onRetry={retry}
     />
     </div>
-    )}
     {!myBuildingsOpen && inInfo && (
       <Button variant="outline" onClick={scrollToScene} title="Voltar para a cena" aria-label="Voltar para a cena" className="fixed bottom-4 right-4 z-40">
         <PixelChevronDown className="rotate-180" />

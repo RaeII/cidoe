@@ -64,17 +64,18 @@ Domínio oficial: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google 
 
 ### Marca, SEO e migração de nomes
 
-- SEO permanente em `beta` e `main`: mesmos títulos, descrições, canonical, metadados sociais e JSON-LD. Lançamento não exige troca de tags. Sem fase, versão, data, "pré-lançamento", "beta", "em breve" ou contribuições simuladas nesses textos e no `noscript`.
-- `index.html`: título **Cidoe | Cidade 3D solidária pela proteção animal**. Descrição: **Conheça o Cidoe, a cidade 3D solidária onde doações para ONGs de proteção animal viram edifícios. Contribua e personalize seu prédio.** Mesmo texto em `description`, `og:description`, `twitter:description` e JSON-LD `WebSite.description`; títulos sociais iguais ao `<title>`. `application-name`, marca **Cidoe**, idioma `pt-BR`, imagens e URLs absolutas preservados.
-- Vocabulário: **doações para ONGs**, **proteção animal**, **cidade 3D solidária**, **edifícios** e **personalize seu prédio**. Descreve causa, destino das contribuições e experiência; sem repetição artificial. `noscript` alinha H1 e apresentação à mesma proposta, com links legais preservados.
-- Sem `meta keywords`: [Google não usa essa tag](https://developers.google.com/search/docs/fundamentals/seo-starter-guide#meta-keywords). Títulos e descrições seguem [títulos descritivos](https://developers.google.com/search/docs/appearance/title-link) e [resumos relevantes](https://developers.google.com/search/docs/appearance/snippet). Google pode reescrever resultados; atualização depende de novo rastreamento e não garante posição.
-- Avisos operacionais da simulação na `beta` continuam na interface e no corpo dos documentos legais; metadados não dependem de `IS_PRELAUNCH`.
-- `public/robots.txt`: anuncia `https://cidoe.com.br/sitemap.xml` e restringe rastreamento de `/dale` e `/api/`. Sitemap lista somente `/`, `/termos` e `/privacidade`.
-- `LegalPage` atualiza título, descrição, canonical e metadados sociais por documento; ao sair, restaura os valores da home. `/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. Mesmos textos nas duas branches.
+- Auditoria completa, fontes oficiais, estratégia de palavras e publicação: [[seo]]. HTML público, autoria, bots de IA, IndexNow, medição e pendências de Search Console/CDN.
+- `src/lib/seo.ts`: fonte única de título, descrição, canonical, Open Graph/Twitter e grafo JSON-LD. Home mantém **Cidoe | Cidade 3D solidária pela proteção animal** e descrição permanente, iguais em `beta` e `main`. Sem fase nos metadados; avisos de simulação preservados no corpo público.
+- `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. Home, `/sobre`, `/termos` e `/privacidade` chegam com texto e metadados próprios no HTML, sem esperar JavaScript, API ou WebGL. Mesmos componentes do cliente, sem conteúdo específico por bot. `RouteMetadata` sincroniza navegação SPA e volta à home. `LegalPage` cuida só do layout.
+- `PublicPageNav`: **Sobre**, **Termos** e **Privacidade** como links de texto, alinhados à direita no início da seção HTML abaixo da cena. Sem fundo, borda ou formato de botão; hover/clique/toque com resposta visual e alvo mínimo 44px. Fora do canvas, loading e cabeçalho das outras páginas; HTML estático preservado. [[html-components#Menu público (PublicPageNav.tsx)]].
+- `/sobre`: funcionamento, situação real das contribuições, autoria de **Israel Zeferino**, LinkedIn, Instagram e contato. Links fornecidos pelo criador, com ícones compartilhados e `Person.sameAs`; `Person` ligado ao projeto só com informações visíveis. `Organization` identifica projeto, sem afirmar que Cidoe é ONG. `WebSite` e páginas com IDs estáveis.
+- Vocabulário: **cidade 3D solidária**, **doações para ONGs de proteção animal**, **cães e gatos**, **edifícios personalizáveis** e perguntas de funcionamento. Sem `meta keywords`, repetição artificial ou métricas de volume inventadas. H1 descritivo da home; subtítulos H2. [[seo#Palavras e intenção]].
+- `public/robots.txt`: Google, Gemini, Bing, ChatGPT, Claude e Perplexity permitidos num único grupo; API/healthz restritos. Admin rastreável para receber `noindex` no HTML e cabeçalho. Fallback SPA só em `/dale`; demais URLs inexistentes recebem 404. Sitemap: quatro páginas públicas; sem datas falsas de atualização.
+- IndexNow: chave pública em `public/indexnow-key.txt`; `npm run seo:submit -- --dry-run` valida sem rede. Envio real somente após publicar: `npm run seo:submit`. Google Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê a chave atual; se ausente, copia a chave legada `cidoa:*`, removendo-a apenas depois de salvar. Quota cheia mantém o original legível. Preserva JSON, isolamento por conta, preferências e aceite/recusa do Analytics; valores atuais prevalecem.
 - A limpeza de `cidoa.admin.session`, o suporte a consentimento de abas antigas e a remoção de caches legados mantêm nomes antigos apenas para compatibilidade. `cidoe-env-v2` baixa novamente os arquivos de ambiente; cidades não ficam nesse cache.
 - GitHub renomeado para [RaeII/cidoe](https://github.com/RaeII/cidoe) (front) e [RaeII/cidoe-back](https://github.com/RaeII/cidoe-back) (API), com remotes e labels atualizados. Caminhos físicos dos repositórios e nome do banco existente permanecem os atuais. Deploy e transição coordenada de imagens/rede: [produção](../prod/README.md#transição-para-os-nomes-cidoe).
-- Verificação: `node scripts/check-branding.mjs` cobre ausência de fase no HTML/metadados legais, termos de pesquisa, paridade entre tags/JSON-LD e restauração dos metadados ao sair dos documentos. Também `node scripts/check-prelaunch.mjs`, `node scripts/check-consent.mjs`, `node scripts/check-analytics.mjs`, build e lint. Sem servidor ou navegador.
+- Verificação: `npm run build`, `npm run lint`, `npm run check:seo`, `node scripts/check-branding.mjs`, `node scripts/check-donation-info.mjs`, checks de consentimento/Analytics e IndexNow em `--dry-run`. HTML real emitido, autoria, metadados por rota, noindex, sitemap e bots. Sem servidor ou navegador; HTTP de produção pendente.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
@@ -116,7 +117,10 @@ scripts/
   check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
-  check-branding.mjs           ← migração de chaves legadas, quota, SEO, sitemap e restauração dos metadados legais; sem servidor/navegador
+  check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
+  check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
+  prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
+  submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-mobile-keyboard.mjs    ← viewport, teclado, foco, rolagem integral do modal/sugestões, zoom e cleanup sem servidor/navegador
@@ -137,8 +141,9 @@ public/
   logo-branca.webp             ← logo oficial branca 192px: `CidoeLogo` no tema escuro (admin)
   og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
-  robots.txt                   ← sitemap público; restringe rastreamento de admin/API
-  sitemap.xml                  ← URLs canônicas públicas: home, termos e privacidade
+  robots.txt                   ← bots de busca/IA permitidos; API/healthz restritos; admin recebe noindex
+  sitemap.xml                  ← URLs canônicas públicas: home, sobre, termos e privacidade
+  indexnow-key.txt              ← prova pública IndexNow; não é segredo
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
   App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
@@ -167,8 +172,14 @@ src/
     donationApi.ts                  ← snapshot + personalizações atuais + edifícios próprios completos + PUT da personalização
     contributionApi.ts              ← leitura de perfil público + edição local no pré-lançamento
     regions.ts
+  lib/seo.ts                    ← metadados e schema compartilhados → [[seo]]
+  seo/render.tsx                ← entrada estática exclusiva do build
+  pages/About.tsx               ← /sobre: funcionamento, autoria e contato
+  pages/NotFound.tsx            ← página de erro 404
+  components/RouteMetadata.tsx  ← head por rota, inclusive admin/erro
+  components/PublicPageNav.tsx  ← links de texto no início da seção HTML abaixo da cena
   pages/legal/
-    LegalPage.tsx               ← layout público dos documentos + título, descrição, canonical e metadados sociais por rota
+    LegalPage.tsx               ← layout público dos documentos; SEO centralizado em RouteMetadata
     Terms.tsx                   ← /termos
     Privacy.tsx                 ← /privacidade
   pages/admin/
@@ -189,6 +200,7 @@ src/
       RewardExamples.tsx        ← exemplos locais dos dois modais reais, no Passe e nas recompensas por indicação
     ui/
       pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`, `PixelPhoto`
+      social-icons.tsx              ← LinkedIn compartilhado com indicações; Instagram do criador
       photo.tsx                     ← `<Photo ratio>`: foto na moldura do DS, espera em blocos, "Foto indisponível"
       avatar.tsx                    ← avatar quadrado do DS: 32/48/72, iniciais mono
       block-bar.tsx                 ← barra de progresso em blocos (DS)
@@ -329,6 +341,7 @@ src/
       devAssertions.ts
       deviceTier.ts              ← `IS_LOW_TIER`: toque ou ≤4 núcleos/GB → cena leve, texturas 512
 doc/
+  seo.md                         ← auditoria, descoberta por IA e publicação
   index.md                       ← você está aqui (mapa da documentação)
   api/                           ← espelha src/api (camada de dados / doações)
     donation-api.md
@@ -589,6 +602,8 @@ flowchart LR
 | Filtrar doações por região/UF/cidade/ONG | [[donation-api]] |
 | Overlay de carregamento / barra de filtros | [[html-components]] |
 | ONGs e contribuições abaixo da cena | [[html-components#DonationInfoSection.tsx]] |
+| SEO, bots de IA, sitemap, autoria e IndexNow | [[seo]] · `src/lib/seo.ts` · `scripts/prerender.mjs` |
+| Menu público e redes sociais do criador | [[html-components#Menu público (PublicPageNav.tsx)]] · `src/pages/About.tsx` · `CREATOR_SOCIAL_PROFILES` em `src/lib/seo.ts` |
 | Alterar geração dos prédios de doação | [[scene-managers]] |
 | Alterar loteamento / lotes vazios / asfalto | [[scene-managers#Loteamento e Lotes Vazios]] |
 | Ajustar destaque da quadra central (escala/altura das torres, prédio do centro) | [[scene-managers#Destaque da Quadra Central]] |

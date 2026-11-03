@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import { CookieNotice } from "./components/CookieNotice";
@@ -8,6 +8,8 @@ import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
 import { useVisualViewport } from "./hooks/useVisualViewport";
+import { RouteMetadata } from "./components/RouteMetadata";
+import { ABOUT_PATH } from "./lib/seo";
 
 /**
  * Resolve depois que a casca chega na tela. Duplo rAF: o 1º roda antes do paint do
@@ -48,6 +50,8 @@ const Users = lazy(() => import("./pages/admin/Users"));
 const Ongs = lazy(() => import("./pages/admin/Ongs"));
 const Terms = lazy(() => import("./pages/legal/Terms"));
 const Privacy = lazy(() => import("./pages/legal/Privacy"));
+const About = lazy(() => import("./pages/About"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageFallback() {
   return (
@@ -78,6 +82,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <RouteMetadata />
       <Suspense fallback={<PageFallback />}>
         {/* Duas sessões independentes: cena (AuthProvider) e painel (AdminAuthProvider).
             Cada área só monta a própria — login numa nunca abre a outra. */}
@@ -98,6 +103,7 @@ export default function App() {
           {/* Documentos legais: públicos, sem sessão (link exigido pelo login com Google) */}
           <Route path={TERMS_PATH} element={<Terms />} />
           <Route path={PRIVACY_PATH} element={<Privacy />} />
+          <Route path={ABOUT_PATH} element={<About />} />
 
           {/* Área admin */}
           <Route
@@ -124,7 +130,7 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
       <CookieNotice />

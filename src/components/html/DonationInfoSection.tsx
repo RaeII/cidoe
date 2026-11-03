@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BlockLoader, ErrorMark, PixelArrow, PixelBuilding, PixelDog, PixelPaw } from "@/components/ui/pixel-icon";
 import { Photo } from "@/components/ui/photo";
+import { PublicPageNav } from "@/components/PublicPageNav";
 import { cn } from "@/lib/utils";
 import { PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
+import { ABOUT_PATH } from "@/lib/seo";
 import { formatBRL } from "@/lib/unlock";
 
 type DonationInfoSectionProps = {
@@ -16,6 +18,7 @@ type DonationInfoSectionProps = {
   ongs: readonly Ong[];
   filter: DonationFilter;
   loadState: DonationsLoadState;
+  mediaReady?: boolean;
   onFilterChange: (filter: DonationFilter) => void;
   onViewOng: (id: number) => void;
   onRetry: () => void;
@@ -28,7 +31,7 @@ function SectionHead({ index, id, children }: { index: string; id?: string; chil
   return (
     <div className="flex flex-wrap items-baseline gap-x-[18px] gap-y-2">
       <span className="inline-flex items-center gap-2 font-mono text-[13px] text-primary"><PixelPaw />{index}</span>
-      <h3 id={id} className="text-3xl font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[44px]">{children}</h3>
+      <h2 id={id} className="text-3xl font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[44px]">{children}</h2>
     </div>
   );
 }
@@ -38,6 +41,7 @@ export function DonationInfoSection({
   ongs,
   filter,
   loadState,
+  mediaReady = true,
   onFilterChange,
   onViewOng,
   onRetry,
@@ -67,16 +71,17 @@ export function DonationInfoSection({
 
   return (
     <section id="donation-info" aria-labelledby="donation-info-title" className="min-h-screen w-full bg-background pattern-paws text-foreground">
-      <div className="mx-auto w-full max-w-[1240px] px-6 pt-16 pb-24 sm:px-10 sm:pt-24 sm:pb-[120px]">
-        <header className="grid items-center gap-10 lg:gap-16 lg:grid-cols-[1.1fr_1fr]">
+      <div className="mx-auto w-full max-w-[1240px] px-6 pt-6 pb-24 sm:px-10 sm:pt-8 sm:pb-[120px]">
+        <PublicPageNav />
+        <header className="mt-8 grid items-center gap-10 sm:mt-12 lg:gap-16 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <p className="flex items-center gap-3 font-mono text-[13px] tracking-[0.06em] text-primary">
-              <img src="/logo.webp" alt="Cidoe" width={48} height={48} loading="lazy" className="size-12" />
+              {mediaReady && <img src="/logo.webp" alt="Cidoe" width={48} height={48} loading="lazy" className="size-12" />}
               Pré-lançamento
             </p>
-            <h2 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
-              Conheça o Cidoe e teste sua cidade.
-            </h2>
+            <h1 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
+              Cidoe: uma cidade 3D pela proteção animal.
+            </h1>
             <p className="mt-6 sm:mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
               Cada contribuição para uma ONG de proteção animal ergue um edifício na cidade; o valor define a altura.
               Cadastre-se, simule contribuições, personalize seus edifícios e indique amigos. Nesta versão, os
@@ -88,7 +93,7 @@ export function DonationInfoSection({
               <span>ONGs, edifícios e contribuições são fictícios. Nada é cobrado.</span>
             </p>
           </div>
-          <div className="relative">
+          {mediaReady ? <div className="relative">
             <PixelDog className="absolute -top-[47px] right-8 z-10" />
             <Photo
               ratio="1/1"
@@ -99,7 +104,7 @@ export function DonationInfoSection({
               height={947}
               loading="lazy"
             />
-          </div>
+          </div> : <div aria-hidden="true" className="aspect-square bg-muted" />}
         </header>
 
         {loadState.status === "loading" ? (
@@ -172,10 +177,10 @@ export function DonationInfoSection({
                         </div>
                         <div className="flex items-center gap-3">
                           <Avatar size="lg">
-                            {ong.profile_image && <AvatarImage src={ong.profile_image} alt="" className="object-cover" />}
+                            {mediaReady && ong.profile_image && <AvatarImage src={ong.profile_image} alt="" className="object-cover" />}
                             <AvatarFallback>{ong.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
-                          <h4 className="min-w-0 break-words text-[26px] font-semibold leading-[1.15]">{ong.name}</h4>
+                            <h3 className="min-w-0 break-words text-[26px] font-semibold leading-[1.15]">{ong.name}</h3>
                         </div>
                         <p className="mt-auto text-[15px]">
                           <strong>{count.toLocaleString("pt-BR")}</strong> {count === 1 ? "edifício" : "edifícios"}
@@ -199,7 +204,8 @@ export function DonationInfoSection({
 
         <footer className="mt-20 sm:mt-[120px] flex flex-wrap items-baseline justify-between gap-6">
           <p className="max-w-[24ch] text-[28px] font-semibold leading-[1.2]">Uma cidade feita de cuidado, um edifício de cada vez.</p>
-          <nav aria-label="Documentos legais" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
+          <nav aria-label="Informações do Cidoe" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
+            <a href={ABOUT_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Sobre o Cidoe</a>
             <a href={TERMS_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Termos de Uso</a>
             <a href={PRIVACY_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Política de Privacidade</a>
             <span>Cidoe · Proteção animal</span>

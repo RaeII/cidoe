@@ -418,7 +418,6 @@ export default function Privacy() {
   return (
     <LegalPage
       title="Política de Privacidade"
-      description="Saiba como o Cidoe trata seus dados pessoais, utiliza cookies e protege sua privacidade, e como exercer seus direitos."
       intro={<p>Quais dados o Cidoe usa, para quê, com quem compartilha e como você controla tudo isso.</p>}
       sections={sections}
     />

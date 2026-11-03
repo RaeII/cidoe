@@ -51,10 +51,10 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | `/termos` | `src/pages/legal/Terms.tsx` | nenhuma — fora do `AuthProvider` |
 | `/privacidade` | `src/pages/legal/Privacy.tsx` | nenhuma — fora do `AuthProvider` |
 
-Lazy em `src/App.tsx`. Nginx já cai no `index.html` (`try_files … /index.html`), URL direta funciona. Body da app tem `overflow: hidden` (cena), então `LegalPage` rola no próprio `<main>`.
+Lazy em `src/App.tsx`; build também renderiza os documentos completos em `/termos/index.html` e `/privacidade/index.html`. Nginx serve cada URL pública exata; fallback SPA reservado ao admin, demais URLs desconhecidas recebem 404. `LegalPage` rola no próprio `<main>`. [[seo]].
 
 Links:
-- `<noscript>` no `index.html`: descrição do site + dados do login com Google + links legais para robô sem JavaScript (verificação do Google).
+- HTML inicial: apresentação real da home e documentos completos sem JavaScript. `noscript` esconde o loading e mantém aviso, links públicos e explicação existente dos dados do login com Google.
 - Placa da marca na cena ([[html-components#Placa da marca (CitySceneEditor.tsx)|placa]]): só marca, sem links (decisão do dono).
 - Rodapé da home ([[html-components#DonationInfoSection.tsx|DonationInfoSection]]) — exigência do Google: política linkada na página inicial.
 
@@ -64,9 +64,9 @@ Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/a
 
 | Requisito | Onde atende |
 |---|---|
-| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon.svg` |
-| Descreve funcionalidade | Hero da `DonationInfoSection` + `<noscript>` |
-| Explica finalidade dos dados do Google | Só em `/privacidade#google` (parágrafo da home removido a pedido do dono — risco na verificação) |
+| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon-32.png` |
+| Descreve funcionalidade | Hero da `DonationInfoSection` no HTML estático + página `/sobre` |
+| Explica finalidade dos dados do Google | `/privacidade#google`; parágrafo existente em `noscript` preservado. Corpo normal da home sem esse parágrafo |
 | Link fácil para política (mesma URL do console) | Rodapé da home (seta da cena leva até ele), aviso de cookies, `<noscript>` |
 | Visível sem login | `/` pública; nada atrás de `AuthProvider` |
 | Domínio verificado, sem redirecionar | Console usa `https://cidoe.com.br` exato — `www.` e `http://` redirecionam (301), não cadastrar |
@@ -213,4 +213,4 @@ Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo d
 
 Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. SEO permanente, idêntico em `beta` e `main`: cidade 3D solidária, doações para ONGs e proteção animal. Nenhuma fase/versão nos títulos, descrições, metadados sociais, JSON-LD ou apresentação `noscript`; lançamento não exige troca. Avisos operacionais da simulação e cláusulas legais da `beta` preservados.
 
-`/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos dos usuários. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. `LegalPage` aplica metadados e canonical por documento após renderização do React; previews sem JavaScript recebem metadados estáticos da home. Sitemap lista as três páginas. `node scripts/check-branding.mjs` verifica textos e restauração ao voltar à home. Ver [[index#Marca, SEO e migração de nomes]].
+`/termos`: **Termos de Uso · Cidoe**. `/privacidade`: **Política de Privacidade · Cidoe**. Descrições e schema em `src/lib/seo.ts`; `RouteMetadata` aplica head em navegação. HTML inicial já contém corpo completo, canonical e previews corretos de cada documento. Sitemap: home, Sobre e dois documentos. `npm run check:seo` verifica HTML emitido e navegação entre páginas; `check-branding` inclui esse check. Autoria pública em `/sobre`, sem mudar controlador, versão ou cláusulas legais. Ver [[seo]].
