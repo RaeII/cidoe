@@ -92,6 +92,16 @@ Fontes primárias: [bots OpenAI](https://developers.openai.com/api/docs/bots), [
 
 **Sem `llms.txt` nesta implementação.** Google declara que não usa esse arquivo para visibilidade ou ranking. Documentações de OpenAI, Anthropic e Perplexity consultadas não o apresentam como requisito de descoberta. Também sem schema especial de IA, instruções para modelos indicarem o site ou páginas produzidas em massa para variações de consultas. Fonte: [guia atual de otimização para IA do Google](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide).
 
+## Vídeo de apresentação e miniatura
+
+O aviso **“Nenhum URL de miniatura enviado”** indica que nenhuma miniatura foi informada e o Google não conseguiu gerar uma. O `<video>` de [[html-components#IntroVideoDialog.tsx|IntroVideoDialog]] agora informa `poster="/video-cidoe-poster.jpg"`, resolvido para `https://cidoe.com.br/video-cidoe-poster.jpg`. O Google aceita `poster` como fonte de miniatura; `og:image` representa o site e não substitui esse atributo. Fontes: [requisitos da miniatura](https://developers.google.com/search/docs/appearance/video#video-thumbnail), [relatório de vídeos](https://support.google.com/webmasters/answer/9495631?hl=pt-BR).
+
+JPEG opaco 720×1280, extraído do próprio vídeo aos 7,5 s. Está em `public/`, entra no build sem hash e não exige login. As regras atuais de `robots.txt` e Nginx permitem o acesso. Ao substituir o vídeo, atualizar também a miniatura. Extração: `ffmpeg -ss 7.5 -i public/video-cidoe.mp4 -frames:v 1 -vf scale=720:1280 -q:v 3 -update 1 public/video-cidoe-poster.jpg`.
+
+O vídeo é complementar ao login/cidade; não há página dedicada de exibição. Corrigir a miniatura não garante indexação de vídeo e não afeta a elegibilidade da página como resultado textual. Não adicionar `VideoObject`, datas presumidas ou sitemap de vídeo para simular uma página de exibição. [Critérios de indexação](https://developers.google.com/search/docs/appearance/video#ensure-your-videos-can-be-indexed).
+
+Após publicar: conferir HTTP 200 e `Content-Type: image/jpeg` na URL da miniatura, inspecionar a home no Search Console e solicitar nova indexação. No relatório de vídeos, usar **Validar correção**, se disponível. A atualização depende de novo rastreamento; a conta e a resposta HTTP de produção não foram verificadas nesta alteração.
+
 ## Estratégias além das tags
 
 1. **Conteúdo próprio e verificável.** Depois do lançamento real, publicar regras claras de destinação, identificação das ONGs participantes, datas, comprovantes e impacto verificável. Dados simulados nunca viram prova de impacto. Dar contexto a cada estatística.

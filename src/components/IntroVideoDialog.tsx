@@ -31,6 +31,7 @@ export function IntroVideoDialog({
       >
         <video
           src="/video-cidoe.mp4"
+          poster="/video-cidoe-poster.jpg"
           autoPlay
           muted
           loop

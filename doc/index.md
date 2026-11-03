@@ -108,6 +108,7 @@ public/
   sitemap.xml                  ← URLs canônicas: home, sobre, termos e privacidade
   indexnow-key.txt             ← chave pública de verificação do IndexNow
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
+  video-cidoe-poster.jpg       ← miniatura pública 720×1280 do vídeo, usada em poster → [[seo#Vídeo de apresentação e miniatura]]
 src/
   App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
   main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
