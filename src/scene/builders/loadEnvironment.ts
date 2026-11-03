@@ -32,7 +32,7 @@ const SKY_URL = IS_LOW_TIER ? skyLowUrl : skyUrl;
 
 // Cache persistente da imagem HDRI no Cache API do browser.
 // Bump versão se a imagem mudar de conteúdo.
-const ENV_CACHE_NAME = "cidoa-env-v2";
+const ENV_CACHE_NAME = "cidoe-env-v2";
 
 // Resolve URL da textura priorizando o Cache API: primeira visita baixa e
 // grava; visitas seguintes leem direto do cache local (sem rede). Devolve um
@@ -41,6 +41,7 @@ async function resolveEnvUrl(url: string): Promise<string> {
   if (!("caches" in globalThis)) return url;
   try {
     void caches.delete("cidoa-env-v1"); // JPG 4K de 3 MB da versão anterior
+    void caches.delete("cidoa-env-v2"); // Cache da marca anterior; não contém dados da cidade.
     const cache = await caches.open(ENV_CACHE_NAME);
     let response = await cache.match(url);
     if (!response) {

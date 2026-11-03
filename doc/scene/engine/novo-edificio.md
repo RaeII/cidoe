@@ -1,7 +1,7 @@
 ---
 title: Novo Edifício
 tags:
-  - cidoa
+  - cidoe
   - builders
   - threejs
   - guia
@@ -67,9 +67,9 @@ Todo ponto que trata formato autoral. Achar todos: `grep -rn '"residential"' src
 
 ## 4. Catálogo (backend)
 
-- `cidoa-back`: migration **nova** numerada insere opção na categoria `shape`. Migration aplicada é imutável: renomear = migration nova
+- `cidoe-back`: migration **nova** numerada insere opção na categoria `shape`. Migration aplicada é imutável: renomear = migration nova
 - Key = contrato com front e com `donation.customization` já gravado → nunca muda; renomear só `label`
-- `npm run migrate` no `cidoa-back`; cache público do catálogo até 60 s. Ver [[customization-api]]
+- `npm run migrate` no `cidoe-back`; cache público do catálogo até 60 s. Ver [[customization-api]]
 
 ## 5. Checagem
 
@@ -98,7 +98,7 @@ node scripts/render-building.mjs yachthouse --color c0392b              # cor da
 | `--ref <img>` | referência 640×640 ao lado |
 | `--color <hex>` | cor da customização, aplicada como no manager (Empire via `setEmpireBuildingMeshColor`) |
 | `--slot <i>=<hex>[,metal[,rough]]` | sobrescreve material do slot `i`; repetível |
-| `--out <png>` | saída; padrão `$TMPDIR/cidoa-render/<formato>.png` (sobrescreve, 1 por formato) |
+| `--out <png>` | saída; padrão `$TMPDIR/cidoe-render/<formato>.png` (sobrescreve, 1 por formato) |
 
 - PNG: 4 vistas 480×640 — 3/4 frente (az 35°), 3/4 fundos (az 215°), topo (28% de cima), base (28% de baixo). Câmera encaixa a caixa do trecho
 - Fiel: HDRI do céu (IBL + fundo), ambiente padrão de [[scene-config]], ACES 1,45, chão `#292929`, materiais base do manager
@@ -118,7 +118,7 @@ node scripts/render-building.mjs yachthouse --color c0392b              # cor da
 Antes de encerrar. Nada de print, recorte, bundle ou script descartável no repo nem no temporário.
 
 ```bash
-rm -rf "${TMPDIR:-/tmp}/cidoa-render"   # PNGs do render-building (ou a pasta do --out)
+rm -rf "${TMPDIR:-/tmp}/cidoe-render"   # PNGs do render-building (ou a pasta do --out)
 git status --short                      # só arquivo da entrega
 ```
 

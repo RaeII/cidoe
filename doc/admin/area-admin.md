@@ -1,7 +1,7 @@
 ---
 title: Área Admin (Login & Dashboard)
 tags:
-  - cidoa
+  - cidoe
   - admin
   - auth
   - login
@@ -17,7 +17,7 @@ aliases:
 Área protegida do front (`/dale`), separada da cena 3D. Login de administrador + dashboard. Base de UI (shadcn, tema, sidebar, roteamento) em [[componentes-html]].
 
 > [!info] Backend
-> Auth e métricas vêm do backend **cidoa-back** (mesmo backend do base_vite). Painel tem sessão própria: `POST /api/admin/auth/login` seta cookie JWT httpOnly `token_admin`; rotas `/admin/*` exigem essa sessão (`adminGuard`). Criar o primeiro admin = script `create-admin.ts` no backend (não há signup público de admin).
+> Auth e métricas vêm do backend **cidoe-back** (mesmo backend do base_vite). Painel tem sessão própria: `POST /api/admin/auth/login` seta cookie JWT httpOnly `token_admin`; rotas `/admin/*` exigem essa sessão (`adminGuard`). Criar o primeiro admin = script `create-admin.ts` no backend (não há signup público de admin).
 
 ---
 
@@ -201,7 +201,7 @@ flowchart TD
 ```
 
 > [!info] Backend passwordless
-> Contrato completo (rate limit, e-mail descartável, HMAC do código, seam OAuth) em `cidoa-back` → `doc/modulos/auth/auth.md`.
+> Contrato completo (rate limit, e-mail descartável, HMAC do código, seam OAuth) em `cidoe-back` → `doc/modulos/auth/auth.md`.
 
 ### Perfil progressivo (onboarding)
 
@@ -240,7 +240,7 @@ Menu **ONGs** → `/dale/ongs`; cadastro, nome/foto, ativação e exclusão. `li
 
 ## Criar o primeiro admin
 
-Sem signup público. No **backend** (cidoa-back):
+Sem signup público. No **backend** (cidoe-back):
 
 ```bash
 bun run scripts/create-admin.ts <username> <password> [email]

@@ -1,7 +1,7 @@
 ---
 title: Scene Hooks
 tags:
-  - cidoa
+  - cidoe
   - react
   - hooks
   - bridge

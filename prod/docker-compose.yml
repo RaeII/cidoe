@@ -1,8 +1,8 @@
-name: cidoa-front
+name: cidoe-front
 
 services:
   front:
-    image: ${FRONT_IMAGE:-ghcr.io/raeii/cidoa-front:main}
+    image: ${FRONT_IMAGE:-ghcr.io/raeii/cidoe-front:main}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${FRONT_PORT:-6161}:8080"
@@ -24,9 +24,9 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - cidoa
+      - cidoe
 
 networks:
-  cidoa:
+  cidoe:
     external: true
-    name: cidoa
+    name: cidoe

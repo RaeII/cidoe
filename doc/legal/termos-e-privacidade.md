@@ -1,7 +1,7 @@
 ---
 title: Termos de Uso e Política de Privacidade
 tags:
-  - cidoa
+  - cidoe
   - legal
   - lgpd
   - auth
@@ -81,7 +81,7 @@ flowchart TD
 - **Prioridade**: `AuthMenu` segura `ReferralDialog` e `OnboardingDialog` enquanto `needsTerms`. Ver [[html-components#OnboardingDialog.tsx]].
 - `AuthProvider.acceptTerms` segue padrão `sessionVersion` (resposta de sessão antiga não sobrescreve usuário).
 
-### Backend (`cidoa-back`)
+### Backend (`cidoe-back`)
 
 | Peça | O quê |
 |---|---|
@@ -154,3 +154,7 @@ Ver também: [[index]], [[html-components]], [[area-admin]], [[desingn-system-in
 ## Duração do cookie administrativo
 
 Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo do JWT administrativo, fixado no código do backend, sem variável de ambiente. Sessão administrativa exige novo login para receber novo prazo.
+
+## Marca e SEO
+
+Marca **Cidoe**, domínio `https://cidoe.com.br/`. Metadados da main descrevem cidade 3D e contribuições para ONGs; edição `launch` preservada. Documentos recebem título, descrição, canonical e metadados sociais próprios após renderização do React; previews sem JavaScript recebem metadados estáticos da home. Sitemap lista home, termos e privacidade. Preferências antigas de interface/vídeo migradas sem descartar dados em falhas de gravação. Ver [[index#Marca, SEO e migração de nomes]].

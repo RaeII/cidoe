@@ -1,7 +1,7 @@
 ---
 title: Componentes & Renderização HTML (Admin)
 tags:
-  - cidoa
+  - cidoe
   - admin
   - frontend
   - shadcn

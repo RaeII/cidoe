@@ -1,7 +1,7 @@
 ---
 title: Three Components
 tags:
-  - cidoa
+  - cidoe
   - threejs
   - componentes
   - canvas

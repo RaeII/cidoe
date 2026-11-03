@@ -1,7 +1,7 @@
 ---
 title: Scene Managers
 tags:
-  - cidoa
+  - cidoe
   - managers
   - threejs
   - procedural

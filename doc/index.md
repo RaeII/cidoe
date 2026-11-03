@@ -1,7 +1,7 @@
 ---
 title: Cidoe — Visão Geral
 tags:
-  - cidoa
+  - cidoe
   - arquitetura
   - overview
 aliases:
@@ -25,7 +25,18 @@ Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens 
 
 E-mail transacional: backend usa **Zoho CPaaS / ZeptoMail** (`AUTH_EMAIL_PROVIDER=zoho`); Resend preservado, inativo. Token puro em `ZOHO_API_KEY`; prefixo `Zoho-enczapikey` adicionado no backend. Política identifica Zoho como operador; versão `2026-10-25` pede novo aceite. Configuração e webhook: [módulo E-mail do backend](../../cidoa-back/doc/modulos/email/email.md).
 
-Domínio: `https://cidoe.com.br`, marca **Cidoe**. `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v2` — renomear chave apaga cidade e consentimento salvos.
+Domínio oficial `https://cidoe.com.br`, marca **Cidoe**. GitHub: [RaeII/cidoe](https://github.com/RaeII/cidoe) (front) e [RaeII/cidoe-back](https://github.com/RaeII/cidoe-back) (API). Remotes e labels atualizados; caminhos físicos e banco existentes preservados.
+
+### Marca, SEO e migração de nomes
+
+- `main`: pacote `cidoe`, imagem `ghcr.io/raeii/cidoe-front:main`, rede `cidoe`. `LEGAL_EDITION="launch"` preservado; sem texto de contribuições simuladas nos metadados.
+- `index.html`: título **Cidoe | Cidade 3D solidária pela proteção animal**, descrição sobre contribuições para ONGs, `application-name`, canonical absoluto, Open Graph (`og:site_name`, locale, título, descrição, imagem), Twitter Card e JSON-LD `WebSite` com nome **Cidoe**.
+- `public/robots.txt`: anuncia sitemap; restringe rastreamento de `/dale` e `/api/`. `public/sitemap.xml`: `/`, `/termos`, `/privacidade`.
+- `LegalPage`: título, descrição, canonical e metadados sociais por documento; cleanup restaura a home.
+- `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê `cidoe:*`; na ausência, migra `cidoa:*`. Remove chave antiga só após gravar; quota cheia mantém original legível. `AuthMenu` e `uiVisibilityConfig` usam essa leitura para preservar preferências.
+- Nomes antigos restritos à migração/limpeza, instruções da transição Docker e caminhos reais. Cache `cidoe-env-v2` baixa novamente os arquivos de ambiente, sem alterar dados dos usuários.
+- Docker front/back precisa de [transição coordenada](../prod/README.md#transição-para-os-nomes-cidoe), preservando banco e volume de logs.
+- Verificação sem servidor/navegador: build, lint, `node scripts/check-branding.mjs`, `node scripts/check-building-management.mjs`.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
@@ -61,6 +72,7 @@ scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
+  check-branding.mjs           ← migração das preferências, quota, SEO de lançamento, sitemap e restauração dos metadados legais
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-reward-notifications.mjs ← requests, sessão, respostas atrasadas e confirmação dos avisos; sem servidor/navegador
   check-reward-examples.mjs    ← exemplos admin: conquista, escolha de dois itens e confirmação local; sem API/navegador
@@ -85,7 +97,8 @@ public/
   logo-branca.webp             ← logo oficial branca 192px: `CidoeLogo` no tema escuro (admin)
   og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
-  robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
+  robots.txt                   ← sitemap público; restringe rastreamento de admin/API
+  sitemap.xml                  ← URLs canônicas: home, termos e privacidade
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
   App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
@@ -115,7 +128,7 @@ src/
     contributionApi.ts              ← Pix (cobrança/status/pendente) + perfil do edifício, gravados no back
     regions.ts
   pages/legal/
-    LegalPage.tsx               ← layout público dos documentos: versão, índice de seções, texto em placa
+    LegalPage.tsx               ← layout dos documentos + título, descrição, canonical e metadados sociais por rota
     Terms.tsx                   ← /termos
     Privacy.tsx                 ← /privacidade
   pages/admin/

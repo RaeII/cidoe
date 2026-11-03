@@ -238,10 +238,10 @@ const sections: LegalSection[] = [
             ["sidebar_state", "Cookie próprio, preferência", "Lembrar o menu lateral do painel (só equipe)", "7 dias"],
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
-            ["theme e cidoa:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
-            ["cidoa:intro-video-seen", "Armazenamento local", "Não repetir o vídeo de apresentação", "Até você limpar o navegador"],
+            ["theme e cidoe:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
+            ["cidoe:intro-video-seen", "Armazenamento local", "Não repetir o vídeo de apresentação", "Até você limpar o navegador"],
             ...(IS_PRELAUNCH
-              ? [["cidoa:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
+              ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
               : []),
             ["chunk-reload-at", "Armazenamento da aba", "Evitar recarga repetida depois de uma atualização do site", "Até fechar a aba"],
             ["Imagem do céu da cidade", "Cache do navegador", "Carregar a cena mais rápido", "Até você limpar o navegador"],
@@ -389,6 +389,7 @@ export default function Privacy() {
   return (
     <LegalPage
       title="Política de Privacidade"
+      description="Saiba como o Cidoe trata seus dados pessoais, utiliza cookies e protege sua privacidade, e como exercer seus direitos."
       intro={<p>Quais dados o Cidoe usa, para quê, com quem compartilha e como você controla tudo isso.</p>}
       sections={sections}
     />

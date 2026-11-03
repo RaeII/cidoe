@@ -1,7 +1,7 @@
 ---
 title: Usuários (Admin)
 tags:
-  - cidoa
+  - cidoe
   - admin
   - usuarios
   - permissoes

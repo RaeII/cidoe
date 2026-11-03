@@ -1,6 +1,6 @@
 ---
 title: Admin · Recompensas por indicação
-tags: [cidoa, admin, passe]
+tags: [cidoe, admin, passe]
 aliases: [Benefícios de cadastro, Primeiros inscritos]
 ---
 

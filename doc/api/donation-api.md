@@ -1,7 +1,7 @@
 ---
 title: Camada de API — Doações
 tags:
-  - cidoa
+  - cidoe
   - api
   - donation
 aliases:

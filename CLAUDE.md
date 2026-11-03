@@ -88,7 +88,7 @@ Cross-reference with Obsidian wikilinks by **filename**, not path (`[[scene-runt
 New or edited building shape → follow `doc/scene/engine/novo-edificio.md` (reference measuring, builder pattern, every integration point, backend catalog, checks, docs, cleanup).
 
 - Visual check: `node scripts/render-building.mjs <shape> [--height n] [--ref img] [--slot i=hex,metal,rough]` — 4 views lit like the city. Reuse or extend it; never write a one-off render harness.
-- Leave no screenshots, crops, bundles or throwaway scripts in the repo or temp dirs when done (`rm -rf "${TMPDIR:-/tmp}/cidoa-render"`). Never delete or commit the owner's reference image without asking.
+- Leave no screenshots, crops, bundles or throwaway scripts in the repo or temp dirs when done (`rm -rf "${TMPDIR:-/tmp}/cidoe-render"`). Never delete or commit the owner's reference image without asking.
 
 ## UI style
 

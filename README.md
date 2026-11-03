@@ -1,4 +1,8 @@
-# React + TypeScript + Vite
+# Cidoe
+
+Cidade 3D solidária em apoio à proteção animal. Cada contribuição para uma ONG ergue um edifício.
+
+Marca, SEO e migração de nomes: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
 
 ## Produção
 

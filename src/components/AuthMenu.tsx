@@ -16,6 +16,7 @@ import type { RewardNotifications } from "@/components/hooks/useCustomizationCat
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
+import { readProjectStorage } from "@/lib/projectStorage";
 import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
 import { IntroVideoDialog } from "@/components/IntroVideoDialog";
@@ -35,12 +36,12 @@ function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
 }
 
-const INTRO_SEEN_KEY = "cidoa:intro-video-seen";
+const INTRO_SEEN_KEY = "cidoe:intro-video-seen";
 
 /** Storage bloqueado conta como visto: sem como lembrar, melhor não repetir a cada visita. */
 function introSeen() {
   try {
-    return localStorage.getItem(INTRO_SEEN_KEY) !== null;
+    return readProjectStorage(localStorage, INTRO_SEEN_KEY) !== null;
   } catch {
     return true;
   }

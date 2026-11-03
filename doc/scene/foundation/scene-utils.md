@@ -1,7 +1,7 @@
 ---
 title: Scene Utils
 tags:
-  - cidoa
+  - cidoe
   - utils
   - funções puras
 aliases:

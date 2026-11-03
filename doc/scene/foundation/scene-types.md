@@ -1,7 +1,7 @@
 ---
 title: Scene Types
 tags:
-  - cidoa
+  - cidoe
   - typescript
   - tipos
   - contratos

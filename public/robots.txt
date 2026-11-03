@@ -1,2 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /dale
+Disallow: /api/
+
+Sitemap: https://cidoe.com.br/sitemap.xml

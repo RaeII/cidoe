@@ -24,7 +24,7 @@ Menu **ONGs** → `/dale/ongs`. Página dedicada `src/pages/admin/Ongs.tsx`; ses
 Snapshot v5: `ongs: [id, nome, imagemOuNull][]`. Parser aceita terceiro campo ausente para compatibilidade com backend antigo. Cartões de [[html-components#DonationInfoSection.tsx]] exibem foto cadastrada; ausência/erro → iniciais. Catálogo só inclui ativas. Mudanças chegam ao cache do backend em até 30 s; página pública já aberta precisa recarregar os dados.
 
 > [!important] Migration antes do backend
-> Aplicar `0022_ong_profile_image.sql` no `cidoa-back` antes de subir o backend atualizado. Adiciona `ong.profile_image`, sem alterar ONGs existentes. Esta alteração não aplica migration nem modifica registros no banco.
+> Aplicar `0022_ong_profile_image.sql` no `cidoe-back` antes de subir o backend atualizado. Adiciona `ong.profile_image`, sem alterar ONGs existentes. Esta alteração não aplica migration nem modifica registros no banco.
 
 ## Verificação
 

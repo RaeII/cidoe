@@ -1,7 +1,7 @@
 ---
 title: Scene Config
 tags:
-  - cidoa
+  - cidoe
   - config
   - defaults
 aliases:
@@ -227,7 +227,7 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 
 ### `uiVisibilityConfig.ts`
 
-Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoa:ui-visibility`).
+Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoe:ui-visibility`). `readProjectStorage` migra a preferência legada sem descartar o original em falhas de gravação. Defaults próprios da main preservados, incluindo `donationFilter`. Ver [[index#Marca, SEO e migração de nomes]].
 
 | Campo | Padrão | Esconde |
 |---|---|---|

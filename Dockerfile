@@ -8,9 +8,9 @@ RUN bun run build
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
 # Sobrescreve labels herdados da imagem base; GHCR vincula pacote ao repo por `source`.
-LABEL org.opencontainers.image.source="https://github.com/RaeII/cidoa" \
-      org.opencontainers.image.url="https://github.com/RaeII/cidoa" \
-      org.opencontainers.image.title="cidoa-front" \
+LABEL org.opencontainers.image.source="https://github.com/RaeII/cidoe" \
+      org.opencontainers.image.url="https://github.com/RaeII/cidoe" \
+      org.opencontainers.image.title="cidoe-front" \
       org.opencontainers.image.description="Front do Cidoe (Nginx + SPA)" \
       org.opencontainers.image.version="" \
       org.opencontainers.image.revision="" \

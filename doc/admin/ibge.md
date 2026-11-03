@@ -1,7 +1,7 @@
 ---
 title: IBGE (Admin)
 tags:
-  - cidoa
+  - cidoe
   - admin
   - ibge
   - geografia
@@ -15,7 +15,7 @@ aliases:
 Página admin (`/dale/ibge`) pra **vincular** no banco o catálogo geográfico do IBGE — regiões, estados e municípios do Brasil. Serve pra doações e ONGs apontarem pra uma cidade real. Base de UI em [[componentes-html]]; auth e shell em [[area-admin]].
 
 > [!info] Backend
-> Front só chama as rotas. Busca no IBGE, normalização e upsert moram no **cidoa-back**, submódulo `ibge` (`POST /api/admin/ibge/sync`, `GET /api/admin/ibge/status`). Ambas exigem sessão admin (`token_admin`). Detalhe do backend: `cidoa-back/doc/modulos/admin/ibge.md`.
+> Front só chama as rotas. Busca no IBGE, normalização e upsert moram no **cidoe-back**, submódulo `ibge` (`POST /api/admin/ibge/sync`, `GET /api/admin/ibge/status`). Ambas exigem sessão admin (`token_admin`). Detalhe do backend: `cidoa-back/doc/modulos/admin/ibge.md`.
 
 ---
 
