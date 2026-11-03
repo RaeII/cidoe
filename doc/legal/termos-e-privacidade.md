@@ -51,7 +51,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | `/termos` | `src/pages/legal/Terms.tsx` | nenhuma — fora do `AuthProvider` |
 | `/privacidade` | `src/pages/legal/Privacy.tsx` | nenhuma — fora do `AuthProvider` |
 
-Lazy em `src/App.tsx`; build também renderiza os documentos completos em `/termos/index.html` e `/privacidade/index.html`. Nginx serve cada URL pública exata; fallback SPA reservado ao admin, demais URLs desconhecidas recebem 404. `LegalPage` rola no próprio `<main>`. [[seo]].
+Imports diretos em `src/App.tsx`; build e primeira renderização compartilham `AppContent`, preservando documentos completos na hidratação. Nginx serve cada URL pública exata; fallback SPA reservado ao admin, demais URLs desconhecidas recebem 404. `LegalPage` rola no próprio `<main>`. [[seo]].
 
 Links:
 - HTML inicial: apresentação real da home e documentos completos sem JavaScript. `noscript` esconde o loading e mantém aviso, links públicos e explicação existente dos dados do login com Google.
@@ -64,7 +64,7 @@ Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/a
 
 | Requisito | Onde atende |
 |---|---|
-| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon-32.png` |
+| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon-96.png` |
 | Descreve funcionalidade | Hero da `DonationInfoSection` no HTML estático + página `/sobre` |
 | Explica finalidade dos dados do Google | `/privacidade#google`; parágrafo existente em `noscript` preservado. Corpo normal da home sem esse parágrafo |
 | Link fácil para política (mesma URL do console) | Rodapé da home (seta da cena leva até ele), aviso de cookies, `<noscript>` |
@@ -96,7 +96,8 @@ flowchart TD
 
 ## Aviso de cookies
 
-- `src/components/CookieNotice.tsx`, montado globalmente em `App.tsx`, independente da sessão e do aceite dos termos.
+- `src/components/CookieNotice.tsx`, montado globalmente após a hidratação em `App.tsx`, independente da sessão e do aceite dos termos. A primeira renderização não depende de storage; evita divergência com o HTML do build.
+- Vídeo de apresentação sob demanda: `cidoe:intro-video-seen` deixou de ser usado e foi retirado da tabela de armazenamento; chaves antigas não são apagadas. Sem finalidade nova de tratamento de dados.
 - Banner discreto: **Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir o uso do site.** Link para `/privacidade#cookies` em nova aba; botões **Recusar** e **Aceitar**, mesmo tamanho. `?ref=` sai do `page_location` enviado ao GA (`analytics.ts`). Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
 - Escolha: `localStorage["cidoe:analytics-consent"] = "granted" | "denied"`. `readProjectStorage` preserva a decisão legada e o Analytics recebe revogações de abas anteriores ao deploy. Valor ausente/inválido mostra banner; `cidoa:cookie-notice = acknowledged` antigo não concede consentimento. Storage bloqueado: escolha vale na visita atual.
 - Política inclui **Preferências de cookies**, que dispara `cidoe:cookie-preferences` e reabre o banner, e **Desativar cookies opcionais**, que salva `denied`, interrompe novos envios e confirma por toast. Evento `storage` sincroniza revogação entre abas. Cookies existentes podem ser apagados pelo navegador.

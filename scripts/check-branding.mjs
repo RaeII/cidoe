@@ -17,7 +17,6 @@ const storage = {
 };
 for (const [area, value] of [
   ["analytics-consent", "denied"],
-  ["intro-video-seen", "1"],
   ["ui-visibility", '{"cameraLog":false}'],
   ["prelaunch:v1:7:buildings", '[{"id":-1}]'],
   ["prelaunch:v1:7:profiles", "JSON inválido preservado"],

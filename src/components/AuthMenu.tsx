@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Share2 } from "lucide-react";
+import { Play, Share2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -16,7 +16,6 @@ import type { RewardNotifications } from "@/components/hooks/useCustomizationCat
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
-import { readProjectStorage } from "@/lib/projectStorage";
 import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
 import { IntroVideoDialog } from "@/components/IntroVideoDialog";
@@ -32,25 +31,6 @@ const RewardDialog = lazy(() => import("@/components/pass/RewardDialog"));
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
-}
-
-const INTRO_SEEN_KEY = "cidoe:intro-video-seen";
-
-/** Storage bloqueado conta como visto: sem como lembrar, melhor não repetir a cada visita. */
-function introSeen() {
-  try {
-    return readProjectStorage(localStorage, INTRO_SEEN_KEY) !== null;
-  } catch {
-    return true;
-  }
-}
-
-function markIntroSeen() {
-  try {
-    localStorage.setItem(INTRO_SEEN_KEY, "1");
-  } catch {
-    /* storage bloqueado */
-  }
 }
 
 function messageFrom(error: unknown, fallback: string) {
@@ -112,11 +92,8 @@ export function AuthMenu({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  // Link de indicação sempre mostra o vídeo, mesmo já visto.
-  const [introOpen, setIntroOpen] = useState(() => initialCode !== "" || !introSeen());
+  const [introOpen, setIntroOpen] = useState(false);
   const isMobile = useIsMobile();
-  // `?ref=` abre o login uma vez; fechar mantém o código para a próxima abertura.
-  const [linkAuthOpen, setLinkAuthOpen] = useState(initialCode !== "");
 
   function changeMenuOpen(open: boolean) {
     setMenuOpen(open);
@@ -125,17 +102,11 @@ export function AuthMenu({
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
-  const effectiveAuthOpen = authOpen || (!isLoading && !isAuthenticated && linkAuthOpen);
   // Só visitante: sessão (cookie httpOnly) sobrevive a limpar o localStorage, então
   // conta logada nunca vê.
   const showIntro = introOpen && !isLoading && !isAuthenticated && !authOpen;
-  // Desktop: login sempre ao lado do vídeo. Mobile: vídeo primeiro, login depois.
-  const videoOpen = showIntro || (!isMobile && effectiveAuthOpen);
-
-  // Viu uma vez ou entrou na conta → não mostra mais neste navegador.
-  useEffect(() => {
-    if (showIntro || user) markIntroSeen();
-  }, [showIntro, user]);
+  // Desktop mantém vídeo ao lado do login; mobile tem diálogos separados.
+  const videoOpen = showIntro || (!isMobile && authOpen);
 
   useEffect(() => {
     if (!REFERRAL_CODE_PATTERN.test(referralCode)) return;
@@ -186,15 +157,9 @@ export function AuthMenu({
     };
   }, [user]);
 
-  function changeAuthOpen(open: boolean) {
-    if (!open) setLinkAuthOpen(false);
-    onAuthOpenChange(open);
-  }
-
-  // Mobile não tem login no vídeo: fechar segue para o login do link de indicação.
   function closeVideo() {
     setIntroOpen(false);
-    if (!isMobile) changeAuthOpen(false);
+    if (!isMobile) onAuthOpenChange(false);
   }
 
   function changeReferralCode(rawCode: string) {
@@ -339,7 +304,7 @@ export function AuthMenu({
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
         )}
         <ReferralDialog
-          open={referralCode !== "" && !effectiveAuthOpen}
+          open={referralCode !== "" && !authOpen}
           code={referralCode}
           preview={referralPreview}
           summary={summary}
@@ -350,7 +315,7 @@ export function AuthMenu({
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
-        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !effectiveAuthOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
+        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !authOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
           <Suspense fallback={null}>
             <RewardDialog key={user.id} rewards={rewards} />
           </Suspense>
@@ -366,6 +331,9 @@ export function AuthMenu({
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />
+        <Button type="button" variant="outline" onClick={() => setIntroOpen(true)} aria-haspopup="dialog" title="Conheça o Cidoe">
+          <Play /><span className="max-sm:sr-only">Conheça o Cidoe</span>
+        </Button>
         {/* Ponteiro/foco no "Entrar" já adianta o script do Google (carrega sob demanda). */}
         <Button
           type="button"
@@ -378,8 +346,8 @@ export function AuthMenu({
         </Button>
       </div>
       <AuthDialog
-        open={isMobile && effectiveAuthOpen && !showIntro}
-        onOpenChange={changeAuthOpen}
+        open={isMobile && authOpen && !showIntro}
+        onOpenChange={onAuthOpenChange}
         referralCode={referralCode}
         referralPreview={referralPreview}
         referralLoading={referralLoading}

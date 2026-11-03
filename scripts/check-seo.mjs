@@ -10,7 +10,8 @@ async function load(entry) {
   const result = await build({
     entryPoints: [entry], bundle: true, format: "cjs", platform: "node",
     packages: "external", jsx: "automatic", write: false,
-    define: { "import.meta.env.PROD": "false" },
+    external: ["./components/CitySceneEditor", "./pages/admin/*"],
+    define: { "import.meta.env.PROD": "false", "import.meta.env.VITE_API_URL": '"/api"' },
   });
   const module = { exports: {} };
   new Function("require", "module", "exports", result.outputFiles[0].text)(
@@ -84,8 +85,16 @@ assert.match(about, /mailto:contato@cidoe.com.br/);
 const home = await read("dist/index.html");
 assert.ok(home.indexOf('id="scene-loading"') < home.indexOf("<h1"), "Loading ocupa a primeira viewport; apresentação vem abaixo");
 if (IS_PRELAUNCH) assert.match(home, /ONGs, edifícios e contribuições são fictícios/);
-assert.doesNotMatch(home, /<img[^>]*src=/, "Imagens continuam aguardando a cena");
+assert.match(home, /<img[^>]*src="\/logo.webp"[^>]*loading="lazy"/);
+assert.match(home, /<img[^>]*src="\/cat_dog.jpeg"[^>]*loading="lazy"/);
+assert.match(home, /<source srcSet="\/cat_dog.webp"/);
+assert.doesNotMatch(home, /Switched to client rendering|data-msg=/, "Build pronto para hidratação, sem Suspense abortado");
 assert.match(home, /<noscript><style>#scene-loading\{display:none\}/);
+assert.match(home, /rel="icon" type="image\/png" sizes="96x96" href="\/favicon-96.png"/);
+const { PNG } = require("pngjs");
+const favicon = await readFile(new URL("../dist/favicon-96.png", import.meta.url));
+assert.equal(PNG.sync.read(favicon).width, 96);
+assert.equal(PNG.sync.read(favicon).height, 96);
 
 for (const path of ["/admin.html", "/404.html"]) {
   const html = await read(`dist${path}`);
@@ -157,3 +166,4 @@ assert.match(nginx, /add_header X-Robots-Tag \$seo_robots always/);
 assert.match(nginx, /try_files \/admin.html =404/);
 for (const path of ["sobre", "termos", "privacidade"]) assert.ok(nginx.includes(`location = /${path} { try_files /${path}/index.html =404; }`));
 console.log("SEO: HTML público, autoria, metadados, navegação, noindex, sitemap e acesso dos bots OK. HTTP/Nginx não executados.");
+await import("./check-public-startup.mjs");

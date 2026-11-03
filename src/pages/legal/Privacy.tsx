@@ -255,7 +255,6 @@ const sections: LegalSection[] = [
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google, depois que você abre o login", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoe:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
-            ["cidoe:intro-video-seen", "Armazenamento local", "Não repetir o vídeo de apresentação", "Até você limpar o navegador"],
             ["cidoe:analytics-consent", "Armazenamento local", "Lembrar se você aceitou ou recusou a análise", "Até você mudar a escolha ou limpar o navegador"],
             ["_ga e _ga_*", "Cookies próprios de análise (Google Analytics), opcionais", "Distinguir visitantes e sessões após o aceite", "Até 2 anos, renovados com o uso"],
             ...(IS_PRELAUNCH

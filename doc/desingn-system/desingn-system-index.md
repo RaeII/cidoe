@@ -201,6 +201,8 @@ Ponto focal: olhar do animal no terço superior, nunca coberto por placa ou selo
 5. **Sombra** — nenhuma, nem `bevel`. Sombra dura só em imagem clicável.
 6. **Espera** — fundo `muted` (papel 300) enquanto carrega.
 
+`Photo` verifica `complete`/`naturalWidth` no ref de montagem: imagem já carregada antes da hidratação sai da espera sem depender de um novo evento `load`. Trocar `src` reinicia a espera; falha mantém o estado de erro da moldura.
+
 `Photo` = moldura + `object-cover` + estados de [[#Estados (5.7)]]. `webp` opcional vira `<picture>` com `src` (JPG) de reserva. Trocar `src` volta a "carregando". Resto das props vai para o `<img>` (`width`, `height`, `loading`).
 
 ### Tratamento (5.4)
@@ -365,7 +367,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Escuro com pegadas | pegada `#36452F` sobre `#2E3A2B` (fundo do 6.7) | sem padrão | escuro só no `/dale` |
 | Skeleton | — | `animate-pulse` em `bg-muted` (`/dale`) | placeholder de layout; não é spinner |
 | Foto da home | foto da ONG, mín. 1200px, legenda com crédito e ano | `cat_dog.jpeg`/`.webp` de banco de imagem, 1024px, sem legenda | ainda sem foto de ONG; crédito desconhecido — não inventar. Trocar quando houver |
-| Aviso de pré-lançamento na cena | placa de papel sólido, sem `white`/blur | texto `papel` sem placa sobre `backdrop-blur-sm`, rodapé | pedido explícito: aviso mínimo, sem borda nem fundo; exceção restrita a [[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]] |
+| Aviso de pré-lançamento na cena | placa de papel sólido, sem `white`/blur | texto `papel` sem placa nem desfoque, rodapé | pedido explícito: aviso mínimo, sem borda nem fundo; exceção restrita a [[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]] |
 | Imagem enviada pelo usuário | WebP, mín. 1200px | JPEG; edifício 800px, perfil 400px (`resizeImage`) | backend do perfil só aceita JPEG/PNG; Safari não gera WebP em `canvas`; JSON limitado a 1 MB |
 
 **Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo). Logo oficial = PNG/WebP em `public/` (`logo.webp`, `logo-branca.webp`, `favicon-32.png`); admin usa via `CidoeLogo`.

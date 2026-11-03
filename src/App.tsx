@@ -1,15 +1,21 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import { CookieNotice } from "./components/CookieNotice";
 import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
+import { DonationInfoSection } from "./components/html/DonationInfoSection";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
 import { useVisualViewport } from "./hooks/useVisualViewport";
 import { RouteMetadata } from "./components/RouteMetadata";
 import { ABOUT_PATH } from "./lib/seo";
+import { Toaster } from "./components/ui/toast";
+import Terms from "./pages/legal/Terms";
+import Privacy from "./pages/legal/Privacy";
+import About from "./pages/About";
+import NotFound from "./pages/NotFound";
 
 /**
  * Resolve depois que a casca chega na tela. Duplo rAF: o 1º roda antes do paint do
@@ -32,13 +38,6 @@ const CitySceneEditor = lazy(() =>
     .then(() => import("./components/CitySceneEditor"))
     .then((m) => ({ default: m.CitySceneEditor })),
 );
-// Toaster (Radix Toast) fora do bundle inicial: monta após o 1º paint. O store do
-// toast vive fora do React — toast() chamado antes aparece quando ele montar.
-const Toaster = lazy(() =>
-  afterPaint()
-    .then(() => import("./components/ui/toast"))
-    .then((m) => ({ default: m.Toaster })),
-);
 const Login = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const TestBuildings = lazy(() => import("./pages/admin/TestBuildings"));
@@ -48,10 +47,6 @@ const EarlySignups = lazy(() => import("./pages/admin/EarlySignups"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const Ongs = lazy(() => import("./pages/admin/Ongs"));
-const Terms = lazy(() => import("./pages/legal/Terms"));
-const Privacy = lazy(() => import("./pages/legal/Privacy"));
-const About = lazy(() => import("./pages/About"));
-const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageFallback() {
   return (
@@ -64,24 +59,31 @@ function PageFallback() {
 
 const SCENE_LOADING = { status: "loading", loadedBytes: 0, totalBytes: null } as const;
 
-/**
- * Enquanto o chunk da cena baixa: a MESMA página de loading do index.html e da cena (sem
- * imagem). Texto do mesmo tamanho não vira LCP novo quando a cena monta a dela; com
- * "Carregando…" menor aqui, o "Carregando doações…" da cena virava LCP tardio (~4,6 s mobile).
- */
+/** Texto, links e imagens públicas permanecem disponíveis enquanto a cena carrega. */
 function SceneFallback() {
   return (
-    <div className="relative h-svh w-full overflow-hidden bg-background">
-      <DonationLoadOverlay cover state={SCENE_LOADING} onRetry={() => {}} />
+    <div className="h-svh w-full overflow-y-auto bg-background">
+      <div id="scene-loading" className="relative h-svh w-full overflow-hidden bg-background">
+        <DonationLoadOverlay cover state={SCENE_LOADING} onRetry={() => {}} />
+      </div>
+      <DonationInfoSection donations={[]} ongs={[]} filter={{}} loadState={SCENE_LOADING}
+        onFilterChange={() => {}} onViewOng={() => {}} onRetry={() => {}} />
     </div>
   );
 }
 
-export default function App() {
+/** Compartilhado com o build: a primeira renderização é igual no servidor e no cliente. */
+export function AppContent() {
   useVisualViewport();
+  const [clientReady, setClientReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void afterPaint().then(() => { if (active) setClientReady(true); });
+    return () => { active = false; };
+  }, []);
 
   return (
-    <BrowserRouter>
+    <>
       <RouteMetadata />
       <Suspense fallback={<PageFallback />}>
         {/* Duas sessões independentes: cena (AuthProvider) e painel (AdminAuthProvider).
@@ -92,11 +94,11 @@ export default function App() {
           <Route
             path="/"
             element={
-              <AuthProvider>
+              clientReady ? <AuthProvider>
                 <Suspense fallback={<SceneFallback />}>
                   <CitySceneEditor />
                 </Suspense>
-              </AuthProvider>
+              </AuthProvider> : <SceneFallback />
             }
           />
 
@@ -133,10 +135,12 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-      <CookieNotice />
-      <Suspense fallback={null}>
-        <Toaster />
-      </Suspense>
-    </BrowserRouter>
+      {clientReady && <CookieNotice />}
+      {clientReady && <Toaster />}
+    </>
   );
+}
+
+export default function App() {
+  return <BrowserRouter><AppContent /></BrowserRouter>;
 }

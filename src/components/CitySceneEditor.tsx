@@ -580,7 +580,7 @@ export function CitySceneEditor() {
       />
       {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
-      {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
+      {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
       {booted && (
       <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
@@ -622,7 +622,7 @@ export function CitySceneEditor() {
       )}
       {/* Faixa de 4–20px do rodapé: botões do rodapé ficam em bottom-7 (sombra desce 7px) para não cobrir. */}
       {booted && !myBuildingsOpen && (
-        <p role="note" className="pointer-events-none absolute bottom-1 left-2 z-20 max-w-[calc(100%-1rem)] px-1.5 text-[11px] leading-4 text-papel backdrop-blur-sm">
+        <p role="note" className="pointer-events-none absolute bottom-1 left-2 z-20 max-w-[calc(100%-1rem)] px-1.5 text-[11px] leading-4 text-papel">
           <strong className="font-semibold">Pré-lançamento:</strong> ONGs e contribuições são de teste
         </p>
       )}
@@ -787,7 +787,6 @@ export function CitySceneEditor() {
       ongs={ongs}
       filter={filter}
       loadState={loadState}
-      mediaReady={booted}
       onFilterChange={setFilter}
       onViewOng={(ongId) => {
         setFilter({ ...filter, ongId });

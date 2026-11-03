@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react"
+import { useCallback, useState, type ComponentProps } from "react"
 
 import { PixelPhoto } from "@/components/ui/pixel-icon"
 import { cn } from "@/lib/utils"
@@ -28,10 +28,15 @@ type PhotoProps = Omit<ComponentProps<"img">, "className"> & {
 export function Photo({ ratio, webp, className, onLoad, onError, ...props }: PhotoProps) {
   // Resultado guardado por src: trocar a foto volta a "carregando" sem efeito.
   const [result, setResult] = useState<{ src?: string; ok: boolean }>()
+  const src = props.src
+  const checkCachedImage = useCallback((image: HTMLImageElement | null) => {
+    if (image?.complete) setResult({ src, ok: image.naturalWidth > 0 })
+  }, [src])
   const status = !result || result.src !== props.src ? "loading" : result.ok ? "ready" : "error"
   const img = (
     <img
       {...props}
+      ref={checkCachedImage}
       onLoad={(event) => { setResult({ src: props.src, ok: true }); onLoad?.(event) }}
       onError={(event) => { setResult({ src: props.src, ok: false }); onError?.(event) }}
       className={cn("size-full object-cover", status !== "ready" && "opacity-0")}

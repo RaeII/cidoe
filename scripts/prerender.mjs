@@ -12,7 +12,8 @@ try {
   const bundle = await build({
     entryPoints: ["src/seo/render.tsx"], bundle: true, platform: "node",
     format: "esm", packages: "external", jsx: "automatic", write: false,
-    define: { "import.meta.env.PROD": "false" },
+    external: ["./components/CitySceneEditor", "./pages/admin/*"],
+    define: { "import.meta.env.PROD": "false", "import.meta.env.VITE_API_URL": '"/api"' },
   });
   const entry = resolve(temporary, "render.mjs");
   await writeFile(entry, bundle.outputFiles[0].text);
@@ -21,12 +22,9 @@ try {
   const headPattern = /<!--seo:start-->[\s\S]*?<!--seo:end-->/;
   const bodyPattern = /<!--app:start-->([\s\S]*?)<!--app:end-->/;
   assert.match(template, headPattern, "Vite deve emitir os metadados");
-  const loading = (await readFile("index.html", "utf8")).match(bodyPattern)?.[1];
-  assert.ok(loading, "Template deve conter o loading da cena");
 
   for (const path of [...Object.keys(SEO_PAGES), "/404.html", "/admin.html"]) {
-    let body = path === "/admin.html" ? "" : renderPublicPage(path);
-    if (path === "/") body = `<div class="h-svh w-full overflow-y-auto bg-background">${loading}${body}</div>`;
+    const body = path === "/admin.html" ? "" : renderPublicPage(path);
     const html = template
       .replace(headPattern, () => renderSeoHead(path))
       .replace(bodyPattern, () => `<!--app:start-->${body}<!--app:end-->`);

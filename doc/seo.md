@@ -37,7 +37,8 @@ Google recomenda conteúdo disponível em texto, links rastreáveis e renderiza�
 
 - `src/lib/seo.ts`: domínio, títulos, descrições, canonical, previews e JSON-LD. Fonte única para Vite, build estático e navegação.
 - `src/components/RouteMetadata.tsx`: atualiza head a cada rota, inclusive volta à home; remove canonical e schema público em páginas não indexáveis.
-- `src/seo/render.tsx`: entrada exclusiva do build. Renderiza componentes públicos com `react-dom/server` e `StaticRouter`.
+- `src/seo/render.tsx`: entrada exclusiva do build. Renderiza `AppContent` com `renderToString` e `StaticRouter`, preservando marcadores de hidratação e IDs do React. Cena/admin lazy ficam externos ao bundle do prerender e não são executados nesse processo.
+- `src/main.tsx`: `hydrateRoot` em produção quando existe HTML no root; `createRoot` no dev e no admin vazio. `AppContent` começa com `clientReady=false` no build e no cliente; após o primeiro paint monta sessão da cena, cookies e toaster. `SceneFallback` mantém texto/links/imagens enquanto o editor baixa. Documentos públicos usam imports diretos para corresponder ao HTML inicial.
 - `scripts/prerender.mjs`: usa esbuild já instalado pelo Vite, sem dependência nova; temporário em `node_modules/.tmp`, removido ao terminar. Analytics desativado nesse processo Node. Sem API ou dados de contas.
 - `npm run build`: TypeScript → Vite → HTML público. Não publicar somente a saída de `vite build`, pois faltariam os documentos estáticos.
 - `dist/index.html`, `dist/sobre/index.html`, `dist/termos/index.html`, `dist/privacidade/index.html`: páginas públicas.
@@ -98,7 +99,9 @@ O aviso **“Nenhum URL de miniatura enviado”** indica que nenhuma miniatura f
 
 JPEG opaco 720×1280, extraído do próprio vídeo aos 14 s. Está em `public/`, entra no build sem hash e não exige login. As regras atuais de `robots.txt` e Nginx permitem o acesso. Ao substituir o vídeo, atualizar também a miniatura. Extração: `ffmpeg -ss 14 -i public/video-cidoe.mp4 -frames:v 1 -vf scale=720:1280 -q:v 3 -update 1 public/video-cidoe-poster.jpg`.
 
-O vídeo é complementar ao login/cidade; não há página dedicada de exibição. Corrigir a miniatura não garante indexação de vídeo e não afeta a elegibilidade da página como resultado textual. Não adicionar `VideoObject`, datas presumidas ou sitemap de vídeo para simular uma página de exibição. [Critérios de indexação](https://developers.google.com/search/docs/appearance/video#ensure-your-videos-can-be-indexed).
+O vídeo é complementar ao login/cidade; não há página dedicada de exibição. Abre por **Conheça o Cidoe** ou junto ao login solicitado no desktop; visita inicial e link de indicação não abrem modal. Código de indicação permanece para o login. Sem preferência `cidoe:intro-video-seen`. Evita interromper a navegação inicial com uma apresentação de tela inteira. [Diálogos não intrusivos](https://developers.google.com/search/docs/appearance/avoid-intrusive-interstitials).
+
+Corrigir a miniatura não garante indexação de vídeo e não afeta a elegibilidade da página como resultado textual. Não adicionar `VideoObject`, datas presumidas ou sitemap de vídeo para simular uma página de exibição. [Critérios de indexação](https://developers.google.com/search/docs/appearance/video#ensure-your-videos-can-be-indexed).
 
 Após publicar: conferir HTTP 200 e `Content-Type: image/jpeg` na URL da miniatura, inspecionar a home no Search Console e solicitar nova indexação. No relatório de vídeos, usar **Validar correção**, se disponível. A atualização depende de novo rastreamento; a conta e a resposta HTTP de produção não foram verificadas nesta alteração.
 
@@ -108,7 +111,7 @@ Após publicar: conferir HTTP 200 e `Content-Type: image/jpeg` na URL da miniatu
 2. **Páginas úteis por entidade.** Futuras páginas de ONG/cidade só com parceria real, conteúdo suficiente, dados atualizados e endereço estável. Não gerar milhares de páginas vazias a partir do IBGE nem indexar cada combinação de filtro. Usuários continuam com dados privados fora do sitemap.
 3. **Menções legítimas.** Site/portfólio do criador, repositório oficial e organizações realmente participantes podem explicar e linkar o projeto com a marca consistente. Buscar cobertura editorial e relatos reais; evitar compra de links e depoimentos fictícios. Nenhuma mensagem enviada nesta tarefa.
 4. **Mídia original.** Vídeo de demonstração e imagens existentes complementam texto. Página dedicada ao vídeo só se assistir for o conteúdo principal; `VideoObject` só com thumbnail, duração e data reais. Não inventar datas para habilitar rich results. [Orientações de vídeo](https://developers.google.com/search/docs/appearance/video).
-5. **Experiência real.** Cena 3D permanece separada por import lazy; HTML informativo não espera WebGL. `mediaReady` segura logo, foto e avatares até `booted`; SSR usa `false`. Fotos também usam lazy loading. Core Web Vitals de campo continuam pendentes: referências LCP ≤ 2,5 s, INP ≤ 200 ms e CLS ≤ 0,1 no percentil 75. Não considerar o card de loading como prova de que a cidade ficou utilizável. [Core Web Vitals](https://developers.google.com/search/docs/appearance/core-web-vitals).
+5. **Experiência real.** Cena 3D permanece lazy; HTML informativo não espera WebGL. Logo/foto públicos são emitidos com URL, dimensões e lazy loading nativo; avatares também independem de `booted`. `Photo` reconhece imagens já carregadas antes da hidratação. `/sobre` explica simulação, personalização, limite e armazenamento local com os rótulos reais da interface. Core Web Vitals de campo continuam pendentes: referências LCP ≤ 2,5 s, INP ≤ 200 ms e CLS ≤ 0,1 no percentil 75. Não considerar o card de loading como prova de que a cidade ficou utilizável. [Core Web Vitals](https://developers.google.com/search/docs/appearance/core-web-vitals).
 6. **Dados de decisão.** Comparar consultas com e sem marca, URLs indexadas, impressões, CTR, cadastro e, no lançamento, contribuições concluídas. Separar desempenho real de citações ocasionais em prompts. [Medição de IA no Bing](https://blogs.bing.com/webmaster/2026/2/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview/).
 
 ## Publicação e contas externas
@@ -125,7 +128,13 @@ Após publicar: conferir HTTP 200 e `Content-Type: image/jpeg` na URL da miniatu
 7. CDN/WAF: permitir bots legítimos nas páginas públicas sem captcha/challenge; conferir IPs nas listas oficiais atualizadas. Não confiar só no User-Agent para liberar acesso privilegiado. Não alterar autenticação nem firewall da API.
 8. Pós-deploy autorizado: validar Rich Results/Schema Markup Validator, URL Inspection e PageSpeed; conferir cabeçalhos, cache e compressão na origem/CDN. Revalidar depois de trocar domínio, proxy ou regras de bots.
 
-Favicon atual de 32×32 atende ao mínimo de 8×8 do Google; recomendação visual é maior que 48×48. Não usar o PNG original de ~497 KB como ícone de aba: evitar peso adicional. Logo do schema reutiliza WebP de 192×192 (~7 KB). Futuro favicon maior deve usar derivado pequeno e identidade existente. [Requisitos de favicon](https://developers.google.com/search/docs/appearance/favicon-in-search).
+Favicon declarado no HTML: `public/favicon-96.png`, derivado 96×96 do `logo.webp` verde-oliva existente (192×192). Mantém identidade, formato quadrado e URL estável, acima da recomendação visual de 48×48. `favicon-32.png` antigo continua disponível para caches. Logo do schema segue no WebP original. [Requisitos de favicon](https://developers.google.com/search/docs/appearance/favicon-in-search).
+
+### Verificações na conta após publicar
+
+- **Inspeção de URL:** inspecionar home e `/sobre`, comparar HTML renderizado com o texto esperado e conferir recursos/erros de JavaScript. A canonical escolhida pelo Google aparece nos dados indexados; o teste ao vivo não prevê a escolha nem garante indexação. [Inspeção de URL](https://support.google.com/webmasters/answer/9012289?hl=pt-BR).
+- **Desempenho:** comparar consultas de marca e outras consultas, por página e dispositivo, acompanhando impressões, cliques e CTR. Rever após mudanças relevantes e mensalmente; não concluir melhora por posição média isolada. [Relatório de desempenho](https://support.google.com/webmasters/answer/7576553?hl=pt-BR).
+- **Core Web Vitals:** usar dados de campo e investigar o uso real dos controles no celular. Nova renderização e lazy loading precisam de medição após deploy; checks locais não substituem esses relatórios.
 
 ## Verificação local
 
@@ -140,4 +149,6 @@ node scripts/check-analytics.mjs
 npm run seo:submit -- --dry-run
 ```
 
-`check:seo`: HTML emitido sem JS, paridade com componentes reais, H1, head único, schema, autoria, rotas privadas/erro, mudança de metadados entre rotas, sitemap e permissões dos bots. IndexNow validado apenas em modo local. Nginx/HTTP real, layout no navegador e métricas de campo não executados.
+`check:seo`: HTML emitido sem JS, paridade com `AppContent`, H1, imagens lazy, favicon 96×96, head único, schema, autoria, rotas privadas/erro, metadados entre rotas, sitemap e bots. Inclui `check-public-startup.mjs`: seleção de hidratação versus root vazio, vídeo fechado na entrada (desktop/mobile/com indicação), abertura por botão, login solicitado e foto já carregada antes da hidratação. IndexNow validado apenas em modo local. Não executa navegador, servidor, hidratação em DOM real ou métricas de campo.
+
+Validação adicional desta alteração: jsdom temporário fora do repositório, sem nova dependência no projeto. Home, Sobre, Termos, Privacidade e 404 hidrataram sem avisos e reaproveitaram o H1 original; cena pendente manteve apresentação, foto e links. Sem GPU, servidor ou navegador. Imports diretos dos documentos públicos aumentaram o JS inicial de aproximadamente 111 para 139 KB gzip no build local; é o custo da primeira renderização compartilhada nesta implementação. Medir experiência real após deploy.
