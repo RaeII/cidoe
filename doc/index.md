@@ -32,9 +32,10 @@ Domínio oficial `https://cidoe.com.br`, marca **Cidoe**. GitHub: [RaeII/cidoe](
 - `main`: pacote `cidoe`, imagem `ghcr.io/raeii/cidoe-front:main`, rede `cidoe`. `LEGAL_EDITION="launch"`, pagamentos, sessões e cláusulas legais preservados. Alterações de SEO aplicadas diretamente, sem merge da beta.
 - Auditoria, fontes oficiais e estratégia de publicação: [[seo]]. Google, Gemini, ChatGPT, Claude, Perplexity, Bing e IndexNow; configuração externa de Search Console/CDN documentada.
 - `src/lib/seo.ts`: fonte única de título, descrição, canonical, previews e JSON-LD. Título da home **Cidoe | Cidade 3D solidária pela proteção animal**; metadados permanentes iguais em `beta` e `main`, sem fase ou métricas inventadas.
-- `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. Home, `/sobre`, `/termos`, `/privacidade` com texto e metadados no HTML, sem esperar JS/API/WebGL. `RouteMetadata` sincroniza navegação SPA; `LegalPage` cuida do layout. Nenhuma API ou dado de conta entra no build.
+- `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. `AppContent` compartilhado usa `renderToString`; `main.tsx` hidrata a mesma primeira renderização. Home e documentos preservam texto, links e imagens enquanto a cena lazy carrega; logo/foto usam lazy loading nativo. Nenhuma API ou dado de conta entra no build.
 - `PublicPageNav`: **Sobre**, **Termos**, **Privacidade**, links de texto à direita no início da seção HTML abaixo da cena. Sem formato de botão; hover/clique/toque, alvo mínimo 44px. Fora do canvas, loading e cabeçalhos das outras páginas. [[html-components#Menu público (PublicPageNav.tsx)]].
 - `/sobre`: funcionamento, condições das contribuições, autoria de **Israel Zeferino**, contato, LinkedIn e Instagram fornecidos pelo criador. Ícones compartilhados; URLs em `CREATOR_SOCIAL_PROFILES` e `Person.sameAs`. Sem credenciais inventadas; `Organization` identifica projeto sem afirmar que Cidoe é ONG.
+- Apresentação em vídeo sob demanda: **Conheça o Cidoe** ou login solicitado no desktop. Visita inicial e `?ref=` não abrem modal; indicação permanece preenchida no próximo login. Sem uso de `cidoe:intro-video-seen`. Favicon declarado: `favicon-96.png`.
 - Vocabulário: **cidade 3D solidária**, **doações para ONGs de proteção animal**, **cães e gatos**, **edifícios personalizáveis**. H1 descritivo, H2 internos; sem `meta keywords`, repetição artificial ou volume de busca inventado.
 - `public/robots.txt`: bots de pesquisa e IA permitidos no mesmo grupo; API/healthz restritos. Admin rastreável para ler `noindex` no HTML/cabeçalho. Fallback SPA só em `/dale`; URLs inexistentes recebem 404. Sitemap com quatro páginas, sem datas falsas.
 - IndexNow: chave pública em `public/indexnow-key.txt`; `npm run seo:submit -- --dry-run` valida localmente. Envio real somente após publicar. Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
@@ -85,6 +86,11 @@ scripts/
   check-reward-examples.mjs    ← exemplos admin: conquista, escolha de dois itens e confirmação local; sem API/navegador
   check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
+  check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
+  check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
+  check-public-startup.mjs     ← hidratação, vídeo sob demanda, login/indicação e fotos carregadas antes da hidratação
+  prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
+  submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-mobile-keyboard.mjs    ← viewport, teclado, foco, rolagem integral do modal/sugestões, zoom e cleanup sem servidor/navegador
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
@@ -100,6 +106,7 @@ public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
   favicon-32.png               ← logo oficial verde-oliva 32px (aba do navegador)
+  favicon-96.png               ← logo oficial verde-oliva 96px, favicon declarado no HTML
   logo.webp                    ← logo oficial verde-oliva 192px: placa da marca + hero da home → [[html-components]]
   logo-branca.webp             ← logo oficial branca 192px: `CidoeLogo` no tema escuro (admin)
   og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
@@ -179,7 +186,7 @@ src/
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
     TermsDialog.tsx               ← `TermsConsent` (caixa de aceite) + reaceite quando `LEGAL_VERSION` muda
-    IntroVideoDialog.tsx          ← vídeo de apresentação do 1º acesso (mudo, loop, sem controles); mobile "Acessar Cidoe", desktop + login à direita
+    IntroVideoDialog.tsx          ← vídeo de apresentação sob demanda (mudo, loop, sem controles); mobile "Acessar Cidoe", desktop + login à direita
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -346,8 +353,8 @@ doc/
 
 ### 1. Entrada
 
-- `src/main.tsx` → renderiza React no `#root`
-- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena) dentro de `AuthProvider`; `/dale/login` + `/dale` = área admin dentro de `AdminAuthProvider` (layout route) + `RequireAdmin` (ver [[componentes-html#Roteamento]] e [[area-admin]]). Cada área monta só a própria sessão — login numa não abre a outra ([[area-admin#Duas sessões (cena × painel)]]). `<Toaster />` global montado aqui — ver [[componentes-html#Notificações (toast)]]
+- `src/main.tsx` → hidrata HTML público em produção; `createRoot` só para dev e casca vazia do admin.
+- `src/App.tsx` → `BrowserRouter` + `AppContent` compartilhado com o build. Páginas públicas diretas; cena e rotas do admin lazy. Sessão da cena e toaster só após a hidratação; `SceneFallback` preserva apresentação pública durante o download. Cada área monta só a própria sessão ([[area-admin#Duas sessões (cena × painel)]]). Ver [[seo]].
 - `/termos` e `/privacidade` → documentos legais públicos, fora de qualquer provider de sessão ([[termos-e-privacidade]]).
 - Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela e marca a caixa de aceite dos termos. Conta sem aceite da versão vigente vê `TermsDialog` antes de tudo. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
@@ -490,6 +497,7 @@ flowchart LR
 | Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
+| Vídeo de apresentação sob demanda               | [[html-components#IntroVideoDialog.tsx]]          |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
 | Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |
 | Modo noite: luz, IBL e névoa                     | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |

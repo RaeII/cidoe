@@ -627,7 +627,7 @@ export function CitySceneEditor() {
       />
       {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
-      {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
+      {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
       {booted && (
       <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
@@ -845,7 +845,6 @@ export function CitySceneEditor() {
       ongs={ongs}
       filter={filter}
       loadState={loadState}
-      mediaReady={booted}
       onFilterChange={setFilter}
       onViewOng={(ongId) => {
         setFilter({ ...filter, ongId });

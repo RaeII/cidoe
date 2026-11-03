@@ -239,7 +239,6 @@ const sections: LegalSection[] = [
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoe:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
-            ["cidoe:intro-video-seen", "Armazenamento local", "Não repetir o vídeo de apresentação", "Até você limpar o navegador"],
             ...(IS_PRELAUNCH
               ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
               : []),

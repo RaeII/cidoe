@@ -50,6 +50,24 @@ export default function About() {
             <h2>Preciso criar uma conta para visitar?</h2>
             <p>Você pode conhecer a cidade sem conta. Para criar e personalizar seus edifícios, é necessário se cadastrar. As contas são destinadas a maiores de 18 anos.</p>
           </section>
+          {IS_PRELAUNCH && <section>
+            <h2>Como simular uma contribuição?</h2>
+            <ol className="list-decimal space-y-3 pl-6">
+              <li>Entre na sua conta e clique em <strong>Simular contribuição</strong> na cidade.</li>
+              <li>Escolha criar um edifício ou aumentar um dos seus, selecione a ONG de teste e informe o valor. Para um novo edifício, escolha também a cidade.</li>
+              <li>Confira os dados e clique em <strong>Confirmar pagamento simulado</strong>. Nenhum dinheiro é cobrado ou enviado à ONG.</li>
+            </ol>
+          </section>}
+          <section>
+            <h2>Como personalizar meu edifício?</h2>
+            <p>Abra <strong>Meus edifícios</strong>, selecione um prédio e clique em <strong>Personalizar</strong>. Você pode alterar sua aparência com as opções liberadas para a sua conta, como cor, textura, formato e topo.</p>
+            <p>As opções bloqueadas mostram o requisito para desbloqueá-las. Trocar a aparência não muda o valor representado pelo edifício.</p>
+          </section>
+          {IS_PRELAUNCH && <section>
+            <h2>Onde minhas simulações ficam salvas?</h2>
+            <p>Você pode criar até três edifícios de teste por conta neste navegador. Os edifícios e suas personalizações ficam no armazenamento local: não aparecem para outras pessoas nem são transferidos para outro navegador ou aparelho.</p>
+            <p>Limpar os dados do site remove essas simulações. Seu cadastro e suas indicações ficam vinculados à conta; os edifícios simulados não se tornam doações reais no lançamento.</p>
+          </section>}
           <section id="israel-zeferino" className="scroll-mt-6">
             <h2>Quem criou o Cidoe?</h2>
             <p>O Cidoe foi criado por <strong>{LEGAL_CONTROLLER}</strong>, responsável pelo projeto e controlador dos dados pessoais conforme a Política de Privacidade.</p>

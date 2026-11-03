@@ -18,7 +18,6 @@ type DonationInfoSectionProps = {
   ongs: readonly Ong[];
   filter: DonationFilter;
   loadState: DonationsLoadState;
-  mediaReady?: boolean;
   onFilterChange: (filter: DonationFilter) => void;
   onViewOng: (id: number) => void;
   onRetry: () => void;
@@ -41,7 +40,6 @@ export function DonationInfoSection({
   ongs,
   filter,
   loadState,
-  mediaReady = true,
   onFilterChange,
   onViewOng,
   onRetry,
@@ -76,7 +74,7 @@ export function DonationInfoSection({
         <header className="mt-8 grid items-center gap-10 sm:mt-12 lg:gap-16 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <p className="flex items-center gap-3 font-mono text-[13px] tracking-[0.06em] text-primary">
-              {mediaReady && <img src="/logo.webp" alt="Cidoe" width={48} height={48} loading="lazy" className="size-12" />}
+              <img src="/logo.webp" alt="Cidoe" width={48} height={48} loading="lazy" className="size-12" />
               O projeto
             </p>
             <h1 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
@@ -87,18 +85,18 @@ export function DonationInfoSection({
               resgate, castração, tratamento veterinário e adoção responsável.
             </p>
           </div>
-          {mediaReady ? <div className="relative">
+          <div className="relative">
             <PixelDog className="absolute -top-[47px] right-8 z-10" />
             <Photo
               ratio="1/1"
               src="/cat_dog.jpeg"
               webp="/cat_dog.webp"
-              alt="Um cachorro e um gato resgatados, lado a lado"
+              alt="Um cachorro e um gato lado a lado"
               width={1024}
               height={947}
               loading="lazy"
             />
-          </div> : <div aria-hidden="true" className="aspect-square bg-muted" />}
+          </div>
         </header>
 
         {loadState.status === "loading" ? (
@@ -168,7 +166,7 @@ export function DonationInfoSection({
                         </div>
                         <div className="flex items-center gap-3">
                           <Avatar size="lg">
-                            {mediaReady && ong.profile_image && <AvatarImage src={ong.profile_image} alt="" className="object-cover" />}
+                            {ong.profile_image && <AvatarImage src={ong.profile_image} alt="" loading="lazy" className="object-cover" />}
                             <AvatarFallback>{ong.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <h3 className="min-w-0 break-words text-[26px] font-semibold leading-[1.15]">{ong.name}</h3>

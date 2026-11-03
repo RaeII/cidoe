@@ -201,6 +201,8 @@ Ponto focal: olhar do animal no terço superior, nunca coberto por placa ou selo
 5. **Sombra** — nenhuma, nem `bevel`. Sombra dura só em imagem clicável.
 6. **Espera** — fundo `muted` (papel 300) enquanto carrega.
 
+`Photo` verifica `complete`/`naturalWidth` no ref de montagem: imagem já carregada antes da hidratação sai da espera sem depender de um novo evento `load`. Trocar `src` reinicia a espera; falha mantém o estado de erro da moldura.
+
 `Photo` = moldura + `object-cover` + estados de [[#Estados (5.7)]]. `webp` opcional vira `<picture>` com `src` (JPG) de reserva. Trocar `src` volta a "carregando". Resto das props vai para o `<img>` (`width`, `height`, `loading`).
 
 ### Tratamento (5.4)

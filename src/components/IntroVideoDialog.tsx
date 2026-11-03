@@ -5,7 +5,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui
 import { PixelClose } from "@/components/ui/pixel-icon";
 
 /**
- * Vídeo de apresentação do 1º acesso (mudo, em loop, sem controles). Mobile: vídeo
+ * Vídeo de apresentação sob demanda (mudo, em loop, sem controles). Mobile: vídeo
  * quase em tela cheia + "Acessar Cidoe" embaixo (só fecha). Desktop: vídeo à esquerda, `panel` (login)
  * à direita. Quando abre e o que fica salvo: `AuthMenu`.
  */

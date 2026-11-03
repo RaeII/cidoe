@@ -32,16 +32,16 @@ Esses componentes:
 
 Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
 
-Primeira viewport = só loading; sai com **tudo** carregado. Imagens aguardam `booted`; menu textual e apresentação disponíveis na seção HTML abaixo da cena, sem esperar API/WebGL. Sem pôster da cidade. [[seo]].
+Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, apresentação e imagens informativas disponíveis na seção HTML abaixo da cena, sem esperar API/WebGL; imagens usam lazy loading nativo. A primeira renderização do React hidrata o HTML do build; [[seo]]. Sem pôster da cidade.
 
 1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
-2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `DonationLoadOverlay cover` com estado `loading`. React limpa `#root` no 1º commit e repõe o mesmo card → sem pisca, sem CLS, sem LCP novo.
-3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (loading) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
-4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas; falha = catálogo vazio) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
-5. **Até `booted`** não montam: placa da marca (logo), `AuthMenu`, `DonationFilterBar`, `BuildingHeightInput`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` monta desde o início; `mediaReady={booted}` adia logo, foto e avatares. Texto e links acessíveis abaixo da cena, inclusive com falha de API/WebGL; sem onboarding sobre o loading.
+2. **`AppContent` (`App.tsx`)** — compartilhado com o build (`renderToString` + `StaticRouter`), incluindo limites de `Suspense` e IDs. `SceneFallback` mantém loading + `DonationInfoSection` completos durante o download do editor. Documentos públicos usam imports diretos para corresponder ao HTML inicial. `main.tsx` usa `hydrateRoot` em produção com HTML; dev e casca vazia do admin usam `createRoot`.
+3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). Após a hidratação, `clientReady` monta sessão da cena e `Toaster`; só então o editor lazy começa a baixar. Store do toast preserva notificações anteriores ao mount.
+4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
+5. **Até `booted`** não montam: placa da marca, `AuthMenu`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` mantém texto, links, logo e foto desde o início; sem prop `mediaReady`. Fotos e avatares usam `loading="lazy"`. Sem onboarding sobre o loading.
 
 > [!note] Custo
-> Loading espera fachadas do cenário inicial (~11 MB medido na beta, headless ~5 Mbps sem cache: última textura 11,24 s → loading sai 11,28 s). Logo e foto começam a baixar no instante da saída. Sem WebGL: hook marca `sceneReady`, loading sai normal.
+> Medição anterior, com 6 fachadas adicionais (~11 MB; headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s. A política atual usa lazy loading nativo nas imagens públicas; tempo de download e métricas de campo precisam de nova medição. Sem WebGL: hook marca `sceneReady`, loading sai normal.
 
 > [!warning] LCP
 > LCP mobile = texto do card de loading (já no HTML). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
@@ -90,7 +90,7 @@ Placa e `AuthMenu` na mesma linha (`inset-x-4 top-4 z-30`, `justify-between`, ga
 
 ### `DonationInfoSection.tsx`
 
-H1: **Cidoe: uma cidade 3D pela proteção animal.** Subtítulos H2; nomes de ONG H3. Corpo e links independem de `booted`; `mediaReady` (padrão `true`, cena passa `booted`, build passa `false`) controla apenas imagens. Rodapé inclui Sobre; mesmos componentes no HTML estático, sem dados de conta. [[seo]].
+H1: **Cidoe: uma cidade 3D pela proteção animal.** Subtítulos H2. Corpo, links e imagens independem de `booted`; logo e foto já têm URL, dimensões e lazy loading no HTML inicial. Rodapé inclui `/sobre`; mesma apresentação renderizada no HTML estático, sem API ou valores de contas. `Photo` verifica imagens já carregadas ao montar, evitando espera permanente quando o evento de load ocorreu antes da hidratação. [[seo]].
 
 Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: menu de palavras à direita → hero display → `01 Impacto` → `02 Para onde vai a sua contribuição` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-8 pb-[120px]` (mobile `pt-6 pb-24`). Hero 48px abaixo do menu (mobile 32px). Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé); mobile 80px em todos. Sem hairline: só espaço. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
 
@@ -360,16 +360,15 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 ### `IntroVideoDialog.tsx`
 
-Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso de visitante, em todo link de indicação e, no desktop, em todo login. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado) → só aparece depois de `booted`, sobre a cidade pronta.
+Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) sob demanda em **Conheça o Cidoe** e, no desktop, junto ao login solicitado. Visitar a home ou entrar por indicação não abre vídeo/login automaticamente. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado), depois de `booted`.
 
 - **Miniatura** — `poster="/video-cidoe-poster.jpg"`: JPEG público 720×1280, quadro real aos 14 s, copiado pelo Vite para `dist/`. URL estável e rastreável, aceita pelo Google como miniatura do vídeo. Ver [[seo#Vídeo de apresentação e miniatura]].
-- **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo (`DialogClose`) → cidade; com `?ref=` segue para `AuthDialog` com indicação. Login (Entrar/contribuição) no mobile = `AuthDialog` sem vídeo. Título `sr-only` "Cidoe".
-- **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Desktop nunca abre `AuthDialog` solto: **Entrar**, contribuição e `?ref=` abrem este layout (`videoOpen = showIntro || (!isMobile && effectiveAuthOpen)`). Login concluído ou fechar → fecha vídeo e login.
+- **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo e retorna à cidade. Login (Entrar/contribuição) = `AuthDialog` sem vídeo. **Conheça o Cidoe** usa ícone Play com nome acessível no celular. Título `sr-only` "Cidoe".
+- **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. **Entrar**, contribuição e **Conheça o Cidoe** abrem este layout (`videoOpen = showIntro || (!isMobile && authOpen)`). Login concluído ou fechar → fecha vídeo e login.
 - **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar mantém código de indicação ([[referral#Captura e validação]]).
-- **Quando abre** (`AuthMenu`) — (`?ref=` na entrada || `!localStorage["cidoe:intro-video-seen"]`) && sessão resolvida && deslogado && login do editor fechado. Link de indicação sempre mostra vídeo, mesmo já visto.
-- **Uma vez** — lê preferência legada via `readProjectStorage` e grava `cidoe:intro-video-seen` ao abrir e sempre que houver usuário logado. Conta logada nunca vê: sessão = cookie httpOnly, sobrevive a limpar o `localStorage`. Storage bloqueado = tratado como visto (não repete a cada visita).
-- `AuthDialog` só no mobile, nunca junto do vídeo: `open={isMobile && effectiveAuthOpen && !showIntro}`. `?ref=` só abre login com sessão resolvida (`!isLoading`).
-- Chave listada na [[termos-e-privacidade|Política de Privacidade]] (tabela de cookies e armazenamento).
+- **Quando abre** (`AuthMenu`) — `introOpen` começa em `false`; só o botão de apresentação altera para `true`. Código `?ref=` é preservado para quando o visitante abrir o login.
+- **Armazenamento** — não lê nem grava `cidoe:intro-video-seen`; preferência obsoleta retirada da tabela da Política de Privacidade, sem apagar dados existentes do navegador.
+- `AuthDialog` só no mobile, nunca junto do vídeo: `open={isMobile && authOpen && !showIntro}`.
 
 ---
 

@@ -48,7 +48,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | `/termos` | `src/pages/legal/Terms.tsx` | nenhuma — fora do `AuthProvider` |
 | `/privacidade` | `src/pages/legal/Privacy.tsx` | nenhuma — fora do `AuthProvider` |
 
-Lazy em `src/App.tsx`; `npm run build` pré-renderiza cada documento com metadados próprios. Nginx serve `/termos/index.html` e `/privacidade/index.html` nas URLs canônicas; fallback SPA só em `/dale`. Body com `overflow: hidden` (cena); `LegalPage` rola no próprio `<main>`. [[seo]].
+Imports diretos em `src/App.tsx`; build e primeira renderização compartilham `AppContent`, preservando documentos completos na hidratação. Nginx serve cada URL pública exata; fallback SPA reservado ao admin, demais URLs desconhecidas recebem 404. `LegalPage` rola no próprio `<main>`. [[seo]].
 
 Links:
 - HTML pré-renderizado: apresentação completa da home e documentos. `<noscript>` mantém links legais, Sobre e finalidade de nome/e-mail/foto no login com Google (verificação).
@@ -80,6 +80,8 @@ flowchart TD
 - **Reaceite** (`TermsDialog`): abre quando `user.terms_version !== LEGAL_VERSION` — conta anterior aos termos (`null`, título "Termos de Uso") ou versão antiga ("Termos atualizados"). Sem X, Esc ou clique fora; saída = **Sair** (logout). Sucesso atualiza `user` → fecha sozinho.
 - **Prioridade**: `AuthMenu` segura `ReferralDialog` e `OnboardingDialog` enquanto `needsTerms`. Ver [[html-components#OnboardingDialog.tsx]].
 - `AuthProvider.acceptTerms` segue padrão `sessionVersion` (resposta de sessão antiga não sobrescreve usuário).
+
+Vídeo de apresentação sob demanda: `cidoe:intro-video-seen` deixou de ser usado e foi retirado da tabela de armazenamento; chaves antigas não são apagadas. Sem finalidade nova de tratamento de dados.
 
 ### Backend (`cidoe-back`)
 
