@@ -334,6 +334,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso de visitante, em todo link de indicação e, no desktop, em todo login. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado) → só aparece depois de `booted`, sobre a cidade pronta.
 
+- **Miniatura** — `poster="/video-cidoe-poster.jpg"`: JPEG público 720×1280, quadro real aos 7,5 s, copiado pelo Vite para `dist/`. URL estável e rastreável, aceita pelo Google como miniatura do vídeo. Ver [[seo#Vídeo de apresentação e miniatura]].
 - **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo (`DialogClose`) → cidade; com `?ref=` segue para `AuthDialog` com indicação. Login (Entrar/contribuição) no mobile = `AuthDialog` sem vídeo. Título `sr-only` "Cidoe".
 - **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Desktop nunca abre `AuthDialog` solto: **Entrar**, contribuição e `?ref=` abrem este layout (`videoOpen = showIntro || (!isMobile && effectiveAuthOpen)`). Login concluído ou fechar → fecha vídeo e login.
 - **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar mantém código de indicação ([[referral#Captura e validação]]).
