@@ -30,13 +30,17 @@ Domínio oficial `https://cidoe.com.br`, marca **Cidoe**. GitHub: [RaeII/cidoe](
 ### Marca, SEO e migração de nomes
 
 - `main`: pacote `cidoe`, imagem `ghcr.io/raeii/cidoe-front:main`, rede `cidoe`. `LEGAL_EDITION="launch"` preservado; sem texto de contribuições simuladas nos metadados.
-- `index.html`: título **Cidoe | Cidade 3D solidária pela proteção animal**, descrição sobre contribuições para ONGs, `application-name`, canonical absoluto, Open Graph (`og:site_name`, locale, título, descrição, imagem), Twitter Card e JSON-LD `WebSite` com nome **Cidoe**.
+- SEO permanente em `beta` e `main`: mesmos títulos, descrições, canonical, metadados sociais e JSON-LD. Lançamento não exige troca de tags. Sem fase, versão, data, "pré-lançamento", "beta", "em breve" ou contribuições simuladas nesses textos e no `noscript`.
+- `index.html`: título **Cidoe | Cidade 3D solidária pela proteção animal**. Descrição: **Conheça o Cidoe, a cidade 3D solidária onde doações para ONGs de proteção animal viram edifícios. Contribua e personalize seu prédio.** Mesmo texto em `description`, `og:description`, `twitter:description` e JSON-LD `WebSite.description`; títulos sociais iguais ao `<title>`. `application-name`, marca **Cidoe**, idioma `pt-BR`, imagens e URLs absolutas preservados.
+- Vocabulário: **doações para ONGs**, **proteção animal**, **cidade 3D solidária**, **edifícios** e **personalize seu prédio**. Descreve causa, destino das contribuições e experiência; sem repetição artificial. `noscript` alinha H1 e apresentação à mesma proposta, com links legais preservados.
+- Sem `meta keywords`: [Google não usa essa tag](https://developers.google.com/search/docs/fundamentals/seo-starter-guide#meta-keywords). Títulos e descrições seguem [títulos descritivos](https://developers.google.com/search/docs/appearance/title-link) e [resumos relevantes](https://developers.google.com/search/docs/appearance/snippet). Google pode reescrever resultados; atualização depende de novo rastreamento e não garante posição.
+- Avisos operacionais da simulação na `beta` continuam na interface e no corpo dos documentos legais; metadados não dependem de `IS_PRELAUNCH`.
 - `public/robots.txt`: anuncia sitemap; restringe rastreamento de `/dale` e `/api/`. `public/sitemap.xml`: `/`, `/termos`, `/privacidade`.
-- `LegalPage`: título, descrição, canonical e metadados sociais por documento; cleanup restaura a home.
+- `LegalPage` atualiza título, descrição, canonical e metadados sociais por documento; ao sair, restaura os valores da home. `/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. Mesmos textos nas duas branches.
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê `cidoe:*`; na ausência, migra `cidoa:*`. Remove chave antiga só após gravar; quota cheia mantém original legível. `AuthMenu` e `uiVisibilityConfig` usam essa leitura para preservar preferências.
 - Nomes antigos restritos à migração/limpeza, instruções da transição Docker e caminhos reais. Cache `cidoe-env-v2` baixa novamente os arquivos de ambiente, sem alterar dados dos usuários.
 - Docker front/back precisa de [transição coordenada](../prod/README.md#transição-para-os-nomes-cidoe), preservando banco e volume de logs.
-- Verificação sem servidor/navegador: build, lint, `node scripts/check-branding.mjs`, `node scripts/check-building-management.mjs`.
+- Verificação: `node scripts/check-branding.mjs` cobre ausência de fase no HTML/metadados legais, termos de pesquisa, paridade entre tags/JSON-LD e restauração dos metadados ao sair dos documentos. Também build, lint e `node scripts/check-building-management.mjs`. Sem servidor ou navegador.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 

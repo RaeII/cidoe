@@ -157,4 +157,6 @@ Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo d
 
 ## Marca e SEO
 
-Marca **Cidoe**, domínio `https://cidoe.com.br/`. Metadados da main descrevem cidade 3D e contribuições para ONGs; edição `launch` preservada. Documentos recebem título, descrição, canonical e metadados sociais próprios após renderização do React; previews sem JavaScript recebem metadados estáticos da home. Sitemap lista home, termos e privacidade. Preferências antigas de interface/vídeo migradas sem descartar dados em falhas de gravação. Ver [[index#Marca, SEO e migração de nomes]].
+Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. SEO permanente, idêntico em `beta` e `main`: cidade 3D solidária, doações para ONGs e proteção animal. Nenhuma fase/versão nos títulos, descrições, metadados sociais, JSON-LD ou apresentação `noscript`; lançamento não exige troca. Avisos operacionais da simulação e cláusulas legais da `beta` preservados.
+
+`/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos dos usuários. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. `LegalPage` aplica metadados e canonical por documento após renderização do React; previews sem JavaScript recebem metadados estáticos da home. Sitemap lista as três páginas. `node scripts/check-branding.mjs` verifica textos e restauração ao voltar à home. Ver [[index#Marca, SEO e migração de nomes]].
