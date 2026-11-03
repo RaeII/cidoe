@@ -454,7 +454,7 @@ export default function Terms() {
   return (
     <LegalPage
       title="Termos de Uso"
-      description="Leia os Termos de Uso do Cidoe: regras da cidade 3D, contribuições, conta, personalizações e condições do pré-lançamento."
+      description="Leia os Termos de Uso do Cidoe: regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos dos usuários."
       intro={
         <p>
           Regras para usar o Cidoe. Os trechos em negrito são os mais

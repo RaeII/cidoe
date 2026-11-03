@@ -42,9 +42,10 @@ const html = await read("index.html");
 const title = html.match(/<title>([^<]+)<\/title>/)[1];
 const meta = (attribute, key) => html.match(new RegExp(`<meta ${attribute}="${key}" content="([^"]+)"`))?.[1];
 const description = meta("name", "description");
-assert.match(title, /^Cidoe.*Cidade 3D.*Pré-lançamento/);
-assert.match(description, /proteção animal/);
-assert.match(description, /contribuições simuladas/);
+assert.match(title, /^Cidoe.*Cidade 3D.*proteção animal/);
+assert.match(description, /cidade 3D solidária/);
+assert.match(description, /doações para ONGs de proteção animal/);
+assert.doesNotMatch(html, /pré[- ]lançamento|\bbeta\b|simulad|em breve/i);
 assert.equal(meta("property", "og:site_name"), "Cidoe");
 assert.equal(meta("property", "og:title"), title);
 assert.equal(meta("name", "twitter:title"), title);
@@ -55,6 +56,7 @@ assert.match(html, /<link rel="canonical" href="https:\/\/cidoe\.com\.br\/"/);
 const schema = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
 assert.equal(schema["@type"], "WebSite");
 assert.equal(schema.name, "Cidoe");
+assert.equal(schema.description, description);
 assert.equal(schema.url, "https://cidoe.com.br/");
 assert.doesNotMatch(html, /cidoa/i);
 const sitemap = await read("public/sitemap.xml");
@@ -68,7 +70,10 @@ const legalSource = await read("src/pages/legal/LegalPage.tsx");
 const ast = ts.createSourceFile("LegalPage.tsx", legalSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const component = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "LegalPage");
 const effect = component.body.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(ast) === "useEffect");
-for (const pathname of ["/termos", "/privacidade"]) {
+for (const [pathname, file] of [["/termos", "Terms"], ["/privacidade", "Privacy"]]) {
+  const page = await read(`src/pages/legal/${file}.tsx`);
+  const [, pageTitle, pageDescription] = page.match(/<LegalPage\s+title="([^"]+)"\s+description="([^"]+)"/);
+  assert.doesNotMatch(`${pageTitle} ${pageDescription}`, /pré[- ]lançamento|\bbeta\b|simulad|em breve/i);
   const elements = new Map();
   const document = {
     title,
@@ -82,12 +87,18 @@ for (const pathname of ["/termos", "/privacidade"]) {
     } },
   };
   let cleanup;
-  const context = { document, title: "Documento legal", description: "Descrição do documento", pathname, useEffect(run) { cleanup = run(); } };
+  const context = { document, title: pageTitle, description: pageDescription, pathname, useEffect(run) { cleanup = run(); } };
   vm.runInNewContext(ts.transpileModule(effect.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  assert.equal(document.title, "Documento legal · Cidoe");
+  assert.equal(document.title, `${pageTitle} · Cidoe`);
   assert.equal(elements.get('link[rel="canonical"]').value, `https://cidoe.com.br${pathname}`);
   assert.equal(elements.get('meta[name="description"]').value, context.description);
   assert.equal(elements.get('meta[property="og:url"]').value, `https://cidoe.com.br${pathname}`);
+  for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) {
+    assert.equal(elements.get(selector).value, document.title);
+  }
+  for (const selector of ['meta[property="og:description"]', 'meta[name="twitter:description"]']) {
+    assert.equal(elements.get(selector).value, pageDescription);
+  }
   cleanup();
   assert.equal(document.title, title);
   assert.ok([...elements.values()].every((element) => element.value === "home"), "Voltar à home restaura seus metadados");

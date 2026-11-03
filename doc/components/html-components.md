@@ -778,4 +778,4 @@ Controle de envio real só no Dashboard local; mantém código visível no login
 
 ### SEO dos documentos legais
 
-`LegalPage` recebe `description` de `Terms` e `Privacy`. Atualiza título, descrição, canonical, Open Graph e Twitter durante a navegação; cleanup restaura os metadados da home. Ver [[index#Marca, SEO e migração de nomes]].
+`LegalPage` recebe `description` de `Terms` e `Privacy`. Títulos e descrições permanentes, iguais em `beta` e `main`, sem referência à fase. Termos descrevem regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos; Privacidade descreve dados pessoais, cookies e direitos. Atualiza título, descrição, canonical, Open Graph e Twitter durante a navegação; cleanup restaura metadados da home. `node scripts/check-branding.mjs` executa esse efeito com os textos reais das duas páginas e verifica restauração. Avisos operacionais da simulação no corpo dos documentos preservados. Ver [[index#Marca, SEO e migração de nomes]].

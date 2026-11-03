@@ -42,7 +42,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 
 ### Interface
 
-**Pré-lançamento** no título e no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
+**Pré-lançamento** no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). Metadados usam apresentação permanente da marca, igual à `main`. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
 
 Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. Administração do edifício continua disponível para dono local ou admin; admin altera apenas sua cópia no navegador.
 
@@ -64,13 +64,17 @@ Domínio oficial: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google 
 
 ### Marca, SEO e migração de nomes
 
-- `index.html`: título **Cidoe | Cidade 3D solidária — Pré-lançamento**, descrição sobre proteção animal e contribuições simuladas, `application-name`, canonical absoluto, Open Graph (`og:site_name`, locale, título, descrição, imagem), Twitter Card e JSON-LD `WebSite` com nome **Cidoe**.
+- SEO permanente em `beta` e `main`: mesmos títulos, descrições, canonical, metadados sociais e JSON-LD. Lançamento não exige troca de tags. Sem fase, versão, data, "pré-lançamento", "beta", "em breve" ou contribuições simuladas nesses textos e no `noscript`.
+- `index.html`: título **Cidoe | Cidade 3D solidária pela proteção animal**. Descrição: **Conheça o Cidoe, a cidade 3D solidária onde doações para ONGs de proteção animal viram edifícios. Contribua e personalize seu prédio.** Mesmo texto em `description`, `og:description`, `twitter:description` e JSON-LD `WebSite.description`; títulos sociais iguais ao `<title>`. `application-name`, marca **Cidoe**, idioma `pt-BR`, imagens e URLs absolutas preservados.
+- Vocabulário: **doações para ONGs**, **proteção animal**, **cidade 3D solidária**, **edifícios** e **personalize seu prédio**. Descreve causa, destino das contribuições e experiência; sem repetição artificial. `noscript` alinha H1 e apresentação à mesma proposta, com links legais preservados.
+- Sem `meta keywords`: [Google não usa essa tag](https://developers.google.com/search/docs/fundamentals/seo-starter-guide#meta-keywords). Títulos e descrições seguem [títulos descritivos](https://developers.google.com/search/docs/appearance/title-link) e [resumos relevantes](https://developers.google.com/search/docs/appearance/snippet). Google pode reescrever resultados; atualização depende de novo rastreamento e não garante posição.
+- Avisos operacionais da simulação na `beta` continuam na interface e no corpo dos documentos legais; metadados não dependem de `IS_PRELAUNCH`.
 - `public/robots.txt`: anuncia `https://cidoe.com.br/sitemap.xml` e restringe rastreamento de `/dale` e `/api/`. Sitemap lista somente `/`, `/termos` e `/privacidade`.
-- `LegalPage` atualiza título, descrição, canonical e metadados sociais por documento; ao sair, restaura os valores da home.
+- `LegalPage` atualiza título, descrição, canonical e metadados sociais por documento; ao sair, restaura os valores da home. `/termos`: **Termos de Uso · Cidoe**, descrição sobre regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos. `/privacidade`: **Política de Privacidade · Cidoe**, descrição sobre dados pessoais, cookies, privacidade e direitos. Mesmos textos nas duas branches.
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê a chave atual; se ausente, copia a chave legada `cidoa:*`, removendo-a apenas depois de salvar. Quota cheia mantém o original legível. Preserva JSON, isolamento por conta, preferências e aceite/recusa do Analytics; valores atuais prevalecem.
 - A limpeza de `cidoa.admin.session`, o suporte a consentimento de abas antigas e a remoção de caches legados mantêm nomes antigos apenas para compatibilidade. `cidoe-env-v2` baixa novamente os arquivos de ambiente; cidades não ficam nesse cache.
 - GitHub renomeado para [RaeII/cidoe](https://github.com/RaeII/cidoe) (front) e [RaeII/cidoe-back](https://github.com/RaeII/cidoe-back) (API), com remotes e labels atualizados. Caminhos físicos dos repositórios e nome do banco existente permanecem os atuais. Deploy e transição coordenada de imagens/rede: [produção](../prod/README.md#transição-para-os-nomes-cidoe).
-- Verificação: `node scripts/check-branding.mjs`, `node scripts/check-prelaunch.mjs`, `node scripts/check-consent.mjs`, `node scripts/check-analytics.mjs`, build e lint. Sem servidor ou navegador.
+- Verificação: `node scripts/check-branding.mjs` cobre ausência de fase no HTML/metadados legais, termos de pesquisa, paridade entre tags/JSON-LD e restauração dos metadados ao sair dos documentos. Também `node scripts/check-prelaunch.mjs`, `node scripts/check-consent.mjs`, `node scripts/check-analytics.mjs`, build e lint. Sem servidor ou navegador.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
