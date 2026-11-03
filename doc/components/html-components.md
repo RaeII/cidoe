@@ -1,7 +1,7 @@
 ---
 title: HTML Components
 tags:
-  - cidoa
+  - cidoe
   - react
   - ui
   - componentes
@@ -324,8 +324,8 @@ Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso 
 - **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo (`DialogClose`) → cidade; com `?ref=` segue para `AuthDialog` com indicação. Login (Entrar/contribuição) no mobile = `AuthDialog` sem vídeo. Título `sr-only` "Cidoe".
 - **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Desktop nunca abre `AuthDialog` solto: **Entrar**, contribuição e `?ref=` abrem este layout (`videoOpen = showIntro || (!isMobile && effectiveAuthOpen)`). Login concluído ou fechar → fecha vídeo e login.
 - **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar mantém código de indicação ([[referral#Captura e validação]]).
-- **Quando abre** (`AuthMenu`) — (`?ref=` na entrada || `!localStorage["cidoa:intro-video-seen"]`) && sessão resolvida && deslogado && login do editor fechado. Link de indicação sempre mostra vídeo, mesmo já visto.
-- **Uma vez** — grava `cidoa:intro-video-seen` ao abrir e sempre que houver usuário logado. Conta logada nunca vê: sessão = cookie httpOnly, sobrevive a limpar o `localStorage`. Limpar tudo (cookie junto) = visitante anônimo, vê de novo; sem como identificar antes do login. Storage bloqueado = tratado como visto (não repete a cada visita).
+- **Quando abre** (`AuthMenu`) — (`?ref=` na entrada || `!localStorage["cidoe:intro-video-seen"]`) && sessão resolvida && deslogado && login do editor fechado. Link de indicação sempre mostra vídeo, mesmo já visto.
+- **Uma vez** — lê a preferência legada via `readProjectStorage` e grava `cidoe:intro-video-seen` ao abrir e sempre que houver usuário logado. Conta logada nunca vê: sessão = cookie httpOnly, sobrevive a limpar o `localStorage`. Limpar tudo (cookie junto) = visitante anônimo, vê de novo; sem como identificar antes do login. Storage bloqueado = tratado como visto (não repete a cada visita).
 - `AuthDialog` só no mobile, nunca junto do vídeo: `open={isMobile && effectiveAuthOpen && !showIntro}`. `?ref=` só abre login com sessão resolvida (`!isLoading`).
 - Chave listada na [[termos-e-privacidade|Política de Privacidade]] (tabela de cookies e armazenamento).
 
@@ -364,7 +364,7 @@ Caixa de aceite usada somente no passo de cadastro do `AuthDialog`; fluxo em [[t
 
 Banner global de cookies, separado do cadastro e montado no `App.tsx`. Mensagem: **Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir o uso do site. Saiba mais na Política de Privacidade.** Link em nova aba; botões **Recusar** (`outline`) e **Aceitar**, mesmo tamanho (Guia de Cookies ANPD: recusar na primeira camada). Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
 
-Escolha persiste em `cidoa:analytics-consent` (`granted` / `denied`). Google Analytics só carrega após aceite; publicidade desativada. Em `/privacidade#cookies`, **Preferências de cookies** reabre o banner via evento `cidoa:cookie-preferences`; **Desativar cookies opcionais** salva recusa e interrompe novos envios, inclusive nas outras abas, com confirmação por toast. Confirmação antiga `cidoa:cookie-notice` não autoriza análise. Se storage bloqueado, escolha vale na visita atual. Ver [[termos-e-privacidade#Google Analytics]].
+Escolha persiste em `cidoe:analytics-consent` (`granted` / `denied`), com migração da chave legada via `readProjectStorage` e preservação de revogações de abas abertas antes do deploy. Google Analytics só carrega após aceite; publicidade desativada. Em `/privacidade#cookies`, **Preferências de cookies** reabre o banner via evento `cidoe:cookie-preferences`; **Desativar cookies opcionais** salva recusa e interrompe novos envios, inclusive nas outras abas, com confirmação por toast. Confirmação antiga `cidoa:cookie-notice` não autoriza análise. Se storage bloqueado, escolha vale na visita atual. Ver [[termos-e-privacidade#Google Analytics]].
 
 ---
 
@@ -775,3 +775,7 @@ Botão `reward` **Desbloquear recompensa** (`BlockLoader` enquanto salva), **Esc
 ### `LocalEmailSettings.tsx`
 
 Controle de envio real só no Dashboard local; mantém código visível no login, flag persistida pela API admin e ignorada em produção. Ver [[area-admin#Teste local de envio de e-mail]].
+
+### SEO dos documentos legais
+
+`LegalPage` recebe `description` de `Terms` e `Privacy`. Atualiza título, descrição, canonical, Open Graph e Twitter durante a navegação; cleanup restaura os metadados da home. Ver [[index#Marca, SEO e migração de nomes]].

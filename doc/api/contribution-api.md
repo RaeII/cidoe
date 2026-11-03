@@ -1,6 +1,6 @@
 ---
 title: Contribuições — Pré-lançamento
-tags: [cidoa, api, beta]
+tags: [cidoe, api, beta]
 ---
 
 # Contribuições no pré-lançamento

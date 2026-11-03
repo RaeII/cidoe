@@ -14,10 +14,13 @@ const window = {
   dispatchEvent(event) { events.push(event.detail); },
 };
 const source = await readFile(new URL("../src/lib/prelaunchCity.ts", import.meta.url), "utf8");
+const projectStorage = {};
+const storageSource = await readFile(new URL("../src/lib/projectStorage.ts", import.meta.url), "utf8");
+vm.runInNewContext(ts.transpileModule(storageSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: projectStorage });
 function loadLocal() {
   const exports = {};
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } });
-  vm.runInNewContext(outputText, { exports, window, CustomEvent: class { constructor(_name, options) { this.detail = options.detail; } } });
+  vm.runInNewContext(outputText, { exports, window, require: () => projectStorage, CustomEvent: class { constructor(_name, options) { this.detail = options.detail; } } });
   return exports;
 }
 let local = loadLocal();

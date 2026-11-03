@@ -1,4 +1,8 @@
-# React + TypeScript + Vite
+# Cidoe
+
+Cidade 3D solidária em apoio à proteção animal. No pré-lançamento, contribuições e ONGs são de teste, sem pagamentos reais.
+
+SEO e migração de nomes: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
 
 ## Produção
 

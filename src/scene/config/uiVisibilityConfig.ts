@@ -1,6 +1,7 @@
 import type { UIVisibilitySettings } from "../types";
+import { readProjectStorage } from "../../lib/projectStorage";
 
-const STORAGE_KEY = "cidoa:ui-visibility";
+const STORAGE_KEY = "cidoe:ui-visibility";
 
 export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
   return {
@@ -17,7 +18,7 @@ export function loadUIVisibilitySettings(): UIVisibilitySettings {
   const defaults = createDefaultUIVisibilitySettings();
   if (typeof window === "undefined") return defaults;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = readProjectStorage(window.localStorage, STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<UIVisibilitySettings>;
     const merged = { ...defaults };

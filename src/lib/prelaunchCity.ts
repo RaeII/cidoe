@@ -1,16 +1,17 @@
 import type { Contribution, BuildingProfile } from "../api/contributionApi";
 import type { City, DonationRecord } from "../api/donationApi";
 import type { BuildingCustomization, BuildingShape, RooftopType } from "../scene/types";
+import { readProjectStorage } from "./projectStorage";
 
 export type LocalBuilding = DonationRecord & { city: City };
-export const LOCAL_CITY_EVENT = "cidoa:prelaunch-city";
+export const LOCAL_CITY_EVENT = "cidoe:prelaunch-city";
 
 export function localCityKey(userId: number | null, area: string): string {
-  return `cidoa:prelaunch:v1:${userId ?? "guest"}:${area}`;
+  return `cidoe:prelaunch:v1:${userId ?? "guest"}:${area}`;
 }
 
 export function readLocalValue<T>(userId: number | null, area: string, fallback: T): T {
-  const raw = window.localStorage.getItem(localCityKey(userId, area));
+  const raw = readProjectStorage(window.localStorage, localCityKey(userId, area));
   if (raw === null) return fallback;
   try {
     const parsed: unknown = JSON.parse(raw);

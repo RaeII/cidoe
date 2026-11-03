@@ -9,7 +9,7 @@
  *   --ref <imagem>                 referência ao lado das vistas
  *   --color <hex>                  cor da customização (aplicada como no manager)
  *   --slot <i>=<hex>[,metal[,rough]]  sobrescreve o material do slot i (calibrar autoral; repetível)
- *   --out <png>                    saída (padrão: <tmp>/cidoa-render/<formato>.png, sobrescreve)
+ *   --out <png>                    saída (padrão: <tmp>/cidoe-render/<formato>.png, sobrescreve)
  * Navegador: env CHROME, senão Chrome/Brave/Chromium nos caminhos padrão.
  *
  * Fiel à cena: mesmo HDRI (IBL + céu), luz ambiente padrão, ACES 1,45, lote 2×2.
@@ -212,9 +212,9 @@ if (ref && !existsSync(ref)) {
   console.error(`--ref não existe: ${ref}`);
   process.exit(1);
 }
-const out = resolve(values.out ?? join(tmpdir(), "cidoa-render", `${shape}.png`));
+const out = resolve(values.out ?? join(tmpdir(), "cidoe-render", `${shape}.png`));
 
-const work = mkdtempSync(join(tmpdir(), "cidoa-render-build-"));
+const work = mkdtempSync(join(tmpdir(), "cidoe-render-build-"));
 try {
   await build({
     stdin: { contents: PAGE, resolveDir: ROOT, loader: "js" },

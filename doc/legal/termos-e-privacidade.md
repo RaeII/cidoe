@@ -1,7 +1,7 @@
 ---
 title: Termos de Uso e Política de Privacidade
 tags:
-  - cidoa
+  - cidoe
   - legal
   - lgpd
   - auth
@@ -60,7 +60,7 @@ Links:
 
 ### Página inicial — requisitos do Google
 
-Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/answer/13807376?hl=pt-BR). Domínio oficial **`cidoe.com.br`** (verificado no Search Console por TXT). `cidoa.com.br` também é do dono, mas sem site nem e-mail: nunca usar em console, texto ou config.
+Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/answer/13807376?hl=pt-BR). Domínio oficial **`cidoe.com.br`** (verificado no Search Console por TXT). Outros domínios não devem ser usados em console, texto ou configuração.
 
 | Requisito | Onde atende |
 |---|---|
@@ -98,8 +98,8 @@ flowchart TD
 
 - `src/components/CookieNotice.tsx`, montado globalmente em `App.tsx`, independente da sessão e do aceite dos termos.
 - Banner discreto: **Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir o uso do site.** Link para `/privacidade#cookies` em nova aba; botões **Recusar** e **Aceitar**, mesmo tamanho. `?ref=` sai do `page_location` enviado ao GA (`analytics.ts`). Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
-- Escolha: `localStorage["cidoa:analytics-consent"] = "granted" | "denied"`. Valor ausente/inválido mostra banner; `cidoa:cookie-notice = acknowledged` antigo não concede consentimento. Storage bloqueado: escolha vale na visita atual.
-- Política inclui **Preferências de cookies**, que dispara `cidoa:cookie-preferences` e reabre o banner, e **Desativar cookies opcionais**, que salva `denied`, interrompe novos envios e confirma por toast. Evento `storage` sincroniza revogação entre abas. Cookies existentes podem ser apagados pelo navegador.
+- Escolha: `localStorage["cidoe:analytics-consent"] = "granted" | "denied"`. `readProjectStorage` preserva a decisão legada e o Analytics recebe revogações de abas anteriores ao deploy. Valor ausente/inválido mostra banner; `cidoa:cookie-notice = acknowledged` antigo não concede consentimento. Storage bloqueado: escolha vale na visita atual.
+- Política inclui **Preferências de cookies**, que dispara `cidoe:cookie-preferences` e reabre o banner, e **Desativar cookies opcionais**, que salva `denied`, interrompe novos envios e confirma por toast. Evento `storage` sincroniza revogação entre abas. Cookies existentes podem ser apagados pelo navegador.
 - Política documenta análise, dados, finalidade por consentimento, compartilhamento com Google, `_ga` / `_ga_*` (até 2 anos, renovados com uso) e chave local. Versão atualizada em **18/10/2026**; aceite dos termos permanece exclusivo do cadastro.
 - Verificação: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`, `npm run build`, `npm run lint`; sem servidor ou navegador.
 
@@ -114,7 +114,7 @@ flowchart TD
 - Após deploy, validar **Tag Assistant** e **DebugView**: tag encontrada após aceite, um `page_view` inicial, um por mudança de rota, sem envios após recusa. Painel GA4 e transmissão real não foram verificados pelos checks locais.
 - Fontes oficiais: [Google tag](https://developers.google.com/tag-platform/gtagjs), [Consent Mode](https://developers.google.com/tag-platform/security/guides/consent), [básico × avançado](https://support.google.com/analytics/answer/10000067), [SPA](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications), [controles de privacidade](https://developers.google.com/tag-platform/security/guides/privacy), [cookies](https://support.google.com/analytics/answer/11397207).
 
-## Backend (`cidoa-back`)
+## Backend (`cidoe-back`)
 
 | Peça | O quê |
 |---|---|
@@ -208,3 +208,7 @@ Ver também: [[index]], [[html-components]], [[area-admin]], [[desingn-system-in
 ## Duração do cookie administrativo
 
 Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo do JWT administrativo, fixado no código do backend, sem variável de ambiente. Sessão administrativa exige novo login para receber novo prazo.
+
+## Marca e SEO
+
+Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. A home informa o pré-lançamento e contribuições simuladas nos metadados. `/termos` e `/privacidade` têm título, descrição, canonical e metadados sociais próprios após renderização do React; previews que não executam JavaScript ainda recebem os metadados estáticos da home. Sitemap público lista as três páginas. Ver [[index#Marca, SEO e migração de nomes]].

@@ -1,7 +1,7 @@
 ---
 title: Sistema de Design
 tags:
-  - cidoa
+  - cidoe
   - design-system
   - ui
 aliases:
@@ -372,7 +372,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 
 **Fora do app:** templates de redes sociais (seção 08 do DS: 1080×1920, 1080×1080, 1920×1080, zonas seguras) vivem só no arquivo HTML.
 
-**E-mail do código de acesso** (backend `cidoa-back`, `src/modules/auth/auth.email.sender.ts`): mesmo visual — placa `pixel bevel-edge`, kicker verde, código em bloco verde com bisel, "!" âmbar sobre tinta, logo em pixel. Tokens copiados em hex (`DS`) porque e-mail não lê CSS: mudou token em `src/index.css` → mudar lá também.
+**E-mail do código de acesso** (backend `cidoe-back`, `src/modules/auth/auth.email.sender.ts`): mesmo visual — placa `pixel bevel-edge`, kicker verde, código em bloco verde com bisel, "!" âmbar sobre tinta, logo em pixel. Tokens copiados em hex (`DS`) porque e-mail não lê CSS: mudou token em `src/index.css` → mudar lá também.
 
 ## Copy
 

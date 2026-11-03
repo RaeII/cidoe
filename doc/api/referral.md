@@ -1,7 +1,7 @@
 ---
 title: Indicações no Frontend
 tags:
-  - cidoa
+  - cidoe
   - referrals
   - auth
 aliases:

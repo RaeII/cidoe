@@ -1,7 +1,7 @@
 ---
 title: Cidoe — Visão Geral
 tags:
-  - cidoa
+  - cidoe
   - arquitetura
   - overview
 aliases:
@@ -33,7 +33,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
 - Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
 - IDs negativos dos seeds e da simulação; IDs públicos positivos preservados no dataset, fora da cena no pré-lançamento.
-- Chaves: `cidoa:prelaunch:v1:<userId>:<area>`. Áreas `buildings`, `customizations`, `profiles` e `scene:<setting>`. Visitante usa `guest` somente para preferências.
+- Chaves: `cidoe:prelaunch:v1:<userId>:<area>`. Áreas `buildings`, `customizations`, `profiles` e `scene:<setting>`. Visitante usa `guest` somente para preferências.
 - `LocalBuilding` inclui cidade (`id`, nome, UF) para restaurar filtros e localização mesmo se ausente do snapshot.
 - `useLocalCityValue` usa `useSyncExternalStore`, eventos locais e `storage`: atualiza componentes e outras abas da mesma conta/navegador. Logout/troca de conta remove os edifícios e edições da conta anterior do render.
 - `useLocalSceneState`: iluminação, terreno, texturas, ambiente/noite, reflexos, horizonte, layout, visibilidade, granulado, limite de renderização e filtros. Restaura valores por conta; não publica alterações.
@@ -60,7 +60,17 @@ Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens 
 
 E-mail transacional: backend usa **Zoho CPaaS / ZeptoMail** (`AUTH_EMAIL_PROVIDER=zoho`); Resend preservado, inativo. Token puro em `ZOHO_API_KEY`; prefixo `Zoho-enczapikey` adicionado no backend. Política identifica Zoho como operador; versão `2026-10-25`. Configuração e webhook: [módulo E-mail do backend](../../cidoa-back/doc/modulos/email/email.md).
 
-Domínio: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google em [[termos-e-privacidade#Página inicial — requisitos do Google]]). `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v2` — renomear chave apaga cidade e consentimento salvos.
+Domínio oficial: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google em [[termos-e-privacidade#Página inicial — requisitos do Google]]). Pacote frontend `cidoe`, imagens `cidoe-front` / `cidoe-back`, rede Docker `cidoe`, eventos e chaves atuais `cidoe:*`, cache `cidoe-env-v2`.
+
+### Marca, SEO e migração de nomes
+
+- `index.html`: título **Cidoe | Cidade 3D solidária — Pré-lançamento**, descrição sobre proteção animal e contribuições simuladas, `application-name`, canonical absoluto, Open Graph (`og:site_name`, locale, título, descrição, imagem), Twitter Card e JSON-LD `WebSite` com nome **Cidoe**.
+- `public/robots.txt`: anuncia `https://cidoe.com.br/sitemap.xml` e restringe rastreamento de `/dale` e `/api/`. Sitemap lista somente `/`, `/termos` e `/privacidade`.
+- `LegalPage` atualiza título, descrição, canonical e metadados sociais por documento; ao sair, restaura os valores da home.
+- `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê a chave atual; se ausente, copia a chave legada `cidoa:*`, removendo-a apenas depois de salvar. Quota cheia mantém o original legível. Preserva JSON, isolamento por conta, preferências e aceite/recusa do Analytics; valores atuais prevalecem.
+- A limpeza de `cidoa.admin.session`, o suporte a consentimento de abas antigas e a remoção de caches legados mantêm nomes antigos apenas para compatibilidade. `cidoe-env-v2` baixa novamente os arquivos de ambiente; cidades não ficam nesse cache.
+- GitHub renomeado para [RaeII/cidoe](https://github.com/RaeII/cidoe) (front) e [RaeII/cidoe-back](https://github.com/RaeII/cidoe-back) (API), com remotes e labels atualizados. Caminhos físicos dos repositórios e nome do banco existente permanecem os atuais. Deploy e transição coordenada de imagens/rede: [produção](../prod/README.md#transição-para-os-nomes-cidoe).
+- Verificação: `node scripts/check-branding.mjs`, `node scripts/check-prelaunch.mjs`, `node scripts/check-consent.mjs`, `node scripts/check-analytics.mjs`, build e lint. Sem servidor ou navegador.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
@@ -102,6 +112,7 @@ scripts/
   check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
+  check-branding.mjs           ← migração de chaves legadas, quota, SEO, sitemap e restauração dos metadados legais; sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-mobile-keyboard.mjs    ← viewport, teclado, foco, rolagem integral do modal/sugestões, zoom e cleanup sem servidor/navegador
@@ -122,7 +133,8 @@ public/
   logo-branca.webp             ← logo oficial branca 192px: `CidoeLogo` no tema escuro (admin)
   og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
-  robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
+  robots.txt                   ← sitemap público; restringe rastreamento de admin/API
+  sitemap.xml                  ← URLs canônicas públicas: home, termos e privacidade
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
   App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
@@ -152,7 +164,7 @@ src/
     contributionApi.ts              ← leitura de perfil público + edição local no pré-lançamento
     regions.ts
   pages/legal/
-    LegalPage.tsx               ← layout público dos documentos: versão, índice de seções, texto em placa
+    LegalPage.tsx               ← layout público dos documentos + título, descrição, canonical e metadados sociais por rota
     Terms.tsx                   ← /termos
     Privacy.tsx                 ← /privacidade
   pages/admin/

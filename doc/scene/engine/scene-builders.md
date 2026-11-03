@@ -1,7 +1,7 @@
 ---
 title: Scene Builders
 tags:
-  - cidoa
+  - cidoe
   - builders
   - threejs
   - factory
@@ -143,7 +143,7 @@ Carrega e configura o ambiente HDRI/skybox. Callbacks: `onLoaded(envMap, bg)` no
 > `PMREMGenerator` faz cubo de `largura/4`: HDRI 4K gerava alvo de ~96 MiB (pico ~192 MiB) e tarefa de ~87 ms, pra um IBL que a doc do three pede de 256/face (entrada 1024×512). Céu visível continua em resolução de tela. Teste A/B desktop: céu 4K WebP ≈ JPG; 2K visivelmente mais borrado na nuvem → desktop fica 4K. Celular (DPR alto, tela pequena) vai de 2K: ¼ da VRAM e do upload, nuvem um pouco mais suave só em pixel físico.
 
 > [!tip] Cache persistente
-> `resolveEnvUrl` abre cache `cidoa-env-v2`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Apaga o `cidoa-env-v1` (JPG 4K de 3 MB da versão anterior). Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
+> `resolveEnvUrl` abre cache `cidoe-env-v2`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Apaga os caches legados `cidoa-env-v1` e `cidoa-env-v2`; o cache com a marca atual é preenchido na próxima leitura, sem afetar cidades salvas. Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
 
 > [!note] Sem `texture.needsUpdate` no updateSettings
 > `offset`/rotação são uniforms — `needsUpdate = true` re-enviava a textura 4K inteira à GPU a cada movimento de slider. Removido.

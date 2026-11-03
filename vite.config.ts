@@ -61,7 +61,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Back local (PORT=3000 no .env do cidoa_back). Same-origin em dev = sem CORS.
+      // Back local (PORT=3000 no .env da API). Same-origin em dev = sem CORS.
       // Produção: reverse proxy (nginx) servindo /api same-origin, ou VITE_API_URL.
       "/api": {
         target: "http://localhost:3000",

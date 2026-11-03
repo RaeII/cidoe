@@ -1,7 +1,7 @@
 ---
 title: Edifícios de Teste (Admin)
 tags:
-  - cidoa
+  - cidoe
   - admin
   - testing
 aliases:
@@ -14,7 +14,7 @@ aliases:
 Página admin (`/dale/edificios-teste`) pra gerar/excluir edifícios fictícios em massa. Edifício = doação — a cena desenha cada doação como prédio. Serve pra testar render e velocidade de carga com muitos prédios. Base de UI em [[componentes-html]]; auth e shell em [[area-admin]].
 
 > [!info] Backend
-> Front só chama as rotas. Lógica (geração aleatória, seed de cidade/ONG, senha destrutiva) mora no **cidoa-back**, submódulo `test-buildings` (`POST`/`DELETE /api/admin/test-buildings`). Ambas exigem sessão admin (`token_admin`).
+> Front só chama as rotas. Lógica (geração aleatória, seed de cidade/ONG, senha destrutiva) mora no **cidoe-back**, submódulo `test-buildings` (`POST`/`DELETE /api/admin/test-buildings`). Ambas exigem sessão admin (`token_admin`).
 
 ---
 
@@ -49,7 +49,7 @@ await createTestBuildings(count); // POST /admin/test-buildings { count }
 ## Excluir todos (destrutivo)
 
 > [!danger] Irreversível
-> Apaga **TODAS** as doações do banco (não só as de teste). Trava dupla no backend: `confirm: true` + senha `TEST_BUILDINGS_DELETE_PASSWORD` do `.env` do cidoa-back.
+> Apaga **TODAS** as doações do banco (não só as de teste). Trava dupla no backend: `confirm: true` + senha `TEST_BUILDINGS_DELETE_PASSWORD` do `.env` do cidoe-back.
 
 Fluxo de confirmação usa o primitivo [[componentes-html#shadcn/ui — primitivos|`Sheet`]] (já vendorizado, sem lib nova):
 

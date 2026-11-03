@@ -1,6 +1,8 @@
+import { readProjectStorage } from "./projectStorage";
+
 const MEASUREMENT_ID = "G-GEHP0ENSCR";
-const STORAGE_KEY = "cidoa:analytics-consent";
-export const COOKIE_PREFERENCES_EVENT = "cidoa:cookie-preferences";
+const STORAGE_KEY = "cidoe:analytics-consent";
+export const COOKIE_PREFERENCES_EVENT = "cidoe:cookie-preferences";
 
 type AnalyticsConsent = "granted" | "denied";
 
@@ -16,7 +18,7 @@ let initialized = false;
 
 export function getAnalyticsConsent(): AnalyticsConsent | null {
   try {
-    const value = localStorage.getItem(STORAGE_KEY);
+    const value = readProjectStorage(localStorage, STORAGE_KEY);
     return value === "granted" || value === "denied" ? value : null;
   } catch {
     return null;
@@ -79,6 +81,11 @@ export function setAnalyticsConsent(consent: AnalyticsConsent) {
 
 if (import.meta.env.PROD) {
   window.addEventListener("storage", (event) => {
+    // Abas abertas antes do deploy ainda gravam a chave antiga; remoção na migração não revoga o aceite.
+    if (event.key === "cidoa:analytics-consent" && event.newValue !== null) {
+      setAnalyticsConsent(event.newValue === "granted" ? "granted" : "denied");
+      return;
+    }
     if (event.key === STORAGE_KEY || event.key === null) initializeAnalytics();
   });
 }
