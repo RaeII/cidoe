@@ -31,12 +31,12 @@ Domínio oficial `https://cidoe.com.br`, marca **Cidoe**. GitHub: [RaeII/cidoe](
 
 - `main`: pacote `cidoe`, imagem `ghcr.io/raeii/cidoe-front:main`, rede `cidoe`. `LEGAL_EDITION="launch"`, pagamentos, sessões e cláusulas legais preservados. Alterações de SEO aplicadas diretamente, sem merge da beta.
 - Auditoria, fontes oficiais e estratégia de publicação: [[seo]]. Google, Gemini, ChatGPT, Claude, Perplexity, Bing e IndexNow; configuração externa de Search Console/CDN documentada.
-- `src/lib/seo.ts`: fonte única de título, descrição, canonical, previews e JSON-LD. Título da home **Cidoe | Cidade 3D solidária pela proteção animal**; metadados permanentes iguais em `beta` e `main`, sem fase ou métricas inventadas.
+- `src/lib/seo.ts`: fonte única de título, descrição, canonical, previews e JSON-LD. Título da home **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D**; metadados permanentes iguais em `beta` e `main`, sem fase ou métricas inventadas.
 - `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. `AppContent` compartilhado usa `renderToString`; `main.tsx` hidrata a mesma primeira renderização. Home e documentos preservam texto, links e imagens enquanto a cena lazy carrega; logo/foto usam lazy loading nativo. Nenhuma API ou dado de conta entra no build.
 - `PublicPageNav`: **Sobre**, **Termos**, **Privacidade**, links de texto à direita no início da seção HTML abaixo da cena. Sem formato de botão; hover/clique/toque, alvo mínimo 44px. Fora do canvas, loading e cabeçalhos das outras páginas. [[html-components#Menu público (PublicPageNav.tsx)]].
 - `/sobre`: funcionamento, condições das contribuições, autoria de **Israel Zeferino**, contato, LinkedIn e Instagram fornecidos pelo criador. Ícones compartilhados; URLs em `CREATOR_SOCIAL_PROFILES` e `Person.sameAs`. Sem credenciais inventadas; `Organization` identifica projeto sem afirmar que Cidoe é ONG.
 - Apresentação em vídeo sob demanda: **Conheça o Cidoe** ou login solicitado no desktop. Visita inicial e `?ref=` não abrem modal; indicação permanece preenchida no próximo login. Sem uso de `cidoe:intro-video-seen`. Favicon declarado: `favicon-96.png`.
-- Vocabulário: **cidade 3D solidária**, **doações para ONGs de proteção animal**, **cães e gatos**, **edifícios personalizáveis**. H1 descritivo, H2 internos; sem `meta keywords`, repetição artificial ou volume de busca inventado.
+- Vocabulário: **doação para ONGs de proteção animal**, **cidade 3D**, **ajudar animais**, **cães e gatos**, **personalizar meu prédio**. Metadados das quatro páginas públicas, H1/H2, apresentação, Sobre e `noscript` usam palavras simples. Sobre mantém **Israel Zeferino**; títulos legais, cláusulas e comandos da interface preservados. H1 descritivo, H2 internos; sem `meta keywords`, repetição artificial ou volume de busca inventado.
 - `public/robots.txt`: bots de pesquisa e IA permitidos no mesmo grupo; API/healthz restritos. Admin rastreável para ler `noindex` no HTML/cabeçalho. Fallback SPA só em `/dale`; URLs inexistentes recebem 404. Sitemap com quatro páginas, sem datas falsas.
 - IndexNow: chave pública em `public/indexnow-key.txt`; `npm run seo:submit -- --dry-run` valida localmente. Envio real somente após publicar. Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê `cidoe:*`; na ausência, migra `cidoa:*`. Remove chave antiga só após gravar; quota cheia mantém original legível. Preferências e dados existentes preservados.
@@ -203,7 +203,7 @@ src/
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
       DonationFilterBar.tsx
-      DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
+      DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       MyBuildingsNavigation.tsx     ← modo dedicado: dados no topo, setas laterais, personalizar/detalhes no rodapé e X
       donate/

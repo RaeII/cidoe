@@ -78,11 +78,11 @@ export function DonationInfoSection({
               O projeto
             </p>
             <h1 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
-              Cidoe: uma cidade 3D pela proteção animal.
+              Cidoe: doação para ONGs em uma cidade 3D.
             </h1>
             <p className="mt-6 sm:mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
-              Cidoe transforma contribuições em edifícios e apoia ONGs de proteção animal:
-              resgate, castração, tratamento veterinário e adoção responsável.
+              Cada doação vira um prédio na cidade 3D e apoia ONGs que ajudam cães e gatos
+              com resgate, castração, tratamento veterinário e adoção responsável.
             </p>
           </div>
           <div className="relative">
@@ -101,19 +101,19 @@ export function DonationInfoSection({
 
         {loadState.status === "loading" ? (
           <div role="status" className="mt-20 sm:mt-32 flex items-center gap-3 text-muted-foreground">
-            <BlockLoader /><span>Carregando ONGs e contribuições…</span>
+            <BlockLoader /><span>Carregando ONGs e doações…</span>
           </div>
         ) : loadState.status === "error" ? (
           <div className="mt-20 sm:mt-32 space-y-4">
             <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
-              <ErrorMark />Não foi possível carregar as contribuições.
+              <ErrorMark />Não foi possível carregar as doações.
             </p>
             <Button variant="outline" onClick={onRetry}>Tentar novamente</Button>
           </div>
         ) : (
           <>
             <div className="mt-20 sm:mt-32">
-              <SectionHead index="01">Impacto</SectionHead>
+              <SectionHead index="01">Doações na cidade</SectionHead>
               <div className="mt-9 grid gap-5 sm:grid-cols-3">
                 <div className="pixel bevel-edge bg-card px-6 pt-5 pb-7 sm:col-span-3">
                   <p className="mono-label text-muted-foreground">{hasFilter ? "Total neste recorte" : "Total arrecadado"}</p>
@@ -139,7 +139,7 @@ export function DonationInfoSection({
 
             <div className="mt-20 sm:mt-28">
               <div className="flex flex-wrap items-end justify-between gap-4">
-                <SectionHead index="02">Para onde vai a sua contribuição</SectionHead>
+                <SectionHead index="02">ONGs que recebem as doações</SectionHead>
                 {hasFilter && <Button variant="ghost" onClick={() => onFilterChange({})}>Limpar filtros</Button>}
               </div>
               {hasFilter && <p className="mt-4 text-sm text-muted-foreground">Valores e edifícios seguem os filtros da cidade.</p>}

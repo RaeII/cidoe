@@ -43,7 +43,7 @@ const withImage = DonationInfoSection({ ...props, ongs: [{ id: 20, name: "Patas"
 assert.equal(find(withImage, (item) => item.src === profileImage).length, 1, "Cartão usa a imagem cadastrada da ONG");
 const beforeScene = DonationInfoSection({ ...props, loadState: { status: "loading" } });
 const beforeSceneHtml = renderToStaticMarkup(beforeScene);
-assert.match(beforeSceneHtml, /<h1[^>]*>Cidoe: uma cidade 3D pela proteção animal/);
+assert.match(beforeSceneHtml, /<h1[^>]*>Cidoe: doação para ONGs em uma cidade 3D/);
 assert.match(beforeSceneHtml, /href="\/sobre"/);
 assert.match(beforeSceneHtml, /<img[^>]*src="\/cat_dog.jpeg"[^>]*loading="lazy"/, "Foto disponível antes do WebGL, com lazy loading nativo");
 assert.equal(find(withImage, (item) => item.src === profileImage)[0].loading, "lazy", "Avatar não espera a cena");
@@ -53,7 +53,7 @@ assert.match(html, /<div class="pixel [^"]*aspect-square bg-muted"><picture><sou
 assert.match(html, /animate-fill/, "Espera em blocos enchendo (DS 5.7)");
 assert.match(html, /bg-background pattern-paws/, "Fundo de patas do DS");
 assert.match(html, /max-w-\[1240px\]/);
-assert.match(html, /01<\/span><h2[^>]*>Impacto/, "Cabeçalho numerado do DS, abaixo do H1");
+assert.match(html, /01<\/span><h2[^>]*>Doações na cidade/, "Cabeçalho numerado do DS, abaixo do H1");
 assert.ok(html.indexOf("<header") < html.indexOf("Total arrecadado"));
 assert.ok(html.indexOf("Total arrecadado") < html.indexOf("<ul"));
 assert.match(html, /<li class="pixel bevel-edge/, "ONG em cartão do DS (6.6)");

@@ -1,6 +1,6 @@
 # Cidoe
 
-Cidade 3D solidária em apoio à proteção animal. Cada contribuição para uma ONG ergue um edifício.
+Cidade 3D de doações para ONGs de proteção animal. Cada doação vira um prédio na cidade.
 
 SEO e busca por IA: [guia completo](doc/seo.md). Build com HTML público: `npm run build`; validação: `npm run check:seo`. Migração da marca: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
 
