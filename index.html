@@ -1,13 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>cidoa</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#4E6B45" />
+    <!--seo-head-->
+    <!-- Fontes do sistema de design, self-hosted (@font-face em src/index.css): sem CSS
+         externo bloqueando o 1º paint. Preload só da Manrope latin (texto do 1º paint:
+         aviso de cookies); JetBrains Mono só aparece com a cena e baixa sob demanda. -->
+    <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Aplica tema salvo/do sistema antes do paint — evita flash. Escuro é só do /dale:
+      // fora dele a cena fica sempre clara, mesmo com sistema escuro ou tema salvo no admin.
+      (function () {
+        if (!location.pathname.startsWith('/dale')) return
+        var t = localStorage.getItem('theme')
+        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.classList.add('dark')
+      })()
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Página de loading pintada antes do JS (1º paint útil sem esperar o bundle), sem imagem.
+         Espelha DonationLoadOverlay `cover` (SceneFallback e cena repõem o mesmo card: sem
+         pisca nem LCP novo). Some só quando a cena termina de carregar tudo. -->
+    <div id="root"><!--app:start--><div id="scene-loading" class="relative h-screen w-full overflow-hidden bg-background"><div class="absolute inset-0 z-40 flex items-center justify-center bg-background"><div class="pixel bevel-edge w-[min(22rem,calc(100vw-2rem))] bg-background px-6 pt-5 pb-6 text-foreground"><div class="flex flex-col items-center gap-3 text-center"><span aria-hidden="true" class="inline-flex shrink-0 items-center gap-1 text-primary"><span class="size-2.5 animate-block bg-current motion-reduce:animate-none"></span><span class="size-2.5 animate-block bg-current motion-reduce:animate-none" style="animation-delay:300ms"></span><span class="size-2.5 animate-block bg-current motion-reduce:animate-none" style="animation-delay:600ms"></span></span><div class="text-sm">Carregando doações…</div><div class="font-mono text-[11px] text-muted-foreground">0.0 MB</div></div></div></div></div><!--app:end--></div>
+    <script>
+      // Loading é só da cena (/); outras rotas (/dale, /termos…) começam limpas.
+      if (location.pathname !== '/') document.getElementById('scene-loading')?.remove()
+    </script>
+    <noscript><style>#scene-loading{display:none}</style><p>Ative o JavaScript para explorar a cidade 3D de doações para ONGs de proteção animal. <a href="/sobre">Saiba como funciona o Cidoe</a> e leia os <a href="/termos">Termos de Uso</a> e a <a href="/privacidade">Política de Privacidade</a>.</p><p>No login com Google, usamos só nome, e-mail e foto para criar sua conta, fazer login e mostrar seu perfil.</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

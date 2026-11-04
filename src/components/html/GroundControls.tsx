@@ -9,7 +9,16 @@ type GroundControlsProps = {
 
 export function GroundControls({ value, onChange }: GroundControlsProps) {
   return (
-    <PanelSection title="Chão" description="Altere a cor do chão e o acabamento do material.">
+    <PanelSection
+      title="Chão"
+      description="Altere o tamanho, a cor do chão e o acabamento do material."
+    >
+      <p className="text-xs leading-5 text-muted-foreground">
+        Até onde o chão é desenhado fica em "Distância do chão", acima nesta aba: o valor vive no
+        horizonte porque é ele que decide se a borda do plano aparece ou se quem corta é o alcance
+        da câmera.
+      </p>
+
       <ColorField
         label="Cor do chão"
         value={value.color}
@@ -17,25 +26,25 @@ export function GroundControls({ value, onChange }: GroundControlsProps) {
         placeholder="#0d1016"
       />
 
-      <label className="mt-4 block">
-        <span className="mb-2 block text-sm text-white/75">Material do chão</span>
+      <label className="block">
+        <span className="mono-label mb-2 block text-foreground">Material do chão</span>
         <select
           value={value.materialType}
           onChange={(event) =>
             onChange({ ...value, materialType: event.target.value as GroundMaterialType })
           }
-          className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-white/20"
+          className="field h-8 w-full pl-2 text-sm"
         >
-          <option value="standard" className="bg-[#0b0d11] text-white">
+          <option value="standard">
             Standard
           </option>
-          <option value="matte" className="bg-[#0b0d11] text-white">
+          <option value="matte">
             Fosco
           </option>
-          <option value="soft-metal" className="bg-[#0b0d11] text-white">
+          <option value="soft-metal">
             Metal suave
           </option>
-          <option value="polished" className="bg-[#0b0d11] text-white">
+          <option value="polished">
             Polido
           </option>
         </select>

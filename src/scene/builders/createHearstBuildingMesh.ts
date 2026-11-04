@@ -423,8 +423,6 @@ export function createHearstBuildingMesh(
   topMaterial: THREE.Material,
 ): THREE.Mesh {
   const mesh = new THREE.Mesh(getHearstGeometry(), [facadeMaterial, topMaterial]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 

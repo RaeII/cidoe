@@ -1,8 +1,404 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Dark mode por classe: alternada por `.dark` no <html> (script anti-FOUC no index.html). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Fontes self-hosted (public/fonts, woff2 variável do Google Fonts): Manrope 200–800 e
+  JetBrains Mono 100–800 num arquivo só por subset. latin cobre pt-BR; latin-ext só
+  baixa se aparecer glifo dele (unicode-range). index.html faz preload do latin.
+*/
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+  Sistema de design — regras em doc/desingn-system/desingn-system-index.md.
+  Três cores: verde = marca e ação, papel = chão, âmbar = moeda (só conquista/foco/alerta).
+  Profundidade = borda em pixel + bisel sólido. Sem degradê, sem blur, sem border-radius.
+  A cena 3D não consome estes tokens; ela pinta o próprio canvas.
+*/
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-verde: #4e6b45;
+  --color-verde-hover: #5a7b50;
+  --color-verde-700: #3a5134;
+  --color-verde-100: #dce4d5;
+  --color-papel: #f2eee3;
+  --color-papel-claro: #fbf9f3;
+  --color-papel-300: #d9d3c2;
+  --color-ambar: #e3a33b;
+  --color-ambar-hover: #ebb257;
+  --color-ambar-700: #b47d22;
+  --color-ambar-800: #7d5414;
+  --color-ambar-100: #f6e3bf;
+  --color-tinta: #1e2a1b;
+  --color-tinta-2: #4a5446;
+
+  /* Canto em pixel substitui border-radius em tudo. `rounded-full` segue valendo. */
+  --radius: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /* Carregando em blocos: cada bloco acende na sua vez. */
+  --animate-block: block-blink 900ms steps(1, end) infinite;
+  @keyframes block-blink {
+    0% { opacity: 1; }
+    34%,
+    100% { opacity: 0.25; }
+  }
+  /* Foto carregando (DS 5.7): 10 blocos enchem um a um (320ms) e recomeçam. */
+  --animate-fill: block-fill 3520ms steps(11, jump-none) infinite;
+  @keyframes block-fill {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0); }
+  }
+}
+
+:root {
+  color-scheme: light;
+
+  --background: var(--color-papel);
+  --foreground: var(--color-tinta);
+
+  --card: var(--color-papel-claro);
+  --card-foreground: var(--color-tinta);
+
+  --popover: var(--color-papel-claro);
+  --popover-foreground: var(--color-tinta);
+  --input: var(--color-papel-300);
+
+  --muted: var(--color-papel-300);
+  --muted-foreground: var(--color-tinta-2);
+
+  --border: var(--color-papel-300);
+
+  --primary: var(--color-verde);
+  --primary-foreground: var(--color-papel);
+
+  --secondary: var(--color-verde-100);
+  --secondary-foreground: var(--color-verde-700);
+
+  --accent: var(--color-verde-100);
+  --accent-foreground: var(--color-tinta);
+
+  /* Sem vermelho: erro = âmbar escuro + "!" + frase clara. */
+  --destructive: var(--color-ambar-800);
+  --destructive-foreground: var(--color-papel);
+
+  --ring: var(--color-ambar);
+
+  /* Extras do DS: contorno em pixel, bisel das superfícies claras, placeholder, campo focado. */
+  --pixel-ink: var(--color-tinta);
+  --edge: var(--color-papel-300);
+  --placeholder: #7a8275;
+  --field-focus: #ffffff;
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Escuro (só /dale): mesmas três cores, chão vira tinta. */
+.dark {
+  color-scheme: dark;
+
+  --background: var(--color-tinta);
+  --foreground: var(--color-papel);
+
+  --card: #2b3828;
+  --card-foreground: var(--color-papel);
+
+  --popover: #2b3828;
+  --popover-foreground: var(--color-papel);
+  --input: #3a4637;
+
+  --muted: #34412f;
+  --muted-foreground: #b4bbad;
+
+  --border: #3a4637;
+
+  --primary: var(--color-verde);
+  --primary-foreground: var(--color-papel);
+
+  --secondary: var(--color-verde-700);
+  --secondary-foreground: var(--color-papel);
+
+  --accent: var(--color-verde-700);
+  --accent-foreground: var(--color-papel);
+
+  --destructive: var(--color-ambar);
+  --destructive-foreground: var(--color-tinta);
+
+  --ring: var(--color-ambar);
+
+  --pixel-ink: #0b110a;
+  --edge: #121a11;
+  --placeholder: #8e9688;
+  --field-focus: #24301f;
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Expõe os tokens como utilitários Tailwind: bg-primary, text-accent, bevel-edge, … */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-edge: var(--edge);
+  --color-placeholder: var(--placeholder);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+}
+
+/* ── Assinatura de jogo ─────────────────────────────────────────────────────
+   Vars sem herança: o bisel de um card não vaza para o input dentro dele. */
+@property --pixel-w { syntax: "*"; inherits: false; }
+@property --pixel-c { syntax: "*"; inherits: false; }
+@property --pixel-drop { syntax: "*"; inherits: false; }
+@property --bevel { syntax: "*"; inherits: false; }
+@property --bevel-w { syntax: "*"; inherits: false; }
+
+/* 1 · Canto em pixel: borda de 3px que pula o canto, como sprite. Substitui border + rounded.
+   Desenhada com box-shadow (fora da caixa): não mexe no layout, mas overflow corta —
+   dê respiro (p-1/p-2) dentro de áreas com scroll. Ordem: moldura, bisel, sombra dura
+   (a sombra por último deixa o "afundar" do botão interpolar). */
+@utility pixel {
+  box-shadow:
+    0 calc(var(--pixel-w, 3px) * -1) 0 0 var(--pixel-c, var(--pixel-ink)),
+    0 var(--pixel-w, 3px) 0 0 var(--pixel-c, var(--pixel-ink)),
+    calc(var(--pixel-w, 3px) * -1) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    var(--pixel-w, 3px) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    inset 0 calc(var(--bevel-w, 4px) * -1) 0 0 var(--bevel, #0000),
+    var(--pixel-drop, 0 0 #0000);
+}
+/* Borda de 2px (campos, selos, controles pequenos). */
+@utility pixel-thin {
+  --pixel-w: 2px;
+}
+/* Cor da borda: pixel-ink-verde (foco), pixel-ink-ambar-700 (erro). */
+@utility pixel-ink-* {
+  --pixel-c: --value(--color-*);
+}
+
+/* 2 · Bisel sólido: faixa no tom 700 na base (bevel-verde-700, bevel-edge, bevel-ambar-700). */
+@utility bevel-* {
+  --bevel: --value(--color-*);
+}
+/* Altura do bisel em px (padrão 4): bevel-w-6 em diálogos. */
+@utility bevel-w-* {
+  --bevel-w: calc(--value(integer) * 1px);
+}
+
+/* Sombra dura de 4px na diagonal, luz do canto superior esquerdo. Só botões. */
+@utility raised {
+  --pixel-drop:
+    4px 1px 0 0 var(--pixel-ink), 4px 7px 0 0 var(--pixel-ink),
+    1px 4px 0 0 var(--pixel-ink), 7px 4px 0 0 var(--pixel-ink);
+}
+
+/* Ao pressionar: anda 4px e a sombra vai a zero; o bisel não muda. */
+@utility press {
+  transition:
+    translate 70ms ease-out,
+    box-shadow 70ms ease-out,
+    background-color 70ms ease-out;
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    translate: 4px 4px;
+    --pixel-drop:
+      0 -3px 0 0 var(--pixel-ink), 0 3px 0 0 var(--pixel-ink),
+      -3px 0 0 0 var(--pixel-ink), 3px 0 0 0 var(--pixel-ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* Campo: papel claro + borda de 2px. Foco = borda verde de 3px + fundo branco;
+   erro (aria-invalid) = borda âmbar escura + fundo âmbar claro. Serve em input,
+   select, textarea e no wrapper de um grupo (prefixo R$ + input) via :focus-within. */
+@utility field {
+  --pixel-w: 2px;
+  box-shadow:
+    0 calc(var(--pixel-w) * -1) 0 0 var(--pixel-c, var(--pixel-ink)),
+    0 var(--pixel-w) 0 0 var(--pixel-c, var(--pixel-ink)),
+    calc(var(--pixel-w) * -1) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    var(--pixel-w) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    inset 0 calc(var(--bevel-w, 3px) * -1) 0 0 var(--bevel, #0000);
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+  &::placeholder {
+    color: var(--color-placeholder);
+    opacity: 1;
+  }
+  &:focus-within {
+    --pixel-w: 3px;
+    --pixel-c: var(--color-primary);
+    --bevel: var(--color-secondary);
+    background-color: var(--field-focus);
+  }
+  &:is([aria-invalid="true"], :has([aria-invalid="true"])) {
+    --pixel-w: 3px;
+    --pixel-c: var(--color-ambar-700);
+    background-color: var(--color-ambar-100);
+    color: var(--color-tinta);
+  }
+  &:is(:disabled, :has(:disabled)) {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+/* 3 · Cursor de menu ▸: marca a opção ativa ou destacada. Reserve pl-6 no item. */
+@utility menu-cursor {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 6px;
+    height: 10px;
+    margin-top: -5px;
+    background: var(--color-primary);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v7h-1zM1 1h1v5h-1zM2 2h1v3h-1zM3 3h1v1h-1z'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    opacity: 0;
+  }
+  &:is(:hover, :focus-visible, [data-highlighted], [data-state="checked"], [data-state="active"], [data-active="true"], [aria-current="page"], [aria-selected="true"])::before {
+    opacity: 1;
+  }
+}
+
+/* Foco desenhado por dentro: para itens em área com overflow (aba rolável, lista), onde o contorno de fora seria cortado. */
+@utility focus-inset {
+  --focus-offset: -3px;
+}
+
+/* Aba (DS): bold (13px no chamador); ativa = régua verde de 4px embaixo. Foco por dentro — listas de aba rolam.
+   Some `menu-cursor pl-6` para a seta ▸ na ativa. */
+@utility tab {
+  --focus-offset: -3px;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  transition: color 70ms ease-out, background-color 70ms ease-out;
+  &:hover {
+    color: var(--color-foreground);
+  }
+  &:is([data-state="active"], [data-active="true"]) {
+    color: var(--color-foreground);
+    box-shadow: inset 0 -4px 0 0 var(--color-primary);
+  }
+}
+
+/* Rótulo/placar em mono: rótulos de campo, contadores, kickers. Nunca parágrafo nem valor. */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.04em;
+}
+
+/* Fundo de papel com pegadas (telas fora da cena). */
+@utility pattern-paws {
+  background-image: url("./assets/ui/paw-pattern.svg");
+  background-size: 420px 420px;
+  @variant dark {
+    background-image: none;
+  }
+}
+
+/* A área visível encolhe com o teclado mesmo quando as unidades vh não mudam. */
+.h-svh {
+  height: min(100svh, var(--viewport-height, 100svh));
+}
+
+.min-h-svh {
+  min-height: min(100svh, var(--viewport-height, 100svh));
+}
 
 @layer base {
   * {
     box-sizing: border-box;
+  }
+
+  /* shadcn: cor de borda padrão (utilitário `border` sem cor explícita). */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
   }
 
   html,
@@ -14,32 +410,154 @@
   body {
     margin: 0;
     min-width: 320px;
+    /* Cena ocupa a viewport inteira; as telas de /admin rolam internamente. */
     overflow: hidden;
-    background: #05070a;
-    color: rgba(255, 255, 255, 0.95);
-    font-family:
-      Inter,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    scroll-margin-block: 12px;
+  }
+
+  ::selection {
+    background: var(--color-ambar);
+    color: var(--color-tinta);
+  }
+
+  /* Ícones de linha (lucide) com terminação reta, mais perto do pixel. */
+  .lucide {
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+  }
+
+  /* Controles nativos no vocabulário do DS: quadrados, borda em pixel, verde quando marcado. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin: 2px;
+    background: var(--color-card) center / 14px no-repeat;
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23F2EEE3' d='M8 1h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM2 6h3v1h-3z'/%3E%3C/svg%3E");
+  }
+  /* Rádio (DS 6.3): 20px, marcado = quadrado verde de 10px no centro. */
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
+  input[type="radio"]:checked {
+    background-color: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 0 0 5px var(--color-card);
+  }
+  input:is([type="checkbox"], [type="radio"]):disabled {
+    opacity: 0.5;
+  }
+
+  input[type="range"] {
+    appearance: none;
+    height: 20px;
+    background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--color-muted);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    margin-top: -5px;
+    background: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 -3px 0 0 var(--color-verde-700);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 8px;
+    background: var(--color-muted);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="range"]::-moz-range-progress {
+    height: 8px;
+    background: var(--color-primary);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 18px;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 -3px 0 0 var(--color-verde-700);
+  }
+
+  input[type="color"] {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"]::-webkit-color-swatch,
+  input[type="color"]::-moz-color-swatch {
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* Select nativo: seta em pixel. Junte com `field` para a moldura. */
+  select {
+    appearance: none;
+    padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%231E2A1B' d='M0 0h7v1h-7zM1 1h5v1h-5zM2 2h3v1h-3zM3 3h1v1h-1z'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 14px 8px;
+    background-repeat: no-repeat;
+  }
 }
 
-@layer utilities {
-  /* Scroll still works (wheel/touch/keyboard); scrollbar just hidden. */
-  .scrollbar-hidden {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE / old Edge */
-  }
+/* Fora de @layer de propósito: vence `outline-none` dos utilitários.
+   Foco de teclado = contorno âmbar de 3px. Campos (`field`) mostram foco pela moldura verde. */
+:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: var(--focus-offset, 4px);
+}
+:is(.field, .field *):focus-visible {
+  outline: none;
+}
 
-  .scrollbar-hidden::-webkit-scrollbar {
-    display: none; /* Chrome / Safari / WebKit */
-  }
+/* Cursor de pata em tudo que é clicável (assinatura do DS). */
+:is(a[href], button, select, summary, label[for], [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], input:is([type="checkbox"], [type="radio"], [type="range"], [type="color"])):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  cursor: url("./assets/ui/paw-cursor.svg") 16 2, pointer;
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { BlockLayoutSettings, UIVisibilitySettings } from "../../scene/types";
+import { Button } from "@/components/ui/button";
 
 type DonationInputProps = {
   onSubmit: (value: number) => void;
@@ -41,15 +42,14 @@ export function BuildingHeightInput({
     onBulkSubmit(values);
   };
 
-  const inputClass =
-    "rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-white outline-none placeholder:text-white/20 focus:border-white/30 focus:bg-white/10";
+  const inputClass = "field h-8 px-2 text-center text-sm outline-none";
 
   return (
-    <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 flex-col items-center gap-2">
+    <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 flex-col items-center gap-3">
       {/* Doação individual */}
       {visibility.donationInput && (
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
-        <label className="text-xs font-medium tracking-wide text-white/50">
+      <div className="pixel bevel-edge flex items-center gap-2.5 bg-background px-4 pt-2.5 pb-3.5">
+        <label className="mono-label text-muted-foreground">
           valor da doação
         </label>
         <input
@@ -62,19 +62,16 @@ export function BuildingHeightInput({
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           className={`w-28 ${inputClass}`}
         />
-        <button
-          onClick={handleSubmit}
-          className="rounded-md bg-white/10 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-white/20 active:bg-white/30"
-        >
+        <Button size="sm" onClick={handleSubmit}>
           doar
-        </button>
+        </Button>
       </div>
       )}
 
       {/* Geração em lote */}
       {visibility.bulkInput && (
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
-        <label className="text-xs font-medium tracking-wide text-white/50">mín</label>
+      <div className="pixel bevel-edge flex items-center gap-2.5 bg-background px-4 pt-2.5 pb-3.5">
+        <label className="mono-label text-muted-foreground">mín</label>
         <input
           type="number"
           min={1}
@@ -83,7 +80,7 @@ export function BuildingHeightInput({
           onChange={(e) => setMinValue(e.target.value)}
           className={`w-20 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">máx</label>
+        <label className="mono-label text-muted-foreground">máx</label>
         <input
           type="number"
           min={1}
@@ -92,7 +89,7 @@ export function BuildingHeightInput({
           onChange={(e) => setMaxValue(e.target.value)}
           className={`w-20 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">qtd</label>
+        <label className="mono-label text-muted-foreground">qtd</label>
         <input
           type="number"
           min={1}
@@ -102,19 +99,16 @@ export function BuildingHeightInput({
           className={`w-16 ${inputClass}`}
           style={{ width: "100px" }}  
         />
-        <button
-          onClick={handleBulkGenerate}
-          className="rounded-md bg-white/10 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-white/20 active:bg-white/30"
-        >
+        <Button size="sm" variant="outline" onClick={handleBulkGenerate}>
           gerar
-        </button>
+        </Button>
       </div>
       )}
 
       {/* Configuração de quadras */}
       {visibility.blockLayoutInput && (
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
-        <label className="text-xs font-medium tracking-wide text-white/50">bloco</label>
+      <div className="pixel bevel-edge flex items-center gap-2.5 bg-background px-4 pt-2.5 pb-3.5">
+        <label className="mono-label text-muted-foreground">bloco</label>
         <input
           type="number"
           min={1}
@@ -129,7 +123,7 @@ export function BuildingHeightInput({
           }}
           className={`w-16 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">rua</label>
+        <label className="mono-label text-muted-foreground">rua</label>
         <input
           type="number"
           min={0}
@@ -143,7 +137,7 @@ export function BuildingHeightInput({
           }}
           className={`w-20 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">t/quadra</label>
+        <label className="mono-label text-muted-foreground">t/quadra</label>
         <input
           type="number"
           min={1}
@@ -158,7 +152,7 @@ export function BuildingHeightInput({
           }}
           className={`w-16 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">torres%</label>
+        <label className="mono-label text-muted-foreground">torres%</label>
         <input
           type="number"
           min={0.01}
@@ -173,7 +167,7 @@ export function BuildingHeightInput({
           }}
           className={`w-16 ${inputClass}`}
         />
-        <label className="text-xs font-medium tracking-wide text-white/50">base%</label>
+        <label className="mono-label text-muted-foreground">base%</label>
         <input
           type="number"
           min={0.05}

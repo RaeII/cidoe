@@ -15,7 +15,7 @@ export function NumberField({
 }: NumberFieldProps) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm text-white/75">{label}</span>
+      <span className="mono-label mb-2 block text-foreground">{label}</span>
       <input
         type="number"
         value={value}
@@ -28,9 +28,7 @@ export function NumberField({
               }
             : undefined
         }
-        className={`h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm outline-none focus:border-white/20 ${
-          readOnly ? "text-white/70" : "text-white"
-        }`}
+        className="field h-8 w-full px-2 text-sm read-only:text-muted-foreground"
       />
     </label>
   );

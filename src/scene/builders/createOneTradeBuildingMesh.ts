@@ -82,21 +82,33 @@ function offsetFootprint(points: THREE.Vector3[], offset: number): THREE.Vector3
   });
 }
 
-function getProjectionNormal(normal: THREE.Vector3): THREE.Vector3 {
+function getProjectionNormal(
+  normal: THREE.Vector3,
+  target = new THREE.Vector3(),
+): THREE.Vector3 {
   const ax = Math.abs(normal.x);
   const ay = Math.abs(normal.y);
   const az = Math.abs(normal.z);
 
   if (ay >= ax && ay >= az) {
-    return new THREE.Vector3(0, Math.sign(normal.y) || 1, 0);
+    return target.set(0, Math.sign(normal.y) || 1, 0);
   }
 
   if (ax >= az) {
-    return new THREE.Vector3(Math.sign(normal.x) || 1, 0, 0);
+    return target.set(Math.sign(normal.x) || 1, 0, 0);
   }
 
-  return new THREE.Vector3(0, 0, Math.sign(normal.z) || 1);
+  return target.set(0, 0, Math.sign(normal.z) || 1);
 }
+
+// Scratch reaproveitado: um Vector3 novo por vértice e um toNonIndexed por peça dominavam
+// o 1º build (~18 ms, tarefa longa no celular). Mesma saída: o índice é percorrido na
+// ordem que o toNonIndexed expandiria.
+const scratchPoint = new THREE.Vector3();
+const scratchNormal = new THREE.Vector3();
+const scratchProjectionPoint = new THREE.Vector3();
+const scratchProjectionNormal = new THREE.Vector3();
+const scratchNormalMatrix = new THREE.Matrix3();
 
 function createVerticalProjection(
   a: THREE.Vector3,
@@ -344,40 +356,29 @@ function appendGeometry(
   materialIndex: number,
   matrix = new THREE.Matrix4(),
 ): void {
-  const source = geometry.index ? geometry.toNonIndexed() : geometry;
-  const position = source.getAttribute("position");
-  const normal = source.getAttribute("normal");
-  const projectionPosition = source.getAttribute("aProjPosition");
-  const projectionNormal = source.getAttribute("aProjNormal");
-  const normalMatrix = new THREE.Matrix3().getNormalMatrix(matrix);
+  const index = geometry.index;
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  const projectionPosition = geometry.getAttribute("aProjPosition");
+  const projectionNormal = geometry.getAttribute("aProjNormal");
+  const normalMatrix = scratchNormalMatrix.getNormalMatrix(matrix);
   const start = buffers.positions.length / 3;
+  const vertexCount = index ? index.count : position.count;
 
-  for (let i = 0; i < position.count; i++) {
-    const point = new THREE.Vector3(
-      position.getX(i),
-      position.getY(i),
-      position.getZ(i),
-    ).applyMatrix4(matrix);
+  for (let k = 0; k < vertexCount; k++) {
+    const i = index ? index.getX(k) : k;
+    const point = scratchPoint.fromBufferAttribute(position, i).applyMatrix4(matrix);
     const vertexNormal = normal
-      ? new THREE.Vector3(
-          normal.getX(i),
-          normal.getY(i),
-          normal.getZ(i),
-        ).applyMatrix3(normalMatrix).normalize()
-      : new THREE.Vector3(0, 1, 0);
+      ? scratchNormal.fromBufferAttribute(normal, i).applyMatrix3(normalMatrix).normalize()
+      : scratchNormal.set(0, 1, 0);
     const projectionPoint = projectionPosition
-      ? new THREE.Vector3(
-          projectionPosition.getX(i),
-          projectionPosition.getY(i),
-          projectionPosition.getZ(i),
-        ).applyMatrix4(matrix)
+      ? scratchProjectionPoint.fromBufferAttribute(projectionPosition, i).applyMatrix4(matrix)
       : point;
     const projectionVertexNormal = projectionNormal
-      ? new THREE.Vector3(
-          projectionNormal.getX(i),
-          projectionNormal.getY(i),
-          projectionNormal.getZ(i),
-        ).applyMatrix3(normalMatrix).normalize()
+      ? scratchProjectionNormal
+          .fromBufferAttribute(projectionNormal, i)
+          .applyMatrix3(normalMatrix)
+          .normalize()
       : vertexNormal;
 
     buffers.positions.push(point.x, point.y, point.z);
@@ -395,7 +396,6 @@ function appendGeometry(
     buffers.groups.push({ start, count, materialIndex });
   }
 
-  if (source !== geometry) source.dispose();
   geometry.dispose();
 }
 
@@ -610,7 +610,7 @@ function normalizeBuffers(buffers: GeometryBuffers): void {
   const box = new THREE.Box3();
 
   for (let i = 0; i < buffers.positions.length; i += 3) {
-    box.expandByPoint(new THREE.Vector3(
+    box.expandByPoint(scratchPoint.set(
       buffers.positions[i],
       buffers.positions[i + 1],
       buffers.positions[i + 2],
@@ -640,17 +640,17 @@ function normalizeBuffers(buffers: GeometryBuffers): void {
     buffers.projectionPositions[i + 1] = (buffers.projectionPositions[i + 1] - box.min.y) / size.y - 0.5;
     buffers.projectionPositions[i + 2] = (buffers.projectionPositions[i + 2] - centerZ) / size.z;
 
-    const normal = new THREE.Vector3(
+    const normal = scratchNormal.set(
       buffers.normals[i],
       buffers.normals[i + 1],
       buffers.normals[i + 2],
     ).applyMatrix3(normalMatrix).normalize();
-    const projectionSourceNormal = new THREE.Vector3(
+    const projectionSourceNormal = scratchProjectionPoint.set(
       buffers.projectionNormals[i],
       buffers.projectionNormals[i + 1],
       buffers.projectionNormals[i + 2],
     ).applyMatrix3(normalMatrix).normalize();
-    const projectionNormal = getProjectionNormal(projectionSourceNormal);
+    const projectionNormal = getProjectionNormal(projectionSourceNormal, scratchProjectionNormal);
 
     buffers.normals[i] = normal.x;
     buffers.normals[i + 1] = normal.y;
@@ -814,8 +814,6 @@ export function createOneTradeBuildingMesh(
   topMaterial: THREE.Material,
 ): THREE.Mesh {
   const mesh = new THREE.Mesh(getOneTradeGeometry(), [facadeMaterial, topMaterial]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 

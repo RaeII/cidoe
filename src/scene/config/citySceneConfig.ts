@@ -10,21 +10,33 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   maxBuildingsPerChunk: 180,
   // Teto do devicePixelRatio. 2 = qualidade nativa em telas retina; só corta 3x+.
   dprCap: 2,
-  far: 260,
-  shadowBuildingCap: 500,
+  // Modo leve mantém o DPR menor; FPS acompanha o rAF do navegador.
+  liteDprCap: 1.5,
+  targetFps: 55,
+  liteFps: 60,
+  // 1 = escala dinâmica desligada (video-2): o render nunca sai da resolução nativa.
+  // Baixar reativa o downscale por FPS no loop do runtime.
+  minRenderScale: 1,
+  maxRenderScale: 1,
+  // Padrão do alcance do horizonte (camera.far + raio do céu). Ajustável na aba "horizonte";
+  // independente do cull dos edifícios, que vive em HorizonSettings.distance/backDistance.
+  far: 190,
+  // O probe mantém o alcance anterior para não ampliar o custo das seis capturas.
+  reflectionFar: 260,
   maxSolarIntensity: 20,
   minAmbientDynamic: 4,
   maxAmbientDynamic: 8,
   sceneBackground: "#05070a",
-  sceneFogColor: "#9e9e9e",
-  sceneFogDensity: 0.004,
-  groundSize: 900,
+  sceneFogColor: "#8c8c8c",
+  sceneFogDensity: 0.007,
   cameraFov: 58,
-  cameraNear: 0.1,
+  // Precisão do depth cai com distância²/near. Caixilho/vidro ficam 2 cm (0,002) à frente da
+  // parede: com 0,1 brigavam (z-fighting) a ~50 un.; com 1 seguram até ~90. Órbita mínima = 8.
+  cameraNear: 1,
   initialCameraPosition: {
-    x: -12.91,
-    y: 19.12,
-    z: -14.70,
+    x: -26.17,
+    y: 23.59,
+    z: 40.84,
   },
   controlTarget: {
     x: 0.19,
@@ -40,14 +52,12 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
     maxDistance: 70,
     maxPolarAngle: Math.PI * 0.48,
   },
-  cubeUpdateIntervalMoving: 4,
-  cubeUpdateIntervalStatic: 48,
-  envMapNearDistance: 26,
 };
 
 export const DEFAULT_SCENE_STATS: SceneStats = {
   buildings: 0,
+  culled: 0,
   fpsMode: "dynamic",
   chunks: 0,
-  buildingsWithShadow: 0,
+  sceneReady: false,
 };

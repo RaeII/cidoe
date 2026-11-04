@@ -1,4 +1,16 @@
-# React + TypeScript + Vite
+# Cidoe
+
+Cidade 3D de doações para ONGs de proteção animal. No pré-lançamento, contribuições e ONGs são de teste, sem pagamentos reais.
+
+SEO, descoberta por IA e publicação: [guia completo](doc/seo.md). Build inclui HTML estático das páginas públicas; execute `npm run build` e `npm run check:seo`. Migração de nomes: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
+
+## Produção
+
+Gere a imagem de produção na raiz do repositório e publique no GHCR. No servidor, execute o Compose dentro de `prod/` para puxar e subir a imagem pronta.
+
+`prod/` contém apenas `docker-compose.yml`, `.env.example` e o README com as instruções. Dockerfile e `.dockerignore` ficam na raiz; configuração do Nginx em `docker/nginx.conf`.
+
+Front `beta` e `main` usam a porta `6161`, com apenas uma versão ativa por vez. O Nginx encaminha `/api` ao backend. Comandos completos: [produção](prod/README.md).
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

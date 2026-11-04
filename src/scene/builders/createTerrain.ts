@@ -101,7 +101,6 @@ export type TerrainRig = {
   setCityRadius: (radius: number) => void;
   // Cor do chão da cidade (zona plana do relevo) — sincroniza com GroundSettings.
   setGroundColor: (color: string) => void;
-  setShadowEnabled: (enabled: boolean) => void;
   dispose: () => void;
 };
 
@@ -109,7 +108,6 @@ export function createTerrain(
   scene: THREE.Scene,
   settings: TerrainSettings,
   groundColor: string,
-  receiveShadow: boolean,
 ): TerrainRig {
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
@@ -119,8 +117,6 @@ export function createTerrain(
   });
 
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
-  mesh.receiveShadow = receiveShadow;
-  mesh.castShadow = false;
   scene.add(mesh);
 
   let current: TerrainSettings = { ...settings };
@@ -354,9 +350,6 @@ export function createTerrain(
       groundColorHex = color;
       baseColor.set(color);
       applyGeometry(current, true); // só cor — posições/normais intactas
-    },
-    setShadowEnabled(enabled) {
-      mesh.receiveShadow = enabled;
     },
     dispose() {
       if (updateTimer !== null) clearTimeout(updateTimer);

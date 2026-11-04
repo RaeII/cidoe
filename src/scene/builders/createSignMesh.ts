@@ -9,6 +9,9 @@ import {
   getOneTradeFootprintScaleAtHeightRatio,
 } from "./createOneTradeBuildingMesh";
 import { getResidentialRoofOffset } from "./createResidentialBuildingMesh";
+import { getApartmentRoofOffset } from "./createApartmentBuildingMesh";
+import { GOURMET_TOWER_SCALE, getGourmetRoofOffset } from "./createGourmetBuildingMesh";
+import { getLoftRoofOffset } from "./createLoftBuildingMesh";
 import { getSetbackFootprintScaleAtHeightRatio } from "./createSetbackBuildingMesh";
 import {
   TAIPEI_SIGN_Y_OFFSET_RATIO,
@@ -16,6 +19,7 @@ import {
 } from "./createTaipeiBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
 import { TWIST_TOTAL_ANGLE } from "./createTwistedBuildingMesh";
+import { getYachthouseTowerFootprints } from "./createYachthouseBuildingMesh";
 
 // Margem lateral dentro da placa (fração da largura do canvas)
 const PADDING = 0.12;
@@ -23,6 +27,8 @@ const PADDING = 0.12;
 const CANVAS_HEIGHT = 128;
 // Proporção altura da placa / largura do edifício
 const SIGN_HEIGHT_RATIO = 0.22;
+// Mantém a textura à frente do backing para evitar z-fighting ao mover a câmera.
+const SIGN_FACE_GAP = 0.002;
 // Hastes visuais que conectam o letreiro afastado ao prédio torcido.
 const TWISTED_SUPPORT_THICKNESS = 0.035;
 const TWISTED_SUPPORT_FACE_OVERLAP = 0.006;
@@ -54,28 +60,50 @@ export function createSignMesh(
   if (!trimmed) return null;
 
   const group = new THREE.Group();
+  if (shape === "yachthouse") {
+    // Repete nas duas torres, logo abaixo do coroamento recuado.
+    for (const { x, tiers: [body] } of getYachthouseTowerFootprints(buildingW, buildingD, buildingH)) {
+      const sign = createSignMesh(trimmed, body.width, body.depth, body.topY, sides);
+      if (sign) {
+        sign.position.set(x, (body.topY - buildingH) / 2, 0);
+        group.add(sign);
+      }
+    }
+    group.userData.signDisposables = group.children.flatMap((child) => child.userData.signDisposables ?? []);
+    return group;
+  }
   const clampedSides = Math.max(1, Math.min(4, Math.round(sides)));
   const isEmpire = shape === "empire" && buildingH > 0;
   const isTaipei = shape === "taipei" && buildingH > 0;
   const isOneTrade = shape === "one-trade" && buildingH > 0;
   const isResidential = shape === "residential" && buildingH > 0;
+  const isApartment = shape === "apartment" && buildingH > 0;
+  const isGourmet = shape === "gourmet" && buildingH > 0;
+  const isLoft = shape === "loft" && buildingH > 0;
 
   // Altura do letreiro consistente em todos os lados
   const signH = Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
 
   // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
   // Residencial: letreiro apoiado na laje de cobertura, à frente do guarda-corpo.
+  // Apartment, Varanda Gourmet e Loftifício: apoiado no topo da platibanda.
   const yOffset = isResidential
     ? getResidentialRoofOffset(buildingH) + signH / 2
-    : buildingH * (
-        isEmpire
-          ? 0.1
-          : isTaipei
-            ? TAIPEI_SIGN_Y_OFFSET_RATIO
-            : isOneTrade
-              ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
-              : 0.45
-      );
+    : isApartment
+      ? getApartmentRoofOffset(buildingH) + signH / 2
+      : isGourmet
+        ? getGourmetRoofOffset(buildingH) + signH / 2
+        : isLoft
+          ? getLoftRoofOffset(buildingH) + signH / 2
+          : buildingH * (
+          isEmpire
+            ? 0.1
+            : isTaipei
+              ? TAIPEI_SIGN_Y_OFFSET_RATIO
+              : isOneTrade
+                ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
+                : 0.45
+        );
 
   // Para edifícios torcidos, calcula o ângulo da torção exatamente na altura do
   // letreiro. A geometria torcida (createTwistedBuildingMesh) usa
@@ -140,14 +168,13 @@ export function createSignMesh(
     { faceW: buildingD, rotY: -Math.PI / 2, offsetX: -1, offsetZ: 0 },
   ];
 
-  const disposables: Array<{
-    texture: THREE.CanvasTexture;
-    signMaterial: THREE.MeshStandardMaterial;
-    backingMaterial: THREE.MeshStandardMaterial;
-    planeGeo: THREE.PlaneGeometry;
-    backingGeo: THREE.BoxGeometry;
-    strutGeos: THREE.BoxGeometry[];
-  }> = [];
+  // Painéis (canvas + textura + materiais + geometrias) cacheados por largura:
+  // faces opostas têm placa idêntica — reusa em vez de rasterizar canvas e subir
+  // textura duplicada pra GPU (antes: até 4 CanvasTextures iguais por letreiro).
+  type SignPanel = ReturnType<typeof createSignPanel>;
+  const panelCache = new Map<string, SignPanel>();
+  const disposables: SignPanel[] = [];
+  const strutGeos: THREE.BoxGeometry[] = [];
 
   for (let i = 0; i < clampedSides; i++) {
     const cfg = sideConfigs[i];
@@ -174,6 +201,8 @@ export function createSignMesh(
       faceWorldW = cfg.faceW * taipeiScale;
     } else if (isOneTrade) {
       faceWorldW = cfg.faceW * oneTradeScale;
+    } else if (isGourmet) {
+      faceWorldW = cfg.faceW * GOURMET_TOWER_SCALE;
     } else if (isHearst) {
       faceWorldW = cfg.faceW * (cfg.offsetZ !== 0 ? hearstXSpanRatio : hearstZSpanRatio);
     } else if (isEmpire) {
@@ -183,23 +212,17 @@ export function createSignMesh(
     }
     const signW = faceWorldW * 0.92;
 
-    const { texture, signMaterial, backingMaterial, planeGeo, backingGeo } =
-      createSignPanel(trimmed, signW, signH);
-    const strutGeos: THREE.BoxGeometry[] = [];
-    disposables.push({
-      texture,
-      signMaterial,
-      backingMaterial,
-      planeGeo,
-      backingGeo,
-      strutGeos,
-    });
+    const panelKey = signW.toFixed(3);
+    let panel = panelCache.get(panelKey);
+    if (!panel) {
+      panel = createSignPanel(trimmed, signW, signH);
+      panelCache.set(panelKey, panel);
+      disposables.push(panel);
+    }
+    const { signMaterial, backingMaterial, planeGeo, backingGeo } = panel;
 
     const signPlane = new THREE.Mesh(planeGeo, signMaterial);
-    setShadowRole(signPlane, false, false);
-
     const backing = new THREE.Mesh(backingGeo, backingMaterial);
-    setShadowRole(backing, true, true);
 
     // Posição/rotação do painel.
     //
@@ -283,6 +306,8 @@ export function createSignMesh(
                   ? taipeiScale
                   : isOneTrade
                     ? oneTradeScale
+                  : isGourmet
+                    ? GOURMET_TOWER_SCALE
                   : 1
           );
       const footprintD = isEmpire
@@ -298,6 +323,8 @@ export function createSignMesh(
                   ? taipeiScale
                   : isOneTrade
                     ? oneTradeScale
+                  : isGourmet
+                    ? GOURMET_TOWER_SCALE
                   : 1
           );
       const normalOffset = cfg.offsetZ !== 0 ? footprintD / 2 : footprintW / 2;
@@ -312,6 +339,7 @@ export function createSignMesh(
 
     signPlane.position.set(px, yOffset, pz);
     signPlane.rotation.y = planeRotY;
+    signPlane.translateZ(SIGN_FACE_GAP);
 
     backing.position.set(backX, yOffset, backZ);
     backing.rotation.y = planeRotY;
@@ -330,31 +358,9 @@ export function createSignMesh(
   }
 
   group.userData.signDisposables = disposables;
-  setSignMeshShadowEnabled(group, true);
+  group.userData.signStrutGeos = strutGeos;
 
   return group;
-}
-
-function setShadowRole(
-  mesh: THREE.Mesh,
-  castsShadow: boolean,
-  receivesShadow: boolean,
-): void {
-  mesh.userData.signCastsShadow = castsShadow;
-  mesh.userData.signReceivesShadow = receivesShadow;
-}
-
-/**
- * Liga/desliga sombras do letreiro respeitando o papel de cada mesh.
- * A placa emissiva não projeta sombra; o backing metálico mantém presença física.
- */
-export function setSignMeshShadowEnabled(group: THREE.Group, enabled: boolean): void {
-  group.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.castShadow = enabled && child.userData.signCastsShadow === true;
-      child.receiveShadow = enabled && child.userData.signReceivesShadow === true;
-    }
-  });
 }
 
 /** Cria o canvas, textura, materiais e geometrias para um painel de letreiro. */
@@ -390,13 +396,18 @@ function createSignPanel(
 
   // Texto — ajustar tamanho para caber
   const maxTextW = canvasW * (1 - PADDING * 2);
+  const fontFor = (size: number) =>
+    `600 ${size}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
   let fontSize = Math.floor(canvasH * 0.52);
-  ctx.font = `600 ${fontSize}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = fontFor(fontSize);
   ctx.textBaseline = "middle";
 
-  while (fontSize > 10 && ctx.measureText(text).width > maxTextW) {
-    fontSize -= 1;
-    ctx.font = `600 ${fontSize}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  // Largura do texto é linear no tamanho da fonte: um ajuste proporcional em vez de
+  // descer de 1 em 1 px (cada passo = parse de fonte + measureText na main thread).
+  const fullWidth = ctx.measureText(text).width;
+  if (fullWidth > maxTextW) {
+    fontSize = Math.max(10, Math.floor((fontSize * maxTextW) / fullWidth));
+    ctx.font = fontFor(fontSize);
   }
 
   const textWidth = ctx.measureText(text).width;
@@ -451,8 +462,11 @@ export function disposeSignMesh(group: THREE.Group): void {
       d.backingMaterial.dispose();
       d.planeGeo.dispose();
       d.backingGeo.dispose();
-      for (const geo of d.strutGeos) geo.dispose();
     }
+  }
+  const strutGeos = group.userData.signStrutGeos;
+  if (Array.isArray(strutGeos)) {
+    for (const geo of strutGeos) geo.dispose();
   }
 }
 
@@ -497,7 +511,6 @@ function addTwistedSignSupports(
 
   for (const [xOffset, yOffset] of corners) {
     const support = new THREE.Mesh(supportGeo, material);
-    setShadowRole(support, true, true);
     support.position.set(
       params.faceX + params.normalX * normalOffset + tangentX * xOffset,
       params.yOffset + yOffset,

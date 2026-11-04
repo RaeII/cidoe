@@ -12,13 +12,13 @@ export function BuildingControls({ value, onChange }: BuildingControlsProps) {
   return (
     <PanelSection
       title="Edifícios e material"
-      description="A cor é aplicada diretamente no material dos prédios em tempo real."
+      description="A cor é aplicada diretamente no material dos edifícios em tempo real."
     >
       <ColorField
         label="Cor dos edifícios"
         value={value.color}
         onChange={(color) => onChange({ ...value, color })}
-        placeholder="#f5f5f5"
+        placeholder="#d4d4d4"
       />
 
       <RangeField

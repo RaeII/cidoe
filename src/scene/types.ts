@@ -36,29 +36,24 @@ export type BuildingShape =
   | "empire"
   | "taipei"
   | "one-trade"
-  | "residential";
-
-// Conjunto PBR de fachada por edifício. "default" = Facade006 (textura global da cena).
-export type FacadeStyle =
-  | "default"
-  | "facade001"
-  | "facade002"
-  | "facade005"
-  | "facade007"
-  | "facade014"
-  | "facade016"
-  | "facade018a"
-  | "facade019a"
-  | "facade020a";
+  | "yachthouse"
+  | "residential"
+  | "apartment"
+  | "gourmet"
+  | "loft";
 
 export type BuildingCustomization = {
   color: string;
-  facadeStyle: FacadeStyle; // conjunto PBR da fachada deste edifício
   rooftopType: RooftopType;
   signText: string;
   signSides: number; // 1–4 lados com letreiro
   edgeLightType: EdgeLightType;
   buildingShape: BuildingShape;
+  /**
+   * Pasta de textura da fachada deste edifício (`value` do catálogo).
+   * null = herda a textura global da cena ([[scene-types#TextureSettings]]).
+   */
+  textureKey: string | null;
   tilingScale: number; // multiplicador da textura por edifício (1.0 = sem alteração)
   textureTransform: BuildingTextureTransform; // ajuste manual da textura por edifício
   hologramImage: string | null; // data URL (PNG/JPG/GIF). null = sem holograma
@@ -84,10 +79,18 @@ export type ChunkData = {
   scales: Float32Array;
 };
 
+export type GroundEdgeMode = "straight" | "circular" | "square";
+
 export type HorizonSettings = {
-  enabled: boolean;
-  color: string;
+  /** Alcance dos edifícios à frente; não limita chão ou montanhas. */
   distance: number;
+  /** Distância de renderização dos prédios atrás da câmera (cull direcional). */
+  backDistance: number;
+  /** Limite do horizonte: `camera.far` + raio da esfera do céu. Não mexe no cull dos edifícios. */
+  renderDistance: number;
+  /** Reto: distância à frente; circular: raio; quadrado: meio lado. */
+  groundDistance: number;
+  groundEdgeMode: GroundEdgeMode;
   fogDensity: number;
   fogColor: string;
 };
@@ -100,23 +103,6 @@ export type RenderDirectionSettings = {
 
 export type GroundMaterialType = "standard" | "matte" | "soft-metal" | "polished";
 
-export type ShadowSettings = {
-  enabled: boolean;
-  intensity: number;
-  bias: number;
-  normalBias: number;
-  radius: number;
-  blurSamples: number;
-  mapSize: number;
-  cameraNear: number;
-  cameraFar: number;
-  cameraLeft: number;
-  cameraRight: number;
-  cameraTop: number;
-  cameraBottom: number;
-  buildingCountWithShadow: number;
-};
-
 export type TopTextureSettings = {
   normalScale: number;
   displacementScale: number;
@@ -128,6 +114,13 @@ export type TopTextureSettings = {
 
 export type TextureSettings = {
   enabled: boolean;
+  textureKey: string; // pasta de textura da fachada (value do catálogo). Global por ora.
+  /**
+   * Sorteia a textura de cada edifício entre TODAS as texturas ativas do
+   * catálogo (determinístico pelo id da doação). Off = cidade inteira com
+   * `textureKey`. Prédio com textura escolhida na customização ignora o sorteio.
+   */
+  randomPerBuilding: boolean;
   normalScale: number;
   displacementScale: number;
   tilingScale: number;
@@ -203,6 +196,49 @@ export type EnvironmentSettings = {
   offsetX: number;
   offsetY: number;
   offsetZ: number;
+  /** Modo noite: escurece céu/luz/névoa e liga as estrelas. Ver `NIGHT_PRESET`. */
+  night: boolean;
+  /** Brilho das janelas acesas. Só vale de noite (de dia as janelas ficam apagadas). */
+  windowIntensity: number;
+};
+
+// Probe de reflexo dos prédios (CubeCamera + WebGLCubeRenderTarget do runtime).
+// Ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+export type ReflectionSettings = {
+  enabled: boolean;
+  /** Lado do cube render target em px (potência de 2: 128–1024). Recria o target. */
+  resolution: number;
+  probeX: number;
+  probeY: number;
+  probeZ: number;
+  /** Probe na câmera em vez de ancorado na cidade (recaptura todo intervalo). */
+  followCamera: boolean;
+  /** Offset UV extra do céu só na captura: desce a faixa de céu abaixo do horizonte. */
+  skyDrop: number;
+  /** 0–0.95: achata o vetor de reflexão em direção ao horizonte. Simétrico no eixo
+   *  vertical → toda fachada amostra a mesma faixa de elevação do cube. */
+  envHorizon: number;
+  /** Giro horizontal do envMap na fachada, em graus (eixo Y). Único eixo que preserva
+   *  a simetria entre as faces. */
+  envRotY: number;
+  /** Altura da câmera onde começa a suavização do reflexo. */
+  heightFadeStart: number;
+  /** Altura da câmera onde a suavização atinge o máximo. */
+  heightFadeEnd: number;
+  /** Rugosidade mínima aplicada ao reflexo na altura máxima (0–1). */
+  heightBlur: number;
+  /** Distância horizontal até onde o reflexo permanece completo. */
+  reflectionDistanceStart: number;
+  /** Distância horizontal a partir da qual o reflexo desaparece. */
+  reflectionDistanceEnd: number;
+  /** Frames entre capturas (1 = todo frame). */
+  updateInterval: number;
+  /** Recaptura a cada intervalo mesmo sem mudança na cena. */
+  continuous: boolean;
+  /** Plano cinza + relevo visíveis na captura. */
+  includeGround: boolean;
+  /** Asfalto, calçada e lotes visíveis na captura. */
+  includeCityFloor: boolean;
 };
 
 export type BlockLayoutSettings = {
@@ -215,13 +251,33 @@ export type BlockLayoutSettings = {
   sidewalkColor: string;  // cor do topo da calçada (meio-fio em volta das quadras)
   sidewalkSideColor: string; // cor das faces laterais da calçada (mais escura = efeito de sombra/altura)
   sidewalkHeight: number; // altura do topo da calçada (degrau acima do chão), em unidades de mundo
+  /**
+   * `false` (padrão): layout por quadra — torres agrupadas nos slots centrais de cada
+   * quadra, base urbana embaralhada nos slots restantes.
+   * `true`: gradiente global — a doação mais alta fica no centro exato da cena e a
+   * altura decresce conforme o slot se afasta da origem, sem agrupar torre por quadra.
+   */
+  centerTallest: boolean;
 };
 
 export type SceneStats = {
+  /** Amostra de frames consecutivos; contagens do último frame, incluindo capturas. */
+  performance?: {
+    fps: number;
+    frameTimeMs: number;
+    drawCalls: number;
+    triangles: number;
+    geometries: number;
+    textures: number;
+    programs: number;
+  };
   buildings: number;
+  /** Prédios ocultos pelo cull de distância (frontal + traseiro). */
+  culled: number;
   fpsMode: string;
   chunks: number;
-  buildingsWithShadow: number;
+  /** Último frame saiu com céu (HDRI) resolvido, shaders prontos, sem customização na fila e sem textura baixando. */
+  sceneReady: boolean;
 };
 
 export type CameraDebugInfo = {
@@ -250,6 +306,7 @@ export type UIVisibilitySettings = {
   donationInput: boolean;   // input de doação individual
   bulkInput: boolean;       // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
+  buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
 };
 
 export type CitySceneConfig = {
@@ -261,15 +318,21 @@ export type CitySceneConfig = {
   maxHeight: number;
   maxBuildingsPerChunk: number;
   dprCap: number;
+  /** Teto do DPR no modo leve (IS_LOW_TIER). */
+  liteDprCap: number;
+  targetFps: number;
+  /** Alvo da resolução dinâmica no modo leve; não limita o rAF. */
+  liteFps: number;
+  minRenderScale: number;
+  maxRenderScale: number;
   far: number;
-  shadowBuildingCap: number;
+  reflectionFar: number;
   maxSolarIntensity: number;
   minAmbientDynamic: number;
   maxAmbientDynamic: number;
   sceneBackground: string;
   sceneFogColor: string;
   sceneFogDensity: number;
-  groundSize: number;
   cameraFov: number;
   cameraNear: number;
   initialCameraPosition: {
@@ -291,7 +354,4 @@ export type CitySceneConfig = {
     maxDistance: number;
     maxPolarAngle: number;
   };
-  cubeUpdateIntervalMoving: number;
-  cubeUpdateIntervalStatic: number;
-  envMapNearDistance: number;
 };

@@ -45,28 +45,41 @@ function widthAt(bottomWidth: number, topWidth: number, t: number): number {
   return bottomWidth + (topWidth - bottomWidth) * clamped;
 }
 
-function getProjectionNormal(normal: THREE.Vector3): THREE.Vector3 {
+function getProjectionNormal(
+  normal: THREE.Vector3,
+  target = new THREE.Vector3(),
+): THREE.Vector3 {
   const ax = Math.abs(normal.x);
   const ay = Math.abs(normal.y);
   const az = Math.abs(normal.z);
 
   if (ay >= ax && ay >= az) {
-    return new THREE.Vector3(0, Math.sign(normal.y) || 1, 0);
+    return target.set(0, Math.sign(normal.y) || 1, 0);
   }
 
   if (ax >= az) {
-    return new THREE.Vector3(Math.sign(normal.x) || 1, 0, 0);
+    return target.set(Math.sign(normal.x) || 1, 0, 0);
   }
 
-  return new THREE.Vector3(0, 0, Math.sign(normal.z) || 1);
+  return target.set(0, 0, Math.sign(normal.z) || 1);
 }
+
+// Scratch reaproveitado: um Vector3 novo por vértice (e um BoxGeometry + toNonIndexed por
+// caixa) dominava o 1º build (~20 ms, tarefa longa no celular). Mesma saída: o índice é
+// percorrido na ordem que o toNonIndexed expandiria.
+const scratchPoint = new THREE.Vector3();
+const scratchNormal = new THREE.Vector3();
+const scratchProjectionNormal = new THREE.Vector3();
+const scratchNormalMatrix = new THREE.Matrix3();
+// Caixa unitária compartilhada; appendBox escala pela matriz.
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 
 function pushVertex(
   buffers: GeometryBuffers,
   point: THREE.Vector3,
   normal: THREE.Vector3,
 ): void {
-  const projectionNormal = getProjectionNormal(normal);
+  const projectionNormal = getProjectionNormal(normal, scratchProjectionNormal);
   buffers.positions.push(point.x, point.y, point.z);
   buffers.normals.push(normal.x, normal.y, normal.z);
   buffers.projectionPositions.push(point.x, point.y, point.z);
@@ -82,26 +95,21 @@ function appendGeometry(
   geometry: THREE.BufferGeometry,
   materialIndex: number,
   matrix = new THREE.Matrix4(),
+  disposeSource = true,
 ): void {
-  const source = geometry.index ? geometry.toNonIndexed() : geometry;
-  const position = source.getAttribute("position");
-  const normal = source.getAttribute("normal");
-  const normalMatrix = new THREE.Matrix3().getNormalMatrix(matrix);
+  const index = geometry.index;
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  const normalMatrix = scratchNormalMatrix.getNormalMatrix(matrix);
   const start = buffers.positions.length / 3;
+  const vertexCount = index ? index.count : position.count;
 
-  for (let i = 0; i < position.count; i++) {
-    const point = new THREE.Vector3(
-      position.getX(i),
-      position.getY(i),
-      position.getZ(i),
-    ).applyMatrix4(matrix);
+  for (let k = 0; k < vertexCount; k++) {
+    const i = index ? index.getX(k) : k;
+    const point = scratchPoint.fromBufferAttribute(position, i).applyMatrix4(matrix);
     const vertexNormal = normal
-      ? new THREE.Vector3(
-          normal.getX(i),
-          normal.getY(i),
-          normal.getZ(i),
-        ).applyMatrix3(normalMatrix).normalize()
-      : new THREE.Vector3(0, 1, 0);
+      ? scratchNormal.fromBufferAttribute(normal, i).applyMatrix3(normalMatrix).normalize()
+      : scratchNormal.set(0, 1, 0);
     pushVertex(buffers, point, vertexNormal);
   }
 
@@ -110,8 +118,7 @@ function appendGeometry(
     buffers.groups.push({ start, count, materialIndex });
   }
 
-  if (source !== geometry) source.dispose();
-  geometry.dispose();
+  if (disposeSource) geometry.dispose();
 }
 
 function composeMatrix(
@@ -139,6 +146,18 @@ function appendBox(
   materialIndex: number = TAIPEI_MATERIAL.trim,
   rotationY = 0,
 ): void {
+  // Escala na matriz em vez de um BoxGeometry por caixa. Lado zero deixaria a matriz
+  // normal singular → caminho antigo.
+  if (width !== 0 && height !== 0 && depth !== 0) {
+    appendGeometry(
+      buffers,
+      UNIT_BOX,
+      materialIndex,
+      composeMatrix(x, y, z, rotationY, new THREE.Vector3(width, height, depth)),
+      false,
+    );
+    return;
+  }
   appendGeometry(
     buffers,
     new THREE.BoxGeometry(width, height, depth),
@@ -517,7 +536,7 @@ function normalizeBuffers(buffers: GeometryBuffers): void {
   const box = new THREE.Box3();
 
   for (let i = 0; i < buffers.positions.length; i += 3) {
-    box.expandByPoint(new THREE.Vector3(
+    box.expandByPoint(scratchPoint.set(
       buffers.positions[i],
       buffers.positions[i + 1],
       buffers.positions[i + 2],
@@ -541,12 +560,12 @@ function normalizeBuffers(buffers: GeometryBuffers): void {
     buffers.projectionPositions[i + 1] = y;
     buffers.projectionPositions[i + 2] = z;
 
-    const normal = new THREE.Vector3(
+    const normal = scratchNormal.set(
       buffers.normals[i],
       buffers.normals[i + 1],
       buffers.normals[i + 2],
     ).applyMatrix3(normalMatrix).normalize();
-    const projectionNormal = getProjectionNormal(normal);
+    const projectionNormal = getProjectionNormal(normal, scratchProjectionNormal);
     buffers.normals[i] = normal.x;
     buffers.normals[i + 1] = normal.y;
     buffers.normals[i + 2] = normal.z;
@@ -705,8 +724,6 @@ export function createTaipeiBuildingMesh(
   topMaterial: THREE.Material,
 ): THREE.Mesh {
   const mesh = new THREE.Mesh(getTaipeiGeometry(), [facadeMaterial, topMaterial]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 

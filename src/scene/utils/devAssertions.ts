@@ -1,7 +1,7 @@
 import { getSearchRadius } from "./math";
+import { pickIndex } from "./random";
 import { getGroundMaterialValues } from "./materials";
 import { getDynamicAmbientIntensity, getSolarIntensityFromElevation } from "./lighting";
-import { FACADE_STYLE_POOL, randomFacadeStyle } from "./facadeStyle";
 
 let hasRun = false;
 
@@ -39,19 +39,17 @@ export function runDevAssertionsOnce() {
   console.assert(ambientMin === 4, "dynamic ambient should be 4 with no solar");
   console.assert(ambientMax === 8, "dynamic ambient should clamp to 8 at max solar");
 
-  // Fachada sorteada: determinística por id, sempre dentro do pool e espalhada por
-  // ele (um sorteio que caísse sempre no mesmo estilo deixaria a cidade uniforme).
-  const styles = Array.from({ length: 400 }, (_, id) => randomFacadeStyle(id));
-  console.assert(
-    randomFacadeStyle(7) === randomFacadeStyle(7),
-    "randomFacadeStyle should be deterministic per id",
-  );
-  console.assert(
-    styles.every((style) => FACADE_STYLE_POOL.includes(style)),
-    "randomFacadeStyle should only return styles from the pool",
-  );
-  console.assert(
-    new Set(styles).size === FACADE_STYLE_POOL.length,
-    "randomFacadeStyle should cover the whole pool over 400 ids",
-  );
+  // Sorteio de textura por edifício (ver createDonationManager#facadeGroupFor):
+  // sempre dentro do pool, estável por id e espalhado por todas as texturas.
+  const drawn = new Set<number>();
+  let inRange = true;
+  for (let id = 0; id < 500; id++) {
+    const index = pickIndex(id, 37, 11);
+    if (index < 0 || index > 10) inRange = false;
+    drawn.add(index);
+  }
+  console.assert(inRange, "pickIndex should stay inside the pool");
+  console.assert(drawn.size === 11, "pickIndex should reach every texture of the pool");
+  console.assert(pickIndex(7, 37, 11) === pickIndex(7, 37, 11), "pickIndex should be stable per id");
+  console.assert(pickIndex(7, 37, 0) === 0, "pickIndex should fall back to 0 on an empty pool");
 }

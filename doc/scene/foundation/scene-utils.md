@@ -1,7 +1,7 @@
 ---
 title: Scene Utils
 tags:
-  - cidoa
+  - cidoe
   - utils
   - funções puras
 aliases:
@@ -86,6 +86,7 @@ Utilitários de geração procedural:
 |---|---|
 | `fract(x)` | Parte fracionária de um número |
 | `seeded(seed)` | Gerador de números pseudoaleatórios por seed |
+| `pickIndex(id, salt, length)` | Índice determinístico em `[0, length)` a partir de um id — sorteio estável (mesmo id, mesmo item). `length <= 0` → `0`. Usado no sorteio de textura por edifício ([[scene-textures#Sorteio por edifício]]); coberto pelos asserts de `devAssertions.ts` |
 
 O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **determinística por chunk**:
 - densidade dos prédios
@@ -98,23 +99,33 @@ O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **d
 
 ---
 
-### `facadeStyle.ts`
+### `instanceCulling.ts`
 
-Sorteio de fachada por edifício:
+Cull de distância e frustum para `InstancedMesh` do chão da cidade (lotes, calçadas, postes, asfalto). Mesmo esquema dos prédios: matriz lógica fica em snapshot, buffer renderizado leva só as visíveis.
+
+| Função | Descrição |
+|---|---|
+| `snapshotInstances(meshes, count)` | Congela matrizes já escritas nos meshes. Deriva posição XZ da translação do primeiro mesh. Retorna `InstanceCullGroup` (ou `null` se `count === 0`) |
+| `cullInstances(group, visible, frustum?)` | Compacta as instâncias aprovadas por distância e, quando fornecido, frustum; ajusta `count`. Retorna quantas sumiram |
+| `restoreInstances(group)` | Devolve todas as instâncias — probe de reflexo captura cidade inteira |
+
+Meshes do mesmo grupo compartilham índice lógico: poste + luminária + mancha de luz são a **mesma** instância vista de três meshes, somem juntos.
+
+> [!note] Por que compactar em vez de `visible = false`
+> Cada grupo é 1 draw call. Esconder o mesh sumiria com a cidade toda; zero-scale ainda gastaria vertex shader. Compactar corta vértice de verdade.
+
+Usado por [[scene-managers|createDonationManager]]. Relacionado: [[scene-runtime#Horizonte]].
+
+---
+
+### `deviceTier.ts`
 
 | Export | Descrição |
 |---|---|
-| `FACADE_STYLE_POOL` | Estilos sorteáveis (todos os conjuntos PBR, incluindo `"default"`) |
-| `randomFacadeStyle(donationId)` | Estilo do prédio — `seeded(id, 3)` indexando o pool |
+| `IS_LOW_TIER` | Toque (`pointer: coarse`) OU ≤4 núcleos OU ≤4 GB. Lido uma vez. Runtime liga o modo leve (sem MSAA, DPR 1,5, sem cube camera), com FPS seguindo o rAF e alvo do scaler em 60; manifesto de texturas usa `.low.webp` |
+| `isSoftwareGL(gl)` | Renderer WebGL na CPU (SwiftShader, llvmpipe, softpipe, WARP/"Basic Render"), via `WEBGL_debug_renderer_info` (ou `RENDERER`). Runtime desiste: sem `KHR_parallel_shader_compile` cada shader PBR trava segundos |
 
-Determinístico por id: mesmo id → mesmo estilo, sempre. Sem estado, sem persistência — recarregar a cena reproduz a cidade e nada extra vai pro localStorage. Mesma rota do jitter de escala (`seeded(id, 1)` / `seeded(id, 2)`).
-
-Consumido por:
-- [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)|createDonationManager]] — estilo efetivo = `customization?.facadeStyle ?? randomFacadeStyle(id)`
-- `CitySceneEditor` — fallback do painel de personalização, pra abrir na fachada que o prédio já mostra ([[html-components#BuildingCustomizePanel]])
-
-> [!note] Pool = custo de download
-> Cada estilo em uso baixa ~5 mapas 1K sob demanda. Pool grande = cidade variada, mais bytes na primeira geração em lote. Cortar conjuntos = menos download.
+Usado por [[scene-runtime#Desempenho (TBT e celular)]] e [[scene-textures]].
 
 ---
 
@@ -126,7 +137,11 @@ Verificações de desenvolvimento com `console.assert`:
 |---|---|
 | `runDevAssertionsOnce()` | Roda uma única vez na criação do runtime |
 
-Cobre `math`, `materials`, `lighting` e o sorteio de fachada (`randomFacadeStyle`: determinismo por id, estilo sempre dentro do pool, pool inteiro coberto em 400 ids — sorteio viciado deixaria a cidade uniforme).
-
 Ajuda a detectar regressões em utilitários básicos durante o desenvolvimento.
 Chamado pelo [[scene-runtime|createCitySceneRuntime]] na inicialização.
+
+### Buffers e limites do culling
+
+`snapshotInstances` guarda índices visíveis e esferas que contêm todas as peças de cada instância (incluindo o halo do poste). Meshes do piso mantêm transformações locais fixas; o movimento está nos buffers. A esfera global continua conservadora após compactação.
+
+`cullInstances` compara a sequência visível anterior: conjunto idêntico não copia nem sinaliza upload. Prefixo preservado não é reenviado; `addUpdateRange` marca somente a cauda alterada, sem apagar intervalos ainda pendentes na GPU. Zero instâncias ajusta apenas `count`. `restoreInstances` usa o mesmo caminho, inclusive ao restaurar o cubemap. Teste: `scripts/check-mobile-performance.mjs`.

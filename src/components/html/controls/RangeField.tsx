@@ -18,10 +18,12 @@ export function RangeField({
   valueLabel,
 }: RangeFieldProps) {
   return (
-    <label className="mt-4 block first:mt-0">
-      <div className="mb-2 flex items-center justify-between text-sm text-white/75">
-        <span>{label}</span>
-        <span className="text-white/50">{valueLabel ?? value.toString()}</span>
+    <label className="block">
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <span className="mono-label text-foreground">{label}</span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          {valueLabel ?? value.toString()}
+        </span>
       </div>
       <input
         type="range"
@@ -30,7 +32,7 @@ export function RangeField({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-white"
+        className="w-full"
       />
     </label>
   );

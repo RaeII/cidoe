@@ -1,0 +1,14 @@
+*
+!package.json
+!bun.lock
+!index.html
+!tsconfig*.json
+!vite.config.ts
+!src/
+!src/**
+!public/
+!public/**
+!docker/
+!docker/nginx.conf
+!scripts/
+!scripts/prerender.mjs

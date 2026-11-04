@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cidoa is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, HDRI environment, and shadow systems are all controllable via a real-time UI panel.
+Cidoe is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, and HDRI environment are all controllable via a real-time UI panel. There is no shadow system: the scene is lit by ambient light + HDRI IBL only, so `castShadow`/`receiveShadow` flags must not be reintroduced without adding a shadow-casting light first.
 
 ## Commands
 
@@ -27,7 +27,7 @@ User controls → CitySceneEditor (React state) → useCityScene hook → create
 BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → runtime.addDonation()
 ```
 
-`CitySceneEditor` is the single state holder. All settings (building, texture, ground, light, shadow, renderDirection, environment) flow down as props. No external state management — React hooks only.
+`CitySceneEditor` is the single state holder. All settings (building, texture, ground, terrain, light, horizon, environment, blockLayout) flow down as props. No external state management — React hooks only.
 
 `CitySceneCanvas` exposes an imperative handle (`CitySceneCanvasHandle`) with `addDonation(value)` so the editor can trigger scene actions without React state cycles.
 
@@ -37,7 +37,7 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 - **`src/components/three/CitySceneCanvas.tsx`** — Mounts the Three.js renderer to a DOM ref via `useCityScene`. Exposes `CitySceneCanvasHandle`.
 - **`src/scene/hooks/useCityScene.ts`** — Bridge layer. React effects detect settings changes and call runtime update methods. Uses `useEffectEvent` for the stats callback to avoid recreating the runtime on re-renders.
 - **`src/scene/runtime/createCitySceneRuntime.ts`** — Orchestrator. Creates scene, camera, renderer, OrbitControls, and coordinates all managers/builders. Owns the animation loop with dynamic resolution scaling targeting `CITY_SCENE_CONFIG.targetFps`.
-- **`src/scene/managers/createDonationManager.ts`** — Active manager. Handles the square-spiral layout of donation buildings, proportional height calculation, PBR texture loading, triplanar shader for facades, and dynamic cube envMap. `createChunkManager` and `createShadowManager` are kept for architectural reference but are not used by the runtime.
+- **`src/scene/managers/createDonationManager.ts`** — Active manager. Handles the square-spiral layout of donation buildings, proportional height calculation, PBR texture loading, triplanar shader for facades, dynamic cube envMap, and distance culling of building accessories (signs, LEDs, rooftops, holograms vanish beyond 80 units). `createChunkManager` is kept for architectural reference but is not used by the runtime.
 - **`src/scene/builders/`** — Factory functions: `createLightingRig`, `createGroundPlane`, `createGridHelper`, `loadEnvironment` (HDRI skybox via inverted sphere + PMREMGenerator for `scene.environment`).
 - **`src/scene/config/`** — All defaults live here. Each domain has a `createDefault*Settings()` factory. `citySceneConfig.ts` holds global scene structure (chunk sizes, camera, FPS target, fog, grid, OrbitControls limits).
 - **`src/scene/types.ts`** — Central type definitions for all settings interfaces and internal types (`DonationEntry`, `ChunkData`, `CitySceneConfig`, etc.).
@@ -75,11 +75,31 @@ doc/
 | Types | `doc/scene/foundation/scene-types.md` |
 | Utils | `doc/scene/foundation/scene-utils.md` |
 | Builders | `doc/scene/engine/scene-builders.md` |
+| Building-model workflow / `scripts/render-building.mjs` | `doc/scene/engine/novo-edificio.md` |
 | Managers | `doc/scene/engine/scene-managers.md` |
 | Runtime | `doc/scene/engine/scene-runtime.md` |
 | Hook | `doc/scene/engine/scene-hooks.md` |
+| Visual: tokens (`src/index.css`), primitivos `src/components/ui/` | `doc/desingn-system/desingn-system-index.md` |
 
 Cross-reference with Obsidian wikilinks by **filename**, not path (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) — they resolve from any folder, so moving a page does not break links. Filenames must stay unique across the vault.
+
+## Building models
+
+New or edited building shape → follow `doc/scene/engine/novo-edificio.md` (reference measuring, builder pattern, every integration point, backend catalog, checks, docs, cleanup).
+
+- Visual check: `node scripts/render-building.mjs <shape> [--height n] [--ref img] [--slot i=hex,metal,rough]` — 4 views lit like the city. Reuse or extend it; never write a one-off render harness.
+- Leave no screenshots, crops, bundles or throwaway scripts in the repo or temp dirs when done (`rm -rf "${TMPDIR:-/tmp}/cidoe-render"`). Never delete or commit the owner's reference image without asking.
+
+## UI style
+
+Read `doc/desingn-system/desingn-system-index.md` before touching any HTML UI. Paper plaques with pixel-notched
+borders (`pixel`), solid bevels (`bevel-*`), tokens only — no `rounded-*`, `shadow-*`, blur, gradient, red, white/black or loose hex.
+
+## UI copy
+
+Keep interface text lean. The label says what the field is; add a description only when the label
+alone is not enough — one short, direct sentence. No decorative descriptions, no long explanations,
+no repeating in prose what the placeholder or label already shows.
 
 ## TypeScript
 

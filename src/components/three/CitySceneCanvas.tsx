@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import { useCityScene } from "../../scene/hooks/useCityScene";
 import type {
   BlockLayoutSettings,
@@ -8,37 +8,36 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
+  ReflectionSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
 } from "../../scene/types";
 
 export type CitySceneCanvasHandle = {
-  /** `forceDefaultFacade` = edifício entra com a textura `default`, sem sorteio. */
-  addDonation: (value: number, forceDefaultFacade?: boolean) => void;
+  addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
+  setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
-  getDonationValue: (donationId: number) => number | null;
 };
 
 export type CitySceneCanvasProps = {
-  initialDonations?: readonly number[];
-  initialBuildingCustomizations?: ReadonlyMap<number, BuildingCustomization>;
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
+  /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
+  facadeTexturePool: readonly string[];
+  /** Granulado de renderização: 0 = resolução nativa travada, 1 = downscale agressivo sob carga. */
+  grain: number;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
@@ -48,18 +47,17 @@ export type CitySceneCanvasProps = {
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(
   function CitySceneCanvas(
     {
-      initialDonations,
-      initialBuildingCustomizations,
       buildingSettings,
       textureSettings,
       groundSettings,
       terrainSettings,
       lightSettings,
-      shadowSettings,
-      renderDirectionSettings,
       horizonSettings,
       environmentSettings,
+      reflectionSettings,
       blockLayoutSettings,
+      facadeTexturePool,
+      grain,
       onStatsChange,
       onCameraDebugChange,
       onHoverChange,
@@ -69,37 +67,29 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
   ) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
-    const { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue } = useCityScene({
+    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
       mountRef,
       buildingSettings,
       textureSettings,
       groundSettings,
       terrainSettings,
       lightSettings,
-      shadowSettings,
-      renderDirectionSettings,
       horizonSettings,
       environmentSettings,
+      reflectionSettings,
       blockLayoutSettings,
+      facadeTexturePool,
+      grain,
       onStatsChange,
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
     });
 
-    useEffect(() => {
-      if (!initialDonations?.length) return;
-
-      addDonations([...initialDonations]);
-      initialBuildingCustomizations?.forEach((customization, donationId) => {
-        updateDonationCustomization(donationId, { ...customization });
-      });
-    }, [addDonations, initialBuildingCustomizations, initialDonations, updateDonationCustomization]);
-
     useImperativeHandle(
       ref,
-      () => ({ addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue }),
-      [addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue],
+      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
+      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus],
     );
 
     return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;

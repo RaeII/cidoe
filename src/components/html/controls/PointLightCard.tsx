@@ -15,9 +15,9 @@ export function PointLightCard({
   onChange,
 }: PointLightCardProps) {
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
-      <div className="mb-1 text-sm text-white/80">Point light {index + 1}</div>
-      <div className="mb-3 text-xs text-white/45">
+    <div className="bg-card p-3">
+      <div className="mb-1 text-sm font-semibold text-foreground">Point light {index + 1}</div>
+      <div className="mb-3 text-xs text-muted-foreground">
         Posição padrão: ({defaultPointLight?.x}, {defaultPointLight?.y}, {defaultPointLight?.z}) |
         intensidade padrão: {defaultPointLight?.intensity}
       </div>

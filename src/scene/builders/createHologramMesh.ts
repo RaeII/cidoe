@@ -85,6 +85,7 @@ type HologramAnimation = {
   ctx: CanvasRenderingContext2D;
   index: number;
   accumMs: number;
+  durationMs: number;
 };
 
 export type HologramEntry = {
@@ -99,6 +100,7 @@ export type HologramEntry = {
   buildingFootprint: number;
   buildingHeight: number;
   imageDataUrl: string;
+  lastAnimationSeconds: number | null;
 };
 
 export type HologramFootprint = {
@@ -181,6 +183,7 @@ export function createHologramMesh(
     buildingFootprint: 0,
     buildingHeight: 0,
     imageDataUrl: "",
+    lastAnimationSeconds: null,
   };
 
   applyDimensions(entry, footprint);
@@ -213,18 +216,24 @@ export function positionHologram(
 
 export function tickHologram(entry: HologramEntry, elapsedSeconds: number, deltaMs: number) {
   entry.material.uniforms.uTime.value = elapsedSeconds;
+  const elapsedMs = entry.lastAnimationSeconds === null
+    ? deltaMs : Math.max(0, (elapsedSeconds - entry.lastAnimationSeconds) * 1000);
+  entry.lastAnimationSeconds = elapsedSeconds;
 
   const anim = entry.animation;
   if (!anim || anim.frames.length === 0) return;
 
-  anim.accumMs += deltaMs;
-  // Avança quantos frames forem necessários (evita drift em FPS baixo).
+  // Saltar ciclos inteiros permite retomar após sair da tela sem desenhar intermediários.
+  anim.accumMs += elapsedMs % anim.durationMs;
+  const previousIndex = anim.index;
   while (anim.accumMs >= anim.frames[anim.index].durationMs) {
     anim.accumMs -= anim.frames[anim.index].durationMs;
     anim.index = (anim.index + 1) % anim.frames.length;
+  }
+  if (anim.index !== previousIndex) {
     const frame = anim.frames[anim.index];
     anim.ctx.clearRect(0, 0, anim.canvas.width, anim.canvas.height);
-    anim.ctx.drawImage(frame.bitmap, 0, 0);
+    anim.ctx.drawImage(frame.bitmap, 0, 0, anim.canvas.width, anim.canvas.height);
     if (entry.texture) entry.texture.needsUpdate = true;
   }
 }
@@ -233,6 +242,7 @@ export function tickHologram(entry: HologramEntry, elapsedSeconds: number, delta
 // outro setHologramImage no meio do load, os resultados são descartados.
 async function loadGifFrames(
   dataUrl: string,
+  isCurrent: () => boolean,
 ): Promise<{ frames: HologramFrame[]; width: number; height: number } | null> {
   type ImageDecoderResult = {
     image: VideoFrame;
@@ -254,40 +264,64 @@ async function loadGifFrames(
   ).ImageDecoder;
   if (!ImageDecoderCtor) return null;
 
-  const blob = await (await fetch(dataUrl)).blob();
-  const decoder = new ImageDecoderCtor({
-    data: blob.stream(),
-    type: "image/gif",
-  });
-
-  await decoder.completed;
-  const frameCount = decoder.tracks.selectedTrack?.frameCount ?? 0;
-  if (frameCount === 0) {
-    decoder.close();
+  let decoder: ImageDecoderInstance;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    if (!isCurrent()) return null;
+    decoder = new ImageDecoderCtor({ data: blob.stream(), type: "image/gif" });
+  } catch {
     return null;
   }
 
   const frames: HologramFrame[] = [];
-  let width = 0;
-  let height = 0;
-
-  for (let i = 0; i < frameCount; i++) {
-    const result = await decoder.decode({ frameIndex: i });
-    const frame = result.image;
-    if (i === 0) {
-      width = frame.displayWidth || frame.codedWidth;
-      height = frame.displayHeight || frame.codedHeight;
+  try {
+    await decoder.completed;
+    const frameCount = decoder.tracks.selectedTrack?.frameCount ?? 0;
+    if (frameCount === 0) {
+      return null;
     }
-    const bitmap = await createImageBitmap(frame);
-    // VideoFrame.duration vem em microssegundos (us). Default 100ms se ausente.
-    const duration = frame.duration;
-    const durationMs = duration && duration > 0 ? duration / 1000 : 100;
-    frames.push({ bitmap, durationMs: Math.max(20, durationMs) });
-    frame.close();
-  }
 
-  decoder.close();
-  return { frames, width, height };
+    let width = 0;
+    let height = 0;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    for (let i = 0; i < frameCount; i++) {
+      if (!isCurrent()) {
+        for (const frame of frames) frame.bitmap.close();
+        return null;
+      }
+      const result = await decoder.decode({ frameIndex: i });
+      const frame = result.image;
+      try {
+        if (i === 0) {
+          width = frame.displayWidth || frame.codedWidth;
+          height = frame.displayHeight || frame.codedHeight;
+          const scale = Math.min(1, 512 / Math.max(width, height));
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+        }
+        // Mesma redução do canvas exibido, feita uma vez; não retém frames gigantes.
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        const bitmap = await createImageBitmap(canvas);
+        // VideoFrame.duration vem em microssegundos (us). Default 100ms se ausente.
+        const duration = frame.duration;
+        const durationMs = duration && duration > 0 ? duration / 1000 : 100;
+        frames.push({ bitmap, durationMs: Math.max(20, durationMs) });
+      } finally {
+        frame.close();
+      }
+    }
+
+    return { frames, width, height };
+  } catch {
+    for (const frame of frames) frame.bitmap.close();
+    return null; // Decodificador indisponível/falhou: mantém o fallback estático.
+  } finally {
+    decoder.close();
+  }
 }
 
 function loadStaticImage(dataUrl: string): Promise<HTMLImageElement> {
@@ -315,27 +349,33 @@ export async function setHologramImage(
   }
   disposeAnimation(entry.animation);
   entry.animation = null;
+  entry.lastAnimationSeconds = null;
 
   const isGif = dataUrl.startsWith("data:image/gif");
 
   if (isGif) {
-    const result = await loadGifFrames(dataUrl);
+    const result = await loadGifFrames(dataUrl, () => entry.loadToken === myToken);
     if (entry.loadToken !== myToken) {
       // Carga obsoleta — descartar
       if (result) for (const f of result.frames) f.bitmap.close();
       return;
     }
     if (result && result.frames.length > 0) {
+      // Cap de resolução: GIF grande vira upload de textura gigante por frame.
+      // 512 no maior lado é mais que suficiente pro tamanho do holograma na cena.
+      const MAX_GIF_TEXTURE = 512;
+      const gifScale = Math.min(1, MAX_GIF_TEXTURE / Math.max(result.width, result.height));
       const canvas = document.createElement("canvas");
-      canvas.width = result.width;
-      canvas.height = result.height;
+      canvas.width = Math.max(1, Math.round(result.width * gifScale));
+      canvas.height = Math.max(1, Math.round(result.height * gifScale));
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(result.frames[0].bitmap, 0, 0);
+        ctx.drawImage(result.frames[0].bitmap, 0, 0, canvas.width, canvas.height);
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = false;
         entry.texture = texture;
         entry.material.uniforms.uMap.value = texture;
         entry.imageAspect = result.width / result.height;
@@ -345,6 +385,7 @@ export async function setHologramImage(
           ctx,
           index: 0,
           accumMs: 0,
+          durationMs: result.frames.reduce((sum, frame) => sum + frame.durationMs, 0),
         };
         applyDimensions(entry, footprint);
         return;
@@ -360,6 +401,7 @@ export async function setHologramImage(
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
   texture.needsUpdate = true;
   entry.texture = texture;
   entry.material.uniforms.uMap.value = texture;
@@ -371,6 +413,8 @@ export async function setHologramImage(
 }
 
 export function disposeHologramMesh(entry: HologramEntry) {
+  // Impede que uma imagem ainda em carga recrie a textura após o fechamento.
+  entry.loadToken += 1;
   for (const child of entry.group.children) {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;

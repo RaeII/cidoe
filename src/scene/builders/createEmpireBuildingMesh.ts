@@ -63,21 +63,35 @@ function sourceToUnitPosition(x: number, y: number, z: number): THREE.Vector3 {
   );
 }
 
-function getProjectionNormal(normal: THREE.Vector3): THREE.Vector3 {
+function getProjectionNormal(normal: THREE.Vector3, target: THREE.Vector3): THREE.Vector3 {
   const ax = Math.abs(normal.x);
   const ay = Math.abs(normal.y);
   const az = Math.abs(normal.z);
 
   if (ay >= ax && ay >= az) {
-    return new THREE.Vector3(0, Math.sign(normal.y) || 1, 0);
+    return target.set(0, Math.sign(normal.y) || 1, 0);
   }
 
   if (ax >= az) {
-    return new THREE.Vector3(Math.sign(normal.x) || 1, 0, 0);
+    return target.set(Math.sign(normal.x) || 1, 0, 0);
   }
 
-  return new THREE.Vector3(0, 0, Math.sign(normal.z) || 1);
+  return target.set(0, 0, Math.sign(normal.z) || 1);
 }
+
+// Scratch reaproveitado: o Empire tem milhares de vértices. Um Vector3 novo por vértice
+// e um BoxGeometry + toNonIndexed por caixa faziam o 1º build custar ~25 ms (tarefa longa
+// no celular). Mesma saída: o índice é percorrido na ordem que o toNonIndexed expandiria.
+const scratchPoint = new THREE.Vector3();
+const scratchNormal = new THREE.Vector3();
+const scratchProjectionNormal = new THREE.Vector3();
+const scratchNormalMatrix = new THREE.Matrix3();
+const scratchBoxMatrix = new THREE.Matrix4();
+const scratchBoxRotation = new THREE.Quaternion();
+const scratchBoxScale = new THREE.Vector3();
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+// Caixa unitária compartilhada; addBox escala pela matriz. Nunca descartada (24 vértices).
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 
 function appendGeometry(
   buffers: GeometryBuffers,
@@ -85,24 +99,21 @@ function appendGeometry(
   matrix: THREE.Matrix4,
   materialIndex: number,
 ): void {
-  const source = geometry.index ? geometry.toNonIndexed() : geometry;
-  const position = source.getAttribute("position");
-  const normal = source.getAttribute("normal");
-  const normalMatrix = new THREE.Matrix3().getNormalMatrix(matrix);
+  const index = geometry.index;
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  const normalMatrix = scratchNormalMatrix.getNormalMatrix(matrix);
   const start = buffers.positions.length / 3;
+  const vertexCount = index ? index.count : position.count;
 
-  for (let i = 0; i < position.count; i++) {
-    const point = new THREE.Vector3(
-      position.getX(i),
-      position.getY(i),
-      position.getZ(i),
-    ).applyMatrix4(matrix);
-    const vertexNormal = new THREE.Vector3(
-      normal.getX(i),
-      normal.getY(i),
-      normal.getZ(i),
-    ).applyNormalMatrix(normalMatrix).normalize();
-    const projectionNormal = getProjectionNormal(vertexNormal);
+  for (let k = 0; k < vertexCount; k++) {
+    const i = index ? index.getX(k) : k;
+    const point = scratchPoint.fromBufferAttribute(position, i).applyMatrix4(matrix);
+    const vertexNormal = scratchNormal
+      .fromBufferAttribute(normal, i)
+      .applyNormalMatrix(normalMatrix)
+      .normalize();
+    const projectionNormal = getProjectionNormal(vertexNormal, scratchProjectionNormal);
 
     buffers.positions.push(point.x, point.y, point.z);
     buffers.normals.push(vertexNormal.x, vertexNormal.y, vertexNormal.z);
@@ -118,10 +129,6 @@ function appendGeometry(
   if (count > 0) {
     buffers.groups.push({ start, count, materialIndex });
   }
-
-  if (source !== geometry) {
-    source.dispose();
-  }
 }
 
 function addBox(
@@ -131,6 +138,21 @@ function addBox(
   materialIndex: number,
   rotationY = 0,
 ): void {
+  // Escala na matriz em vez de um BoxGeometry por caixa. Lado zero deixaria a matriz
+  // normal singular → caminho antigo.
+  if (size[0] !== 0 && size[1] !== 0 && size[2] !== 0) {
+    scratchBoxMatrix.compose(
+      sourceToUnitPosition(position[0], position[1], position[2]),
+      scratchBoxRotation.setFromAxisAngle(Y_AXIS, rotationY),
+      scratchBoxScale.set(
+        size[0] / EMPIRE_NORMALIZE_WIDTH,
+        size[1] / EMPIRE_REFERENCE_HEIGHT,
+        size[2] / EMPIRE_NORMALIZE_DEPTH,
+      ),
+    );
+    appendGeometry(buffers, UNIT_BOX, scratchBoxMatrix, materialIndex);
+    return;
+  }
   const geometry = new THREE.BoxGeometry(
     size[0] / EMPIRE_NORMALIZE_WIDTH,
     size[1] / EMPIRE_REFERENCE_HEIGHT,
@@ -673,8 +695,6 @@ export function createEmpireBuildingMesh(
     metalMat,
     darkMetalMat,
   ]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
 
   return mesh;
 }

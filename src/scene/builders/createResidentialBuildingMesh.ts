@@ -1,20 +1,22 @@
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clearTextureSlots } from "./createEmpireBuildingMesh";
 
-// Torre residencial sem textura (ref. src/assets/model_building/model1.png):
+// Torre residencial (ref. model1.png da branch video-1):
 // sacadas em 3 lados com guarda-corpo de vidro, pano de vidro recuado atrás das
 // sacadas, empena cega nos fundos (−Z) com janelas estreitas, aletas terracota
 // nos cantos dos fundos, térreo com pilotis e casa de máquinas na cobertura.
 //
 // Medidas em metros. Footprint 20×20 m = unit box em X/Z. Número de andares
 // sai da altura do edifício na cena → pé-direito constante em qualquer altura.
+// Sem textura de fachada: detalhe em geometria + 6 slots de material autorais.
 
-// Mapas PBR da pedra (Concrete024 do manager, projetados pelo triplanar).
+// Mapas PBR da pedra — o manager repassa o set Concrete024 do topo (ou null com
+// texturas desligadas). Builder não carrega textura: roda em node e no preview.
 export type ResidentialStoneMaps = {
-  map: THREE.Texture;
-  normalMap: THREE.Texture;
-  roughnessMap: THREE.Texture;
+  color: THREE.Texture;
+  normal: THREE.Texture | null;
+  roughness: THREE.Texture | null;
 };
 
 export type ResidentialTierFootprint = {
@@ -48,11 +50,17 @@ const PENT_H = 3.4;
 const CAP_T = 0.2;
 const ROOF_EXTRA = SLAB_T + DECK_T + PENT_H + CAP_T;
 const MAX_FLOORS = 60;
+// Altura do preview do admin (VIEW.shape em createPreviewScene). A cena troca a
+// geometria pela altura real via setResidentialBuildingHeight.
+const DEFAULT_HEIGHT = 3;
 
 // Cena tem ambient forte (~8) + exposição 1.45 → albedo alto estoura p/ branco.
 // Valores calibrados no runtime: travertino × mapa de concreto lê como creme.
 const STONE_COLOR = 0xbbb4a6;
 const STONE_TILING = 6; // × uTiling global (0.4) → mapa repete a cada ~4 m
+
+// Acessório de topo assenta na casa de máquinas: escala pelo menor lado dela.
+export const RESIDENTIAL_ROOFTOP_SCALE = Math.min(PENT_W, PENT_D) / (2 * HALF);
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 
@@ -258,7 +266,7 @@ export function getResidentialRoofOffset(height: number): number {
 // Material com envMap = cubemap dinâmico da cena (reflete a cidade).
 // `authoredEnvMapIntensity` → manager zera na captura e restaura este valor
 // (em vez do envMapIntensity global das fachadas texturizadas).
-function createSceneMaterial(
+export function createSceneMaterial(
   envMap: THREE.Texture | null,
   params: THREE.MeshStandardMaterialParameters,
 ): THREE.MeshStandardMaterial {
@@ -268,25 +276,36 @@ function createSceneMaterial(
   return material;
 }
 
+// Liga/desliga a textura da pedra (slot 0). Chamado pelo manager na criação e
+// sempre que a textura do topo muda (set carregou, texturas on/off).
+export function setResidentialStoneMaps(
+  stone: THREE.MeshStandardMaterial,
+  maps: ResidentialStoneMaps | null,
+): void {
+  const mask = () => Number(Boolean(stone.map)) | (Number(Boolean(stone.normalMap)) << 1) | (Number(Boolean(stone.roughnessMap)) << 2);
+  const previous = mask();
+  stone.map = maps?.color ?? null;
+  stone.normalMap = maps?.normal ?? null;
+  stone.roughnessMap = maps?.roughness ?? null;
+  if (previous !== mask()) stone.needsUpdate = true;
+}
+
 // facadeMaterial vira a pedra (slot 0, recebe a cor do edifício);
 // topMaterial segue o concreto global dos telhados, sem ajuste.
 export function createResidentialBuildingMesh(
-  facadeMaterial: THREE.MeshStandardMaterial,
-  topMaterial: THREE.MeshStandardMaterial,
-  height: number,
-  stoneMaps: ResidentialStoneMaps,
+  facadeMaterial: THREE.Material,
+  topMaterial: THREE.Material,
 ): THREE.Mesh {
-  if (facadeMaterial instanceof THREE.MeshPhysicalMaterial) facadeMaterial.clearcoat = 0;
   clearTextureSlots(facadeMaterial);
-  facadeMaterial.color.set(STONE_COLOR);
-  facadeMaterial.map = stoneMaps.map;
-  facadeMaterial.normalMap = stoneMaps.normalMap;
-  facadeMaterial.normalScale.set(0.6, 0.6);
-  facadeMaterial.roughnessMap = stoneMaps.roughnessMap;
-  facadeMaterial.roughness = 1;
-  facadeMaterial.metalness = 0;
-  facadeMaterial.envMapIntensity = 1;
-  facadeMaterial.userData.authoredEnvMapIntensity = 1;
+  if (facadeMaterial instanceof THREE.MeshStandardMaterial) {
+    if (facadeMaterial instanceof THREE.MeshPhysicalMaterial) facadeMaterial.clearcoat = 0;
+    facadeMaterial.color.set(STONE_COLOR);
+    facadeMaterial.normalScale.set(0.6, 0.6);
+    facadeMaterial.roughness = 1;
+    facadeMaterial.metalness = 0;
+    facadeMaterial.envMapIntensity = 1;
+    facadeMaterial.userData.authoredEnvMapIntensity = 1;
+  }
   if (facadeMaterial.userData.tilingMultiplier) {
     facadeMaterial.userData.tilingMultiplier.value = STONE_TILING;
   }
@@ -294,7 +313,8 @@ export function createResidentialBuildingMesh(
   // Vidros e metal com metalness alto: o ambient forte não os deixa leitosos;
   // cor = tinta do reflexo. Vidro guarda 10% de difuso → sem preto chapado
   // onde o reflexo pega o zênite escuro do HDRI.
-  const envMap = facadeMaterial.envMap;
+  const envMap =
+    facadeMaterial instanceof THREE.MeshStandardMaterial ? facadeMaterial.envMap : null;
   const materials: THREE.Material[] = [
     facadeMaterial,
     topMaterial,
@@ -327,13 +347,10 @@ export function createResidentialBuildingMesh(
     }),
   ];
 
-  const mesh = new THREE.Mesh(
-    getResidentialGeometry(getResidentialFloorCount(height)),
+  return new THREE.Mesh(
+    getResidentialGeometry(getResidentialFloorCount(DEFAULT_HEIGHT)),
     materials,
   );
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 export function disposeResidentialBuildingSharedResources(): void {

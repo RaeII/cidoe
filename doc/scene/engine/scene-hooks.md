@@ -1,7 +1,7 @@
 ---
 title: Scene Hooks
 tags:
-  - cidoa
+  - cidoe
   - react
   - hooks
   - bridge
@@ -14,6 +14,14 @@ aliases:
 # Scene Hooks
 
 A ponte entre React e Three.js: `src/scene/hooks/useCityScene.ts`.
+
+## Cidade inicial nos dois ambientes
+
+`src/components/hooks/useDonations.ts`: com `IS_PRELAUNCH`, sempre usa os 480 edifícios de `createSeedBuildings`, mesmo quando backend local contém doações de teste. IDs, valores e personalizações determinísticos; registros e personalizações do banco ficam fora da cena, sem exclusão. ONGs continuam vindo do catálogo de cada ambiente. Simulações da conta somam aos seeds; filtros e preferências locais continuam ativos. Fora do pré-lançamento, snapshot com doações prevalece; vazio mantém fallback inicial. `CitySceneEditor` usa só `SEED_FACADE_TEXTURES` no sorteio inicial, independente do catálogo. Check: `node scripts/check-prelaunch.mjs`. Ver [[donation-api]] e [[scene-textures#Sorteio por edifício]].
+
+## Catálogo no fluxo de contribuição
+
+`src/components/hooks/useCustomizationCatalog.ts` atende o [[html-components#BuildingCustomizer.tsx|menu do edifício]] e as notificações do passe. Retorna `{ catalog, rewards }`. Catálogo carregado uma vez; `refreshKey` refaz somente conquistas quando `CitySceneEditor` conclui simulação ou usuário abre menu da conta. Login/reload busca por usuário. Mesma resposta alimenta permissões, pendências e próxima meta, sem polling adicional. `useMemo` mantém referências entre estatísticas da cena. Avisos dispensados filtrados por sessão, inclusive contra resposta atrasada; ACK em lote ao fechar. Ver [[customization-api#useCustomizationCatalog()]] e [[passe-front]].
 
 ## Objetivo do Hook
 
@@ -30,11 +38,20 @@ Esse hook existe para que os componentes React **não precisem conhecer diretame
 Quando [[three-components|CitySceneCanvas]] monta:
 
 1. O hook lê o `mountRef` (o `div` do canvas)
-2. Cria o runtime com os valores iniciais (via `initialSettingsRef`)
-3. Salva a referência do runtime em `runtimeRef`
+2. `await createCitySceneRuntime(...)` com as settings atuais (`settingsRef`) — criação **assíncrona**, em etapas ([[scene-runtime#Desempenho (TBT e celular)]])
+3. Desmontou no meio → `dispose()` assim que resolver. Senão salva em `runtimeRef`
+4. Reaplica o que mudou durante a criação (compara identidade com o snapshot usado), chama `setFacadeTexturePool` e `setGrain` (efeitos deles rodaram com runtime `null`) e drena a fila de chamadas imperativas
 
-> [!note] initialSettingsRef
-> As settings iniciais são capturadas numa ref para evitar que o `useEffect` de criação rode novamente quando as settings mudarem. O runtime recebe os valores corretos na criação; as atualizações subsequentes são feitas pelos efeitos de sincronização.
+> [!warning] Sem WebGL / WebGL por software
+> `await createCitySceneRuntime` em `try/catch`. Sem WebGL (robô, verificação do login com Google, GPU bloqueada) o renderer lança erro; com WebGL por software (SwiftShader, llvmpipe) o runtime rejeita de propósito. Sem catch React desmonta app inteiro → home em branco. Com catch: `runtimeRef` fica `null`, fila de chamadas vira `null` (descarta), efeitos viram no-op (`?.`), catch emite `sceneReady: true` (nada mais vai carregar) → página de loading sai, resto da home renderiza.
+
+> [!note] settingsRef
+> Settings mais recentes numa ref atualizada por effect sem deps (roda antes do effect de criação). Criação lê o snapshot; o que mudar enquanto o runtime nasce é reaplicado no fim. Atualizações depois disso: efeitos de sincronização.
+>
+> `facadeTexturePool` vem do editor: pool fixo na cidade inicial, catálogo do backend nas cidades públicas. Entra pelo efeito de sincronização (ou pelo passo 4). Ver [[scene-textures#Sorteio por edifício]].
+
+> [!note] Fila de chamadas (`callRuntime`)
+> `addDonation`, `addDonations`, `setDonations`, `updateDonationCustomization`, `focusOnDonation`, `clearFocus` antes do runtime existir vão pra `pendingCallsRef` e rodam na ordem quando ele sobe — o editor pode chamar `setDonations` antes da criação terminar.
 
 ### Sincronização
 
@@ -49,6 +66,11 @@ useEffect(() => {
   runtimeRef.current?.updateTextureSettings(textureSettings);
 }, [textureSettings]);
 
+// Catálogo chega depois do mount (fetch): o pool entra por efeito, não no setup.
+useEffect(() => {
+  runtimeRef.current?.setFacadeTexturePool(facadeTexturePool);
+}, [facadeTexturePool]);
+
 useEffect(() => {
   runtimeRef.current?.updateGroundSettings(groundSettings);
 }, [groundSettings]);
@@ -58,16 +80,12 @@ useEffect(() => {
 }, [lightSettings]);
 
 useEffect(() => {
-  runtimeRef.current?.updateShadowSettings(shadowSettings);
-}, [shadowSettings]);
-
-useEffect(() => {
-  runtimeRef.current?.updateRenderDirectionSettings(renderDirectionSettings, true);
-}, [renderDirectionSettings]);
-
-useEffect(() => {
   runtimeRef.current?.updateEnvironmentSettings(environmentSettings);
 }, [environmentSettings]);
+
+useEffect(() => {
+  runtimeRef.current?.updateReflectionSettings(reflectionSettings);
+}, [reflectionSettings]);
 
 useEffect(() => {
   runtimeRef.current?.updateBlockLayout(blockLayoutSettings);
@@ -76,28 +94,36 @@ useEffect(() => {
 useEffect(() => {
   runtimeRef.current?.updateTerrainSettings(terrainSettings);
 }, [terrainSettings]);
+
+useEffect(() => {
+  runtimeRef.current?.setGrain(grain);
+}, [grain]);
 ```
 
+> [!note] grain
+> Número solto, não entra na criação. Efeito de sync roda com runtime `null` no mount → aplicado no passo 4 da criação. Ver granulado em [[scene-runtime]].
+
 > [!note] terrainSettings
-> Threaded também no `initialSettingsRef` (criação) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].
+> Vai na criação (snapshot de `settingsRef`) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].
 
 Isso é importante para evitar um efeito gigante tentando fazer tudo.
 
 ### Retorno
 
-O hook retorna um objeto com referências estáveis (via `useCallback`) que delegam ao runtime atual:
+O hook retorna um objeto com referências estáveis (via `useCallback`) que delegam ao runtime atual via `callRuntime` (fila enquanto ele não existe):
 
 ```typescript
 {
-  addDonation: (value: number, forceDefaultFacade?: boolean) => void
+  addDonation: (value: number) => void
   addDonations: (values: number[]) => void
+  setDonations: (entries: { id: number; value: number }[]) => void
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void
   focusOnDonation: (donationId: number) => void
   clearFocus: () => void
 }
 ```
 
-Cada função é memorizada para não recriar o handle imperativo do [[three-components|CitySceneCanvas]] a cada render.
+Cada função é memorizada para não recriar o handle imperativo do [[three-components|CitySceneCanvas]] a cada render. `setDonations` é `useCallback` estável que delega ao runtime — o editor chama com o snapshot filtrado do backend ([[donation-api]]).
 
 ## `useEffectEvent`
 
@@ -129,8 +155,9 @@ Quando o canvas desmonta:
 
 ```typescript
 return () => {
+  cancelled = true;          // criação em curso descarta o runtime quando resolver
   runtimeRef.current = null;
-  runtime.dispose();
+  runtime?.dispose();
 };
 ```
 

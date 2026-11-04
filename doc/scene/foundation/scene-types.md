@@ -1,7 +1,7 @@
 ---
 title: Scene Types
 tags:
-  - cidoa
+  - cidoe
   - typescript
   - tipos
   - contratos
@@ -28,18 +28,22 @@ Configurações de layout das quadras de prédios:
 type BlockLayoutSettings = {
   blockSize: number;    // prédios por lado da quadra (ex: 3 → 3×3 = 9 slots)
   streetWidth: number;  // espaço entre quadras em unidades world (ex: 6.0)
-  towerRatio: number;   // fração de doações tratadas como torres (0–1, padrão: 0.12)
-  baseHeightCap: number;// teto de altura da base urbana como fração de maxSceneHeight (0–1, padrão: 0.30)
+  towerRatio: number;   // fração da camada de topo (0–1, padrão: 0.33)
+  towersPerBlock: number;// quantos do topo por quadra (padrão: 14)
+  baseHeightCap: number;// início da faixa do topo / teto da faixa do meio (0–1, padrão: 0.70)
   lotColor: string;     // cor dos lotes vazios das quadras (loteamento esperando edifício)
   sidewalkColor: string; // cor do topo da calçada (meio-fio em volta das quadras)
   sidewalkSideColor: string; // cor das laterais da calçada (mais escura = efeito de sombra/altura)
   sidewalkHeight: number;// altura do topo da calçada (degrau acima do chão), em unidades world
+  centerTallest: boolean;// false = layout por quadra (padrão); true = mais alto no centro
 }
 ```
 
-O sistema de 2 camadas separa as doações em **torres** (top N%) que usam o range completo de altura e **base urbana** (restante) com teto reduzido. Isso cria contraste abrupto entre vizinhos — o efeito visual de uma cidade real.
+O sistema de 3 camadas corta as doações em topo (`towerRatio`, padrão 33%), meio (metade do que sobra) e baixo (o resto). Cada camada tem **faixa de altura exclusiva** — nunca se sobrepõem, então quem doou mais nunca fica mais baixo. O meio ganha as **quadras centrais** como prêmio de posição. Ver [[scene-managers#Layout dos Prédios — Sistema de 3 Camadas]].
 
-Editável em tempo real via inputs no overlay superior. `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
+`centerTallest` troca esse esquema pelo modo **mais alto no centro** (primeira ideia do projeto): quadras e ruas ficam iguais, mas nenhuma torre agrupa por quadra. Todos os slots da cidade entram numa lista única ordenada por distância da origem e as doações (já em ordem de valor decrescente) caem nessa ordem. Resultado: maior doação no slot central exato, altura caindo suave pra borda, sem prédio baixo no meio dos altos. `towerRatio`/`towersPerBlock`/`baseHeightCap` ficam inertes nesse modo.
+
+Editável em tempo real via inputs no overlay superior. `centerTallest` fica no card flutuante [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]], fora do painel. `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
 
 ---
 
@@ -65,6 +69,8 @@ Configurações PBR das texturas de fachada:
 ```typescript
 type TextureSettings = {
   enabled: boolean;
+  textureKey: string;         // pasta da fachada (value do catálogo). Global da cena; por edifício em BuildingCustomization — ver [[scene-textures]]
+  randomPerBuilding: boolean; // sorteia a textura de cada prédio entre as ativas do catálogo — ver [[scene-textures#Sorteio por edifício]]
   normalScale: number;
   displacementScale: number;  // relevo visual via displacement map
   tilingScale: number;        // UV repeat
@@ -108,6 +114,8 @@ type GroundSettings = {
   materialType: GroundMaterialType;
 }
 ```
+
+Tamanho e formato em [[scene-types#HorizonSettings|HorizonSettings]]: `groundDistance` + `groundEdgeMode`. Aplicados por [[scene-builders#createGroundPlane.ts]]; material permanece em GroundSettings.
 
 ---
 
@@ -182,46 +190,30 @@ type LightSettings = {
 
 ---
 
-### `ShadowSettings`
-
-Configurações de sombra:
-
-```typescript
-type ShadowSettings = {
-  enabled: boolean;
-  intensity: number;
-  bias: number;
-  normalBias: number;
-  radius: number;
-  blurSamples: number;
-  mapSize: number;
-  cameraNear: number;
-  cameraFar: number;
-  cameraLeft: number;
-  cameraRight: number;
-  cameraTop: number;
-  cameraBottom: number;
-  buildingCountWithShadow: number;
-}
-```
-
----
-
 ### `HorizonSettings`
 
-Configurações da silhueta do horizonte e da névoa da cena:
+Alcance do horizonte, distância dos edifícios e névoa da cena:
 
 ```typescript
 type HorizonSettings = {
-  color: string;       // cor dos prédios da silhueta
-  distance: number;    // distância da câmera até a fileira (padrão: 248)
-  fogDensity: number;  // densidade da névoa exponencial (FogExp2, padrão: 0.01)
-  fogColor: string;    // cor da névoa (padrão: "#090c11")
+  distance: number;       // alcance dos edifícios à frente (padrão: 208.3)
+  backDistance: number;   // alcance dos edifícios atrás da câmera (padrão: 46.2)
+  renderDistance: number; // limite do horizonte: camera.far + raio do céu (padrão: 600)
+  groundDistance: number; // alcance conforme modo (padrão: 660)
+  groundEdgeMode: "straight" | "circular" | "square"; // GroundEdgeMode; padrão straight
+  fogDensity: number;     // densidade da névoa exponencial (FogExp2, padrão: 0.007)
+  fogColor: string;       // cor da névoa
 }
 ```
 
+`distance` e `backDistance` não alteram projeção da câmera, chão ou montanhas. [[scene-runtime#Alcance visual e distância dos edifícios|Runtime]] mantém cull dos edifícios separado do alcance visual.
+
+`renderDistance` escreve `camera.far` e o raio da esfera do céu ([[scene-builders#loadEnvironment.ts]]) — céu sempre a `renderDistance * 0.9`, dentro do far plane. Independente de `distance`/`backDistance`: mexer no horizonte não mexe no cull dos edifícios.
+
+`groundEdgeMode: GroundEdgeMode` seleciona `"straight" | "circular" | "square"` (padrão `straight`). `groundDistance` define distância à frente no reto, raio no disco, meio lado no quadrado. Modo reto acompanha azimute da câmera, estende laterais além do frustum; não depende de `groundDistance > renderDistance`. Não altera projeção, céu, edifícios ou relevo.
+
 > [!note] Névoa global
-> `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira. Como os prédios do horizonte têm `fog: true`, a névoa os dissolve progressivamente — quanto maior a densidade, mais apagada fica a silhueta.
+> `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira — dissolvem terreno e edifícios distantes antes do far plane. Céu (`fog: false`) não recebe névoa.
 
 ---
 
@@ -237,6 +229,9 @@ type RenderDirectionSettings = {
 }
 ```
 
+> [!note] Só referência
+> Consumido apenas por `createChunkManager` (arquivo de referência arquitetural). Cadeia viva (config, UI, runtime) foi removida.
+
 ---
 
 ### `EnvironmentSettings`
@@ -248,8 +243,46 @@ type EnvironmentSettings = {
   offsetX: number;  // rotação horizontal do skybox
   offsetY: number;  // deslocamento vertical (UV offset do horizonte)
   offsetZ: number;  // roll diagonal
+  night: boolean;   // modo noite: céu escuro + estrelas + luz/névoa noturnas
+  windowIntensity: number;  // brilho das janelas acesas (só de noite)
 }
 ```
+
+> [!note] `night`
+> Liga/desliga pelo menu do usuário ([[area-admin#Modo noite (menu do usuário)]]). Valores da noite ficam em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]); céu + estrelas em [[scene-builders#loadEnvironment.ts]], cena em [[scene-runtime#Modo noite]].
+
+> [!note] `windowIntensity`
+> Único knob da noite que virou setting (o resto é `NIGHT_PRESET` fixo): slider "Brilho das janelas (noite)" na seção **Ambiente** ([[html-components#EnvironmentControls.tsx]]). De dia o valor é ignorado — janela apagada. Ver [[scene-managers#Janelas acesas de noite]].
+
+### `ReflectionSettings`
+
+Probe de reflexo dos prédios (`CubeCamera` + `WebGLCubeRenderTarget` do runtime). Defaults em [[scene-config#reflectionConfig.ts]], UI na aba **reflexo** ([[html-components#ReflectionControls.tsx]]), mecânica em [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+
+```typescript
+type ReflectionSettings = {
+  enabled: boolean;          // false → envMap null; fachada cai no scene.environment (HDRI)
+  resolution: number;        // lado do cube em px, potência de 2 (64–1024); trocar recria o target
+  probeX: number;            // posição da captura
+  probeY: number;            // sobe = mais céu, desce = mais fachada
+  probeZ: number;
+  followCamera: boolean;     // probe na câmera (recaptura todo intervalo)
+  skyDrop: number;           // offsetY extra do céu SÓ na captura
+  envHorizon: number;        // 0–0.95; achata reflectVec.y no shader (mesma faixa de elevação em toda face)
+  envRotY: number;           // graus; gira o envMap no eixo vertical (único eixo que preserva simetria)
+  heightFadeStart: number; // altura onde começa a suavização
+  heightFadeEnd: number;   // altura onde o desfoque chega ao máximo
+  heightBlur: number;      // rugosidade mínima na altura máxima (0–1)
+  reflectionDistanceStart: number; // distância horizontal com reflexo completo
+  reflectionDistanceEnd: number;   // distância onde o reflexo desaparece
+  updateInterval: number;    // frames entre capturas
+  continuous: boolean;       // recaptura mesmo sem mudança na cena
+  includeGround: boolean;    // plano cinza + relevo entram na captura
+  includeCityFloor: boolean; // asfalto, calçada e lotes entram na captura
+}
+```
+
+> [!warning] Intensidade não mora aqui
+> `envMapIntensity`, `roughnessIntensity` e `metalnessIntensity` são do **material** ([[scene-types#TextureSettings]]) — a aba **reflexo** edita os mesmos campos que a aba **texturas**, sem estado duplicado.
 
 ### `UIVisibilitySettings`
 
@@ -261,6 +294,7 @@ type UIVisibilitySettings = {
   donationInput: boolean;    // input de doação individual
   bulkInput: boolean;        // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
+  buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
 }
 ```
 
@@ -273,11 +307,19 @@ Métricas enviadas de volta para o React para exibição no painel:
 ```typescript
 type SceneStats = {
   buildings: number;         // prédios ativos na cena
+  culled: number;            // prédios ocultos por distância e/ou frustum
+  performance?: {
+    fps: number; frameTimeMs: number;
+    drawCalls: number; triangles: number;
+    geometries: number; textures: number; programs: number;
+  };                        // FPS real; contagens do último frame, incluindo capturas
   fpsMode: string;           // modo FPS atual
   chunks: number;            // chunks carregados
-  buildingsWithShadow: number;
+  sceneReady: boolean;       // frame com HDRI resolvido, shaders prontos, doações aplicadas e nenhuma textura baixando
 }
 ```
+
+`sceneReady` libera a página de loading no `CitySceneEditor` ([[html-components#Carregamento inicial (casca)]]). Não monotônico: volta a `false` quando o `DefaultLoadingManager` começa a baixar. Sem WebGL o hook emite `true`. Ver [[scene-runtime#Desempenho (TBT e celular)]].
 
 ## Tipos de Personalização
 
@@ -320,30 +362,14 @@ type BuildingShape =
   | "empire"         // torre art déco inspirada no Empire State Building
   | "taipei"         // torre em módulos empilhados inspirada no Taipei 101
   | "one-trade"      // torre facetada com base chanfrada e pináculo One Trade
-  | "residential"    // torre residencial textureless: sacadas, guarda-corpo de vidro, aletas terracota
+  | "yachthouse"     // Yatchcasa: torres gêmeas de vidro azul-escuro, linhas douradas, coroamento recuado
+  | "residential"    // torre residencial: sacadas, guarda-corpo de vidro, aletas terracota
+  | "apartment"      // torre de reboco branco: janelas em grade, rasgo de sacadas, caixa d'água
+  | "gourmet"        // Varanda Gourmet: torre bege e creme, sacadas curvas, pilastras com rasgo
+  | "loft"           // Loftifício: torre bege, faixas de pastilha verde, pilotis, portões
 ```
 
 Quando `buildingShape !== "default"`, a doação é desenhada como um `Mesh` próprio (ver [[scene-builders]]) e pula a alocação no `InstancedMesh`. O manager mantém clones de material (facade + top) por edifício customizado.
-
-### `FacadeStyle`
-
-Conjunto PBR da fachada, por edifício:
-
-```typescript
-type FacadeStyle =
-  | "default"        // Facade006 — textura global da cena
-  | "facade001"      // Facade001 — cortina de vidro azul
-  | "facade002"      // Facade002 — vidro noturno (traz mapa de emissão próprio)
-  | "facade005"      // Facade005 — vidro espelhado escuro
-  | "facade007"      // Facade007 — escritório aceso (emissão própria)
-  | "facade014"      // Facade014 — torre noturna, sem mapa de metalness
-  | "facade016"      // Facade016 — janelas âmbar, sem mapa de metalness
-  | "facade018a"     // Facade018A — tijolo com janelas
-  | "facade019a"     // Facade019A — concreto cinza com janelas
-  | "facade020a"     // Facade020A — tijolo e vidro
-```
-
-Estilo **não** tira o prédio do instancing: cada estilo em uso tem seu próprio `InstancedMesh` (bucket) com clone de material. Doação **sem customização** usa estilo sorteado pelo id (`randomFacadeStyle`, ver [[scene-utils#`facadeStyle.ts`]]) — é o que dá variedade na geração em lote. Os mapas do estilo só baixam na primeira vez que algum edifício pede o estilo (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)|buckets de fachada]]).
 
 ### `BuildingCustomization`
 
@@ -352,8 +378,8 @@ Personalização visual de um edifício individual:
 ```typescript
 type BuildingCustomization = {
   color: string;              // cor hex do edifício
-  facadeStyle: FacadeStyle;   // conjunto PBR da fachada ("default" = Facade006 global)
   buildingShape: BuildingShape; // formato volumétrico
+  textureKey: string | null;  // pasta de textura da fachada (value do catálogo). null = herda a global
   tilingScale: number;        // multiplicador de tiling da textura (1.0 = global, 2.0 = texturas 2× menores, etc)
   textureTransform: {
     scaleX: number;           // escala horizontal da textura no edifício
@@ -373,8 +399,8 @@ Armazenada opcionalmente em cada `DonationEntry`. Cada campo controla um aspecto
 | Campo | Efeito | Implementação |
 |---|---|---|
 | `color` | Cor individual do edifício | `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; cor direta no clone do material quando vira mesh próprio |
-| `facadeStyle` | Conjunto de texturas PBR da fachada **só nesse edifício** | Move o prédio para o bucket (`InstancedMesh`) daquele estilo — continua instanciado; mapas carregados sob demanda. Sem customização, vale o sorteio por id (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)\|buckets de fachada]]) |
 | `buildingShape` | Formato volumétrico do edifício | `default`: caixa padrão; demais valores usam builders dedicados em [[scene-builders]] |
+| `textureKey` | Textura de fachada **só desse edifício** | Continua instanciado: cada textura do catálogo tem seu próprio `InstancedMesh` ([[scene-managers#Grupos de fachada]]), então o prédio só troca de grupo. `null` = herda a global (ou a sorteada, ver [[scene-textures#Sorteio por edifício]]). Só vira `Mesh` próprio se a pasta estiver fora do pool do catálogo |
 | `tilingScale` | Multiplicador de tiling da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ 1.0) e virar `Mesh` próprio com clone de material e uniform `uTilingMultiplier` dedicado |
 | `textureTransform` | Ajuste manual da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` quando diferente do padrão e ajusta `scaleX`, `scaleY`, `offsetX`, `offsetY` via uniform dedicado |
 | `rooftopType` | Acessório 3D no topo do edifício | `THREE.Group` criado por [[scene-builders#createRooftopMesh.ts\|createRooftopMesh]], posicionado no topo |
@@ -438,6 +464,8 @@ type CameraVisibilityState = {
 
 Descreve a estrutura esperada para a config global da cena. Garante consistência de `citySceneConfig.ts`.
 
+`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos. `liteDprCap` = teto de DPR no modo leve; `liteFps` = alvo da resolução dinâmica, sem limitar o rAF.
+
 Ver campos completos em [[scene-config#citySceneConfig.ts ⭐]].
 
 ## Regra Prática
@@ -449,3 +477,5 @@ Quando criar um novo tipo:
 - Nova seção do painel que sincroniza com o runtime → `types.ts`
 - Novo manager que precisa receber nova configuração → `types.ts`
 - Novo campo na config global → `types.ts` + `citySceneConfig.ts`
+
+`SceneStats.performance` é emitido a cada amostra de aproximadamente 0,5 s de frames consecutivos. Pausas não alimentam a média; o diagnóstico inclui o tempo de capturas (apenas o scaler de resolução filtra esse custo); contagens de texturas/geometrias não representam bytes de VRAM. Não muda o limite de FPS nem a resolução.

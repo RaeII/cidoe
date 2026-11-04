@@ -1,3 +1,4 @@
+import type { CatalogOption } from "../../api/customizationApi";
 import type { TextureSettings } from "../../scene/types";
 import { CheckboxField } from "./controls/CheckboxField";
 import { PanelSection } from "./controls/PanelSection";
@@ -5,20 +6,52 @@ import { RangeField } from "./controls/RangeField";
 
 type TextureControlsProps = {
   value: TextureSettings;
+  /** Texturas ativas do catálogo (backend). Seleção troca a fachada de toda a cena. */
+  facadeTextures: CatalogOption[];
   onChange: (settings: TextureSettings) => void;
 };
 
-export function TextureControls({ value, onChange }: TextureControlsProps) {
+export function TextureControls({ value, facadeTextures, onChange }: TextureControlsProps) {
   return (
     <>
     <PanelSection
       title="Texturas dos edifícios"
-      description="Controla as texturas PBR aplicadas nos prédios. Clay Render ativa o efeito de espelhamento nas superfícies."
+      description="Controla as texturas PBR aplicadas nos edifícios. Clay Render ativa o efeito de espelhamento nas superfícies."
     >
+      {facadeTextures.length > 0 && (
+        <div>
+          <span className="mono-label mb-2 block text-foreground">Textura da fachada</span>
+          <div className="grid grid-cols-2 gap-2.5">
+            {facadeTextures.map((tex) => {
+              const selected = value.textureKey === tex.value;
+              return (
+                <button
+                  key={tex.id}
+                  onClick={() => tex.value && onChange({ ...value, textureKey: tex.value })}
+                  className={`pixel pixel-thin bevel-w-3 px-3 pt-1.5 pb-2 text-xs font-semibold transition-colors ${
+                    selected
+                      ? "bevel-verde-700 bg-primary text-primary-foreground"
+                      : "bevel-edge bg-card text-foreground hover:bg-accent"
+                  }`}
+                >
+                  {tex.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <CheckboxField
         label="Texturas ativadas"
         checked={value.enabled}
         onChange={(enabled) => onChange({ ...value, enabled })}
+      />
+
+      <CheckboxField
+        label="Textura aleatória por edifício"
+        checked={value.randomPerBuilding}
+        onChange={(randomPerBuilding) => onChange({ ...value, randomPerBuilding })}
       />
 
       <CheckboxField
@@ -131,7 +164,7 @@ export function TextureControls({ value, onChange }: TextureControlsProps) {
         value={value.top.tilingScale}
         min={0.1}
         max={10}
-        step={0.4}
+        step={0.1}
         valueLabel={value.top.tilingScale.toFixed(1)}
         onChange={(tilingScale) =>
           onChange({ ...value, top: { ...value.top, tilingScale } })

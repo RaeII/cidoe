@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { TERRAIN_SEGMENT_OPTIONS } from "../../scene/config/terrainConfig";
 import type { TerrainSettings } from "../../scene/types";
 import { CheckboxField } from "./controls/CheckboxField";
@@ -23,15 +24,15 @@ export function TerrainControls({ value, onChange }: TerrainControlsProps) {
           onChange={(enabled) => onChange({ ...value, enabled })}
         />
 
-        <label className="mt-4 block">
-          <span className="mb-2 block text-sm text-white/75">Resolução</span>
+        <label className="block">
+          <span className="mono-label mb-2 block text-foreground">Resolução</span>
           <select
             value={value.segments}
             onChange={(event) => onChange({ ...value, segments: Number(event.target.value) })}
-            className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-white/20"
+            className="field h-8 w-full pl-2 text-sm"
           >
             {TERRAIN_SEGMENT_OPTIONS.map((seg) => (
-              <option key={seg} value={seg} className="bg-[#0b0d11] text-white">
+              <option key={seg} value={seg}>
                 {seg} x {seg}
               </option>
             ))}
@@ -170,15 +171,17 @@ export function TerrainControls({ value, onChange }: TerrainControlsProps) {
           onChange={(seed) => onChange({ ...value, seed })}
         />
 
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => onChange({ ...value, seed: Math.floor(Math.random() * 999999) + 1 })}
-          className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          className="w-full"
         >
           Nova seed
-        </button>
+        </Button>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <ColorField
             label="Cor baixa"
             value={value.lowColor}
@@ -193,13 +196,11 @@ export function TerrainControls({ value, onChange }: TerrainControlsProps) {
           />
         </div>
 
-        <div className="mt-4">
-          <CheckboxField
-            label="Wireframe"
-            checked={value.wireframe}
-            onChange={(wireframe) => onChange({ ...value, wireframe })}
-          />
-        </div>
+        <CheckboxField
+          label="Wireframe"
+          checked={value.wireframe}
+          onChange={(wireframe) => onChange({ ...value, wireframe })}
+        />
       </PanelSection>
     </>
   );

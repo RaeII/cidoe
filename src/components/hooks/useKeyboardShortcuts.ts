@@ -48,6 +48,8 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]): void {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // Já tratado (ex.: Esc fechando um Dialog Radix) — não fecha a cena por baixo junto.
+      if (event.defaultPrevented) return;
       const editable = isEditableTarget(event.target);
       for (const shortcut of shortcutsRef.current) {
         if (!matches(event, shortcut)) continue;

@@ -7,14 +7,13 @@ type PanelIntroProps = {
 
 export function PanelIntro({ sceneStats, solarIntensity }: PanelIntroProps) {
   return (
-    <section>
-      <div className="text-xs uppercase tracking-[0.28em] text-white/45">Personalização</div>
-      <h2 className="mt-2 text-lg font-semibold text-white/95">
-        Edifícios, material, luz e sombras
+    <section className="border-b border-border pb-6">
+      <div className="mono-label text-primary">Personalização</div>
+      <h2 className="mt-1 text-lg font-semibold tracking-[-0.01em] text-foreground">
+        Edifícios, material e luz
       </h2>
-      <p className="mt-2 text-xs leading-5 text-white/50">
-        {sceneStats.buildings} edifícios ativos em {sceneStats.chunks} chunks.{" "}
-        {sceneStats.buildingsWithShadow} edifícios gerando sombra. Intensidade solar atual:{" "}
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        {sceneStats.buildings} edifícios ativos. Intensidade solar atual:{" "}
         {solarIntensity.toFixed(2)}.
       </p>
     </section>

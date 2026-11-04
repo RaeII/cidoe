@@ -8,11 +8,15 @@ import {
 } from "./createHearstBuildingMesh";
 import { getOctagonalFootprintPoints } from "./createOctagonalBuildingMesh";
 import { getOneTradeLedFootprintRings } from "./createOneTradeBuildingMesh";
-import { getResidentialTierFootprints } from "./createResidentialBuildingMesh";
 import { getSetbackTierFootprints } from "./createSetbackBuildingMesh";
 import { getTaipeiTierFootprints } from "./createTaipeiBuildingMesh";
+import { getResidentialTierFootprints } from "./createResidentialBuildingMesh";
+import { getApartmentTierFootprints } from "./createApartmentBuildingMesh";
+import { getGourmetTierFootprints } from "./createGourmetBuildingMesh";
+import { getLoftTierFootprints } from "./createLoftBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
 import { TWIST_TOTAL_ANGLE } from "./createTwistedBuildingMesh";
+import { getYachthouseTowerFootprints } from "./createYachthouseBuildingMesh";
 
 type EdgeLightFootprint = {
   width: number;
@@ -21,9 +25,10 @@ type EdgeLightFootprint = {
 };
 
 // Quantidade de segmentos verticais para acompanhar a curva torcida.
-// 12 já dá uma curva suficientemente suave sem multiplicar muito o nº de meshes
-// (cada segmento gera core + 2 halos). A geometria do prédio usa 24 — é seguro
+// 12 já dá uma curva suficientemente suave. A geometria do prédio usa 24 — é seguro
 // usar metade pois o LED é fino e a aproximação por segmentos curtos é menos visível.
+// Segmentos são instanciados (3 draw calls no total), então o custo de mais
+// segmentos é só matriz extra, não draw call.
 const LED_TWIST_SEGMENTS = 12;
 const LED_TAPER_SEGMENTS = 12;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -32,6 +37,13 @@ export const DEFAULT_EDGE_LIGHT_COLOR = "#ffca57";
 export const DEFAULT_EDGE_LIGHT_INTENSITY = 10;
 export const DEFAULT_EDGE_LIGHT_DISTANCE = 0.04;
 export const DEFAULT_EDGE_LIGHT_THICKNESS = 0.05;
+
+// Derrame de luz do LED nos edifícios VIZINHOS (PointLight real, ver
+// createDonationManager). Separado da emissão da fita: a fita sai do reflexo,
+// a luz continua. Knobs de calibração — ajustar olhando a cena, não no papel.
+export const EDGE_LIGHT_SPILL_INTENSITY = 70;
+export const EDGE_LIGHT_SPILL_RANGE = 26;
+export const EDGE_LIGHT_SPILL_POOL_SIZE = 8;
 
 type EdgeLightFactory = (
   footprint: EdgeLightFootprint,
@@ -95,24 +107,14 @@ function createGradientHaloGeometry(
   return geo;
 }
 
-// Geometrias de halo com gradiente — uma por combinação de axes perpendiculares.
-// "fade_AB" significa que o gradiente dissolve ao longo das axes A e B,
-// enquanto o eixo dominante da aresta é o complementar.
-const HALO_GEO_XZ = createGradientHaloGeometry("x", "z"); // para arestas Y (cantos verticais)
-const HALO_GEO_YZ = createGradientHaloGeometry("y", "z"); // para arestas X (topo frente/trás)
-const HALO_GEO_XY = createGradientHaloGeometry("x", "y"); // para arestas Z (topo esq/dir)
-
-const HALO_GEOMETRY_FOR_AXIS: Record<"x" | "y" | "z", THREE.BufferGeometry> = {
-  y: HALO_GEO_XZ,
-  x: HALO_GEO_YZ,
-  z: HALO_GEO_XY,
-};
+// Halo único com gradiente nas seções locais X/Z (eixo dominante = Y local).
+// Arestas em qualquer direção usam quaternion Y→direção, o que permite desenhar
+// TODOS os segmentos com uma única geometria — pré-requisito do instancing.
+const HALO_GEO_XZ = createGradientHaloGeometry("x", "z");
 
 const SHARED_EDGE_LIGHT_GEOMETRIES: THREE.BufferGeometry[] = [
   EDGE_CORE_GEOMETRY,
   HALO_GEO_XZ,
-  HALO_GEO_YZ,
-  HALO_GEO_XY,
 ];
 
 type EdgeMaterials = {
@@ -158,114 +160,126 @@ function createEdgeMaterials(color: string, intensity: number): EdgeMaterials {
   return { core, halo, haloOuter };
 }
 
-function setShadowRole(
-  mesh: THREE.Mesh,
-  castsShadow: boolean,
-  receivesShadow: boolean,
-): void {
-  mesh.userData.edgeLightCastsShadow = castsShadow;
-  mesh.userData.edgeLightReceivesShadow = receivesShadow;
-}
+// Descrição de um segmento de aresta. Os segmentos são coletados primeiro e
+// virados em 3 InstancedMesh no final — 3 draw calls por LED em vez de 3 por
+// segmento (torre twisted: 156 meshes → 3).
+type SegmentSpec = {
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  length: number;
+  distance: number;
+  thickness: number;
+};
 
-/**
- * Adiciona uma aresta ao grupo: core sólido emissivo + dois halos com gradiente
- * de alpha que dissipa a luz sem borda visível.
- */
+const AXIS_QUATERNIONS: Record<"x" | "y" | "z", THREE.Quaternion> = {
+  x: new THREE.Quaternion().setFromUnitVectors(Y_AXIS, new THREE.Vector3(1, 0, 0)),
+  y: new THREE.Quaternion(),
+  z: new THREE.Quaternion().setFromUnitVectors(Y_AXIS, new THREE.Vector3(0, 0, 1)),
+};
+
+/** Coleta uma aresta axis-aligned (rotação pré-computada por eixo). */
 function addEdgeSegment(
-  group: THREE.Group,
-  materials: EdgeMaterials,
+  segments: SegmentSpec[],
   position: THREE.Vector3,
   axis: "x" | "y" | "z",
   length: number,
   distance: number,
   thickness: number,
 ): void {
-  const buildScale = (t: number): THREE.Vector3 => {
-    if (axis === "x") return new THREE.Vector3(length, t, t);
-    if (axis === "z") return new THREE.Vector3(t, t, length);
-    return new THREE.Vector3(t, length, t);
-  };
-
-  const haloGeo = HALO_GEOMETRY_FOR_AXIS[axis];
-
-  const core = new THREE.Mesh(EDGE_CORE_GEOMETRY, materials.core);
-  core.scale.copy(buildScale(thickness));
-  core.position.copy(position);
-  setShadowRole(core, false, false);
-  group.add(core);
-
-  const halo = new THREE.Mesh(haloGeo, materials.halo);
-  halo.scale.copy(buildScale(distance));
-  halo.position.copy(position);
-  halo.renderOrder = 1;
-  setShadowRole(halo, false, false);
-  group.add(halo);
-
-  const haloOuter = new THREE.Mesh(haloGeo, materials.haloOuter);
-  haloOuter.scale.copy(buildScale(distance * 3.4));
-  haloOuter.position.copy(position);
-  haloOuter.renderOrder = 2;
-  setShadowRole(haloOuter, false, false);
-  group.add(haloOuter);
+  segments.push({
+    position: position.clone(),
+    quaternion: AXIS_QUATERNIONS[axis],
+    length,
+    distance,
+    thickness,
+  });
 }
 
 /**
- * Adiciona um segmento de aresta orientado em uma direção arbitrária. Usado
- * pelas torres torcidas, onde os cantos verticais sobem em curva e o retângulo
- * superior está rotacionado em relação ao inferior. Ao contrário de
- * `addEdgeSegment` (axis-aligned), aqui aplicamos uma quaternion para alinhar
- * o eixo Y local da geometria ao vetor `direction`.
+ * Coleta um segmento de aresta orientado em direção arbitrária (torres torcidas,
+ * afuniladas etc). O eixo Y local da geometria é alinhado ao vetor `direction`.
  */
 function addOrientedEdgeSegment(
-  group: THREE.Group,
-  materials: EdgeMaterials,
+  segments: SegmentSpec[],
   center: THREE.Vector3,
   direction: THREE.Vector3,
   length: number,
   distance: number,
   thickness: number,
 ): void {
-  const quat = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, direction);
+  segments.push({
+    position: center.clone(),
+    quaternion: new THREE.Quaternion().setFromUnitVectors(Y_AXIS, direction),
+    length,
+    distance,
+    thickness,
+  });
+}
 
-  // Halo cujo gradiente está nas axes X/Z perpendiculares ao Y local. Ao rotar
-  // a mesh para alinhar Y → direction, o gradiente continua na seção transversal.
-  const haloGeo = HALO_GEOMETRY_FOR_AXIS["y"];
+/** Converte os specs coletados em 3 InstancedMesh (core + halo + haloOuter). */
+function buildInstancedGroup(segments: SegmentSpec[]): THREE.Group {
+  const group = new THREE.Group();
+  const materials = createEdgeMaterials(DEFAULT_EDGE_LIGHT_COLOR, DEFAULT_EDGE_LIGHT_INTENSITY);
+  group.userData.edgeLightMaterials = materials;
 
-  const core = new THREE.Mesh(EDGE_CORE_GEOMETRY, materials.core);
-  core.scale.set(thickness, length, thickness);
-  core.position.copy(center);
-  core.quaternion.copy(quat);
-  setShadowRole(core, false, false);
-  group.add(core);
-
-  const halo = new THREE.Mesh(haloGeo, materials.halo);
-  halo.scale.set(distance, length, distance);
-  halo.position.copy(center);
-  halo.quaternion.copy(quat);
+  const count = segments.length;
+  const core = new THREE.InstancedMesh(EDGE_CORE_GEOMETRY, materials.core, count);
+  const halo = new THREE.InstancedMesh(HALO_GEO_XZ, materials.halo, count);
+  const haloOuter = new THREE.InstancedMesh(HALO_GEO_XZ, materials.haloOuter, count);
   halo.renderOrder = 1;
-  setShadowRole(halo, false, false);
-  group.add(halo);
-
-  const haloOuter = new THREE.Mesh(haloGeo, materials.haloOuter);
-  haloOuter.scale.set(distance * 3.4, length, distance * 3.4);
-  haloOuter.position.copy(center);
-  haloOuter.quaternion.copy(quat);
   haloOuter.renderOrder = 2;
-  setShadowRole(haloOuter, false, false);
-  group.add(haloOuter);
+
+  const matrix = new THREE.Matrix4();
+  const scale = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    const seg = segments[i];
+    scale.set(seg.thickness, seg.length, seg.thickness);
+    matrix.compose(seg.position, seg.quaternion, scale);
+    core.setMatrixAt(i, matrix);
+    scale.set(seg.distance, seg.length, seg.distance);
+    matrix.compose(seg.position, seg.quaternion, scale);
+    halo.setMatrixAt(i, matrix);
+    scale.set(seg.distance * 3.4, seg.length, seg.distance * 3.4);
+    matrix.compose(seg.position, seg.quaternion, scale);
+    haloOuter.setMatrixAt(i, matrix);
+  }
+  core.computeBoundingSphere();
+  halo.computeBoundingSphere();
+  haloOuter.computeBoundingSphere();
+
+  group.add(core, halo, haloOuter);
+  return group;
 }
 
 function createLed(
   footprint: EdgeLightFootprint,
   shape: BuildingShape,
 ): THREE.Group {
-  const group = new THREE.Group();
+  const segments: SegmentSpec[] = [];
   const { width, depth, height } = footprint;
   const halfW = width / 2;
   const halfD = depth / 2;
 
-  const materials = createEdgeMaterials(DEFAULT_EDGE_LIGHT_COLOR, DEFAULT_EDGE_LIGHT_INTENSITY);
-  group.userData.edgeLightMaterials = materials;
+  if (shape === "yachthouse") {
+    for (const { x, tiers } of getYachthouseTowerFootprints(width, depth, height)) {
+      for (const tier of tiers) {
+        const w = tier.width / 2;
+        const d = tier.depth / 2;
+        const y = tier.topY + TOP_LIFT;
+        for (const sx of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            addEdgeSegment(segments, new THREE.Vector3(x + sx * w, (tier.bottomY + tier.topY) / 2, sz * d),
+              "y", tier.topY - tier.bottomY, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+          }
+          addEdgeSegment(segments, new THREE.Vector3(x + sx * w, y, 0),
+            "z", d * 2, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+          addEdgeSegment(segments, new THREE.Vector3(x, y, sx * d),
+            "x", w * 2, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+        }
+      }
+    }
+    return buildInstancedGroup(segments);
+  }
 
   if (shape === "twisted") {
     // Cantos em unit-space (±0.5). A torção da geometria do edifício acontece
@@ -304,8 +318,7 @@ function createLed(
         tmpDir.divideScalar(segLen); // normaliza in-place
 
         addOrientedEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(cx_avg, cy_avg, cz_avg),
           tmpDir.clone(),
           segLen,
@@ -332,8 +345,7 @@ function createLed(
       const len = dir.length();
       dir.divideScalar(len);
       addOrientedEdgeSegment(
-        group,
-        materials,
+        segments,
         center,
         dir,
         len,
@@ -342,7 +354,7 @@ function createLed(
       );
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "setback") {
@@ -362,8 +374,7 @@ function createLed(
 
       for (const [x, z] of corners) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, centerY, z),
           "y",
           segmentHeight,
@@ -375,8 +386,7 @@ function createLed(
       const topY = tier.topY + TOP_LIFT;
       for (const z of [-halfD, halfD]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(0, topY, z),
           "x",
           tier.width,
@@ -386,8 +396,7 @@ function createLed(
       }
       for (const x of [-halfW, halfW]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, topY, 0),
           "z",
           tier.depth,
@@ -397,7 +406,7 @@ function createLed(
       }
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "octagonal") {
@@ -405,8 +414,7 @@ function createLed(
 
     for (const { x, z } of corners) {
       addEdgeSegment(
-        group,
-        materials,
+        segments,
         new THREE.Vector3(x, height / 2, z),
         "y",
         height,
@@ -424,8 +432,7 @@ function createLed(
       const len = dir.length();
       dir.divideScalar(len);
       addOrientedEdgeSegment(
-        group,
-        materials,
+        segments,
         center,
         dir,
         len,
@@ -434,7 +441,7 @@ function createLed(
       );
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "tapered") {
@@ -465,8 +472,7 @@ function createLed(
         tmpDir.divideScalar(segmentLength);
 
         addOrientedEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2),
           tmpDir.clone(),
           segmentLength,
@@ -482,8 +488,7 @@ function createLed(
     const topY = height + TOP_LIFT;
     for (const z of [-topD / 2, topD / 2]) {
       addEdgeSegment(
-        group,
-        materials,
+        segments,
         new THREE.Vector3(0, topY, z),
         "x",
         topW,
@@ -493,8 +498,7 @@ function createLed(
     }
     for (const x of [-topW / 2, topW / 2]) {
       addEdgeSegment(
-        group,
-        materials,
+        segments,
         new THREE.Vector3(x, topY, 0),
         "z",
         topD,
@@ -503,7 +507,7 @@ function createLed(
       );
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "chrysler") {
@@ -522,8 +526,7 @@ function createLed(
 
       for (const [x, z] of corners) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, centerY, z),
           "y",
           segmentHeight,
@@ -537,8 +540,7 @@ function createLed(
       const topY = tier.topY + TOP_LIFT;
       for (const z of [-halfD, halfD]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(0, topY, z),
           "x",
           tier.width,
@@ -548,8 +550,7 @@ function createLed(
       }
       for (const x of [-halfW, halfW]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, topY, 0),
           "z",
           tier.depth,
@@ -573,8 +574,7 @@ function createLed(
         [-halfW, halfD],
       ] as Array<[number, number]>) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, spireY0 + spireLen / 2, z),
           "y",
           spireLen,
@@ -584,7 +584,7 @@ function createLed(
       }
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "empire") {
@@ -603,8 +603,7 @@ function createLed(
 
       for (const [x, z] of corners) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, centerY, z),
           "y",
           segmentHeight,
@@ -616,8 +615,7 @@ function createLed(
       const topY = tier.topY + TOP_LIFT;
       for (const z of [-halfD, halfD]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(0, topY, z),
           "x",
           tier.width,
@@ -627,8 +625,7 @@ function createLed(
       }
       for (const x of [-halfW, halfW]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, topY, 0),
           "z",
           tier.depth,
@@ -638,13 +635,20 @@ function createLed(
       }
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
-  if (shape === "taipei" || shape === "residential") {
+  // Residenciais: corpo + casa de máquinas/caixa d'água, mesmo contorno por tier.
+  if (shape === "taipei" || shape === "residential" || shape === "apartment" || shape === "gourmet" || shape === "loft") {
     const tiers = shape === "taipei"
       ? getTaipeiTierFootprints(width, depth, height)
-      : getResidentialTierFootprints(width, depth, height);
+      : shape === "residential"
+        ? getResidentialTierFootprints(width, depth, height)
+        : shape === "gourmet"
+          ? getGourmetTierFootprints(width, depth, height)
+          : shape === "loft"
+            ? getLoftTierFootprints(width, depth, height)
+            : getApartmentTierFootprints(width, depth, height);
     for (const tier of tiers) {
       const halfW = tier.width / 2;
       const halfD = tier.depth / 2;
@@ -659,8 +663,7 @@ function createLed(
 
       for (const [x, z] of corners) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, centerY, z),
           "y",
           segmentHeight,
@@ -672,8 +675,7 @@ function createLed(
       const topY = tier.topY + TOP_LIFT;
       for (const z of [-halfD, halfD]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(0, topY, z),
           "x",
           tier.width,
@@ -683,8 +685,7 @@ function createLed(
       }
       for (const x of [-halfW, halfW]) {
         addEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3(x, topY, 0),
           "z",
           tier.depth,
@@ -694,7 +695,7 @@ function createLed(
       }
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "one-trade") {
@@ -717,8 +718,7 @@ function createLed(
         tmpDir.divideScalar(len);
 
         addOrientedEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3().copy(start).add(end).multiplyScalar(0.5),
           tmpDir.clone(),
           len,
@@ -741,8 +741,7 @@ function createLed(
         tmpDir.divideScalar(len);
 
         addOrientedEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3().copy(start).add(end).multiplyScalar(0.5),
           tmpDir.clone(),
           len,
@@ -752,7 +751,7 @@ function createLed(
       }
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   if (shape === "hearst") {
@@ -773,8 +772,7 @@ function createLed(
         if (len <= 1e-6) continue;
         tmpDir.divideScalar(len);
         addOrientedEdgeSegment(
-          group,
-          materials,
+          segments,
           new THREE.Vector3().copy(a).add(b).multiplyScalar(0.5),
           tmpDir.clone(),
           len,
@@ -794,8 +792,7 @@ function createLed(
       if (len <= 1e-6) continue;
       tmpDir.divideScalar(len);
       addOrientedEdgeSegment(
-        group,
-        materials,
+        segments,
         new THREE.Vector3().copy(a).add(b).multiplyScalar(0.5),
         tmpDir.clone(),
         len,
@@ -804,7 +801,7 @@ function createLed(
       );
     }
 
-    return group;
+    return buildInstancedGroup(segments);
   }
 
   // Caminho default: arestas axis-aligned (mais leves — 1 mesh por aresta).
@@ -816,8 +813,7 @@ function createLed(
   ];
   for (const [x, z] of corners) {
     addEdgeSegment(
-      group,
-      materials,
+      segments,
       new THREE.Vector3(x, height / 2, z),
       "y",
       height,
@@ -830,18 +826,23 @@ function createLed(
   const topY = height + TOP_LIFT;
 
   for (const z of [-halfD, halfD]) {
-    addEdgeSegment(group, materials, new THREE.Vector3(0, topY, z), "x", width, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+    addEdgeSegment(segments, new THREE.Vector3(0, topY, z), "x", width, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
   }
   for (const x of [-halfW, halfW]) {
-    addEdgeSegment(group, materials, new THREE.Vector3(x, topY, 0), "z", depth, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+    addEdgeSegment(segments, new THREE.Vector3(x, topY, 0), "z", depth, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
   }
 
-  return group;
+  return buildInstancedGroup(segments);
 }
 
 const FACTORIES: Record<Exclude<EdgeLightType, "none">, EdgeLightFactory> = {
   led: createLed,
 };
+
+/** Guard pra keys vindas do catálogo (banco pode ter opção sem builder). */
+export function isEdgeLightType(key: string): key is EdgeLightType {
+  return key === "none" || key in FACTORIES;
+}
 
 /**
  * Cria um Group Three.js para o efeito de LED nas arestas do edifício.
@@ -854,29 +855,14 @@ export function createEdgeLightMesh(
   shape: BuildingShape = "default",
 ): THREE.Group | null {
   if (type === "none") return null;
-  const factory = FACTORIES[type];
-  const group = factory(footprint, shape);
-  group.userData.edgeLightType = type;
-  setEdgeLightMeshShadowEnabled(group, true);
-  return group;
-}
-
-
-
-export function setEdgeLightMeshShadowEnabled(
-  group: THREE.Group,
-  enabled: boolean,
-): void {
-  group.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.castShadow = enabled && child.userData.edgeLightCastsShadow === true;
-      child.receiveShadow = enabled && child.userData.edgeLightReceivesShadow === true;
-    }
-  });
+  const mesh = FACTORIES[type](footprint, shape);
+  mesh.userData.edgeLightType = type;
+  return mesh;
 }
 
 /**
- * Libera materiais clonados deste grupo. Geometrias são compartilhadas no módulo.
+ * Libera materiais clonados e os buffers de instância deste grupo.
+ * Geometrias base são compartilhadas no módulo.
  */
 export function disposeEdgeLightMesh(group: THREE.Group): void {
   const materials = group.userData.edgeLightMaterials as EdgeMaterials | undefined;
@@ -884,6 +870,9 @@ export function disposeEdgeLightMesh(group: THREE.Group): void {
     materials.core.dispose();
     materials.halo.dispose();
     materials.haloOuter.dispose();
+  }
+  for (const child of group.children) {
+    if (child instanceof THREE.InstancedMesh) child.dispose();
   }
   group.clear();
 }

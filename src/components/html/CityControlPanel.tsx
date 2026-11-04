@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { PixelClose } from "@/components/ui/pixel-icon";
+import type { CatalogOption } from "../../api/customizationApi";
 import type {
   BlockLayoutSettings,
   BuildingSettings,
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
+  ReflectionSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -18,34 +20,32 @@ import { EnvironmentControls } from "./EnvironmentControls";
 import { GroundControls } from "./GroundControls";
 import { TerrainControls } from "./TerrainControls";
 import { PanelIntro } from "./PanelIntro";
-import { RenderDirectionControls } from "./RenderDirectionControls";
 import { SceneLightControls } from "./SceneLightControls";
-import { ShadowControls } from "./ShadowControls";
 import { TextureControls } from "./TextureControls";
+import { ReflectionControls } from "./ReflectionControls";
 import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
 
-type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
+type Tab = "geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela";
 
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
+  /** Texturas ativas do catálogo — alimentam o seletor de fachada. */
+  facadeTextures: CatalogOption[];
   groundSettings: GroundSettings;
   blockLayoutSettings: BlockLayoutSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   horizonSettings: HorizonSettings;
   uiVisibility: UIVisibilitySettings;
-  /** Nomes dos estados da cidade salvos no localStorage. */
-  sceneSlots: string[];
-  /** Estado atualmente carregado, ou `null` quando a cena não veio de nenhum. */
-  activeSceneSlot: string | null;
+  /** Granulado de renderização: 0 = resolução nativa travada (padrão), 1 = downscale agressivo sob carga. */
+  grain: number;
   sceneStats: SceneStats;
   lightMetrics: {
     ambientDynamic: number;
@@ -58,32 +58,27 @@ export type CityControlPanelProps = {
   onBlockLayoutSettingsChange: (settings: BlockLayoutSettings) => void;
   onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
-  onShadowSettingsChange: (settings: ShadowSettings) => void;
-  onRenderDirectionSettingsChange: (settings: RenderDirectionSettings) => void;
   onEnvironmentSettingsChange: (settings: EnvironmentSettings) => void;
+  onReflectionSettingsChange: (settings: ReflectionSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
-  onSaveSceneSlot: (name: string) => void;
-  onLoadSceneSlot: (name: string) => void;
-  onDeleteSceneSlot: (name: string) => void;
-  onClearStorage: () => void;
+  onGrainChange: (grain: number) => void;
   onClose: () => void;
 };
 
 export function CityControlPanel({
   buildingSettings,
   textureSettings,
+  facadeTextures,
   groundSettings,
   blockLayoutSettings,
   terrainSettings,
   lightSettings,
-  shadowSettings,
-  renderDirectionSettings,
   environmentSettings,
+  reflectionSettings,
   horizonSettings,
   uiVisibility,
-  sceneSlots,
-  activeSceneSlot,
+  grain,
   sceneStats,
   lightMetrics,
   onBuildingSettingsChange,
@@ -92,72 +87,48 @@ export function CityControlPanel({
   onBlockLayoutSettingsChange,
   onTerrainSettingsChange,
   onLightSettingsChange,
-  onShadowSettingsChange,
-  onRenderDirectionSettingsChange,
   onEnvironmentSettingsChange,
+  onReflectionSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
-  onSaveSceneSlot,
-  onLoadSceneSlot,
-  onDeleteSceneSlot,
-  onClearStorage,
+  onGrainChange,
   onClose,
 }: CityControlPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("geral");
-  const [slotName, setSlotName] = useState("");
-
-  const saveSlot = () => {
-    const name = slotName.trim();
-    if (!name) return;
-    if (sceneSlots.includes(name) && !window.confirm(`Sobrescrever o estado "${name}"?`)) return;
-    onSaveSceneSlot(name);
-    setSlotName("");
-  };
 
   return (
-    <div className="absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col border-l border-white/10 bg-black/55 text-white shadow-2xl backdrop-blur-md">
-      <div className="flex items-stretch border-b border-white/10">
-        {(["geral", "texturas", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium capitalize tracking-wide transition-colors ${
-              activeTab === tab
-                ? "border-b-2 border-white text-white"
-                : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-        <button
+    <div className="pixel bevel-edge absolute right-0 top-0 z-[35] flex h-full w-full max-w-[360px] flex-col bg-background text-foreground">
+      <div className="flex items-start border-b border-border">
+        {/* 7 abas não cabem em 360px numa linha: quebram em duas. */}
+        <div className="flex flex-1 flex-wrap">
+          {(["geral", "texturas", "reflexo", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              data-active={activeTab === tab}
+              className="tab flex-auto px-2.5 py-2.5 text-xs capitalize hover:bg-accent"
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
-          className="flex w-11 shrink-0 items-center justify-center text-white/50 transition-colors hover:text-white"
+          className="m-1"
           title="Fechar painel"
           aria-label="Fechar painel"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M6 6l12 12M18 6L6 18"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+          <PixelClose className="size-3" />
+        </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === "geral" && (
           <div className="space-y-6 pb-8 pt-2">
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
             <BuildingControls value={buildingSettings} onChange={onBuildingSettingsChange} />
-            <ShadowControls value={shadowSettings} onChange={onShadowSettingsChange} />
-            <RenderDirectionControls
-              value={renderDirectionSettings}
-              onChange={onRenderDirectionSettingsChange}
-            />
-            <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
             <PanelSection
               title="Quadras"
               description="Cor dos lotes vazios do loteamento (quadras esperando edifício)."
@@ -209,7 +180,18 @@ export function CityControlPanel({
 
         {activeTab === "texturas" && (
           <div className="space-y-6 pb-8 pt-2">
-            <TextureControls value={textureSettings} onChange={onTextureSettingsChange} />
+            <TextureControls value={textureSettings} facadeTextures={facadeTextures} onChange={onTextureSettingsChange} />
+          </div>
+        )}
+
+        {activeTab === "reflexo" && (
+          <div className="space-y-6 pb-8 pt-2">
+            <ReflectionControls
+              value={reflectionSettings}
+              textureSettings={textureSettings}
+              onChange={onReflectionSettingsChange}
+              onTextureSettingsChange={onTextureSettingsChange}
+            />
           </div>
         )}
 
@@ -225,7 +207,12 @@ export function CityControlPanel({
 
         {activeTab === "horizonte" && (
           <div className="space-y-6 pb-8 pt-2">
-            <HorizonControls settings={horizonSettings} onChange={onHorizonSettingsChange} />
+            <HorizonControls
+              settings={horizonSettings}
+              onChange={onHorizonSettingsChange}
+              culledCount={sceneStats.culled}
+            />
+            <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
           </div>
         )}
 
@@ -266,99 +253,28 @@ export function CityControlPanel({
                     onUIVisibilityChange({ ...uiVisibility, blockLayoutInput })
                   }
                 />
+                <CheckboxField
+                  label="Card de organização dos edifícios"
+                  checked={uiVisibility.buildingLayoutCard}
+                  onChange={(buildingLayoutCard) =>
+                    onUIVisibilityChange({ ...uiVisibility, buildingLayoutCard })
+                  }
+                />
               </div>
             </PanelSection>
             <PanelSection
-              title="Estados da cidade"
-              description="Salva a cena atual (edifícios, modelos, texturas e ajustes) com um nome. Abrir um estado substitui a cena e recarrega a página."
+              title="Granulado"
+              description="Quando a cena pesa, o render cai de resolução e a imagem fica granulada. 0 trava na resolução nativa (sem granulado); acima disso, troca nitidez por FPS."
             >
-              <div className="space-y-3">
-                {sceneSlots.length > 0 && (
-                  <select
-                    value={activeSceneSlot ?? ""}
-                    onChange={(event) => {
-                      if (event.target.value) onLoadSceneSlot(event.target.value);
-                    }}
-                    className="h-11 w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white/85 outline-none transition-colors hover:bg-white/10 focus:border-white/20"
-                    title="Trocar estado da cidade"
-                    aria-label="Trocar estado da cidade"
-                  >
-                    {!activeSceneSlot && (
-                      <option value="" className="bg-[#05070a] text-white">
-                        Cena atual (não salva)
-                      </option>
-                    )}
-                    {sceneSlots.map((name) => (
-                      <option key={name} value={name} className="bg-[#05070a] text-white">
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={slotName}
-                    onChange={(event) => setSlotName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") saveSlot();
-                    }}
-                    placeholder="Nome do estado"
-                    className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/20"
-                  />
-                  <button
-                    onClick={saveSlot}
-                    disabled={!slotName.trim()}
-                    className="shrink-0 rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-medium text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Salvar
-                  </button>
-                </div>
-
-                {sceneSlots.length === 0 ? (
-                  <p className="text-xs text-white/40">Nenhum estado salvo ainda.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {sceneSlots.map((name) => (
-                      <li key={name} className="flex gap-2">
-                        <button
-                          onClick={() => onLoadSceneSlot(name)}
-                          className="min-w-0 flex-1 truncate rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white/85 transition-colors hover:border-white/25 hover:bg-white/10"
-                          title={`Abrir estado "${name}"`}
-                        >
-                          {name}
-                        </button>
-                        <button
-                          onClick={() => onDeleteSceneSlot(name)}
-                          className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 transition-colors hover:bg-red-500/20"
-                          title={`Excluir estado "${name}"`}
-                          aria-label={`Excluir estado ${name}`}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path
-                              d="M6 6l12 12M18 6L6 18"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </PanelSection>
-            <PanelSection
-              title="Dados salvos"
-              description="Edifícios, personalizações e ajustes ficam no localStorage do navegador. Limpar volta a cena ao estado inicial e recarrega a página."
-            >
-              <button
-                onClick={onClearStorage}
-                className="w-full rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 active:bg-red-500/30"
-              >
-                Limpar dados salvos
-              </button>
+              <RangeField
+                label="Granulado sob carga"
+                value={grain}
+                min={0}
+                max={1}
+                step={0.05}
+                valueLabel={grain === 0 ? "desligado" : grain.toFixed(2)}
+                onChange={onGrainChange}
+              />
             </PanelSection>
           </div>
         )}

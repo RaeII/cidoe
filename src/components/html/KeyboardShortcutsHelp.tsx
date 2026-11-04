@@ -1,4 +1,6 @@
 import { formatShortcut, type KeyboardShortcut } from "../hooks/useKeyboardShortcuts";
+import { Button } from "@/components/ui/button";
+import { PixelClose } from "@/components/ui/pixel-icon";
 
 export type KeyboardShortcutsHelpProps = {
   shortcuts: KeyboardShortcut[];
@@ -8,39 +10,34 @@ export type KeyboardShortcutsHelpProps = {
 export function KeyboardShortcutsHelp({ shortcuts, onClose }: KeyboardShortcutsHelpProps) {
   return (
     <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center bg-tinta/72 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-black/70 p-5 text-white shadow-2xl"
+        className="pixel bevel-edge bevel-w-6 w-full max-w-sm bg-background p-5 pb-7 text-foreground"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold tracking-wide">Atalhos de teclado</h2>
-          <button
+          <h2 className="text-lg font-semibold tracking-[-0.01em]">Atalhos de teclado</h2>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="text-white/50 transition-colors hover:text-white"
+            className="-mr-2"
             title="Fechar"
             aria-label="Fechar atalhos"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+            <PixelClose className="size-3" />
+          </Button>
         </div>
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {shortcuts.map((shortcut) => (
             <li
               key={shortcut.description}
               className="flex items-center justify-between gap-4 text-sm"
             >
-              <span className="text-white/70">{shortcut.description}</span>
-              <kbd className="shrink-0 rounded-md border border-white/15 bg-white/10 px-2 py-0.5 font-mono text-xs text-white">
+              <span className="text-muted-foreground">{shortcut.description}</span>
+              <kbd className="pixel pixel-thin shrink-0 bg-card px-1.5 font-mono text-xs">
                 {formatShortcut(shortcut)}
               </kbd>
             </li>

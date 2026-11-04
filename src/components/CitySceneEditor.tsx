@@ -1,41 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
-import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
-import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
+import { AuthMenu } from "./AuthMenu";
+import { ReferralHud } from "./referral/ReferralHud";
+import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
+import { MyBuildingsNavigation } from "./html/MyBuildingsNavigation";
+import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
-import { DonationInfoSection } from "./html/DonationInfoSection";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
 import {
   useKeyboardShortcuts,
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
+import { useDonations } from "./hooks/useDonations";
+import { useLocalSceneState } from "./hooks/useLocalCity";
+import { useOwnedDonationIds } from "./hooks/useOwnedDonationIds";
+import { useAuth } from "@/hooks/useAuth";
+import { saveDonationCustomization } from "../api/donationApi";
+import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
+import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
+import { DonationInfoSection } from "./html/DonationInfoSection";
+import { ContributeDialog } from "./html/donate/ContributeDialog";
+import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
+import {
+  fetchBuildingProfile,
+  type BuildingProfile,
+} from "../api/contributionApi";
+import { toast } from "./ui/toast";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+import { PixelArrow, PixelChevronDown } from "./ui/pixel-icon";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
-import {
-  applySceneSlot,
-  clearPersistedScene,
-  createDefaultPersistedSettings,
-  deleteSceneSlot,
-  getActiveSceneSlot,
-  listSceneSlots,
-  loadPersistedScene,
-  savePersistedScene,
-  saveSceneSlot,
-  type PersistedScene,
-} from "../scene/config/scenePersistence";
-import {
-  clearUIVisibilitySettings,
-  loadUIVisibilitySettings,
-  saveUIVisibilitySettings,
-} from "../scene/config/uiVisibilityConfig";
+import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
+import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
+import { createDefaultEnvironmentSettings } from "../scene/config/environmentConfig";
+import { createDefaultGroundSettings } from "../scene/config/groundConfig";
+import { createDefaultTerrainSettings } from "../scene/config/terrainConfig";
+import { createDefaultLightSettings } from "../scene/config/lightConfig";
+import { createDefaultReflectionSettings } from "../scene/config/reflectionConfig";
+import { createDefaultTextureSettings } from "../scene/config/textureConfig";
+import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
+import { createDefaultUIVisibilitySettings } from "../scene/config/uiVisibilityConfig";
 import type {
   BuildingCustomization,
-  BuildingShape,
   CameraDebugInfo,
-  EdgeLightType,
-  FacadeStyle,
-  RooftopType,
   SceneStats,
 } from "../scene/types";
 import {
@@ -44,207 +53,479 @@ import {
   DEFAULT_HOLOGRAM_OPACITY,
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
-import { randomFacadeStyle } from "../scene/utils/facadeStyle";
-
-// Cena começa com um único edifício (modelo padrão/quadrado).
-// Novos edifícios entram via seta direita, sempre superando o mais alto atual.
-const INITIAL_TEST_DONATIONS = [30] as const;
-
-// Estado salvo em localStorage (edifícios + personalizações + settings). Lido uma
-// única vez no módulo: `initialDonations` precisa de referência estável, senão o
-// efeito de semeadura do canvas reexecuta a cada render.
-const STORED_SCENE = loadPersistedScene();
-
-const INITIAL_DONATIONS: readonly number[] = STORED_SCENE?.donations ?? INITIAL_TEST_DONATIONS;
-
-const INITIAL_DONATION_TOTAL = INITIAL_DONATIONS.reduce((sum, v) => sum + v, 0);
-
-// Cada seta direita gera um edifício que supera o maior valor atual da cidade
-// (vira o mais alto e assume o centro da espiral), até o teto de DONATION_MAX_VALUE.
-// O sorteio define só quanto ele ultrapassa o líder.
-const DONATION_INCREMENT_MIN = 10;
-const DONATION_INCREMENT_MAX = 40;
-// Teto do valor gerado pelo botão/seta — nenhuma doação simulada passa disso.
-const DONATION_MAX_VALUE = 150;
-// Valor fixo do primeiro pagamento simulado da sessão.
-const FIRST_PAYMENT_VALUE = 47;
-
-const randomDonationIncrement = () =>
-  Math.round(
-    DONATION_INCREMENT_MIN + Math.random() * (DONATION_INCREMENT_MAX - DONATION_INCREMENT_MIN),
-  );
-
-const INITIAL_MAX_DONATION = Math.max(0, ...INITIAL_DONATIONS);
-
-// Personalizações salvas vêm alinhadas por índice com `donations`. O donation
-// manager numera os edifícios do lote inicial na mesma ordem (id = índice), então
-// o índice vira o id de runtime.
-const createInitialBuildingCustomizations = () => {
-  const map = new Map<number, BuildingCustomization>();
-  STORED_SCENE?.customizations.forEach((customization, index) => {
-    if (customization) map.set(index, customization);
-  });
-  return map;
-};
-
-const INITIAL_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
-
-const INITIAL_SETTINGS = STORED_SCENE?.settings ?? createDefaultPersistedSettings();
+import { SEED_FACADE_TEXTURES } from "@/lib/prelaunchCity";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
+
+// Arrasto de slider salva apenas o estado final no navegador.
+const SAVE_DEBOUNCE_MS = 500;
+const createDefaultGrain = () => 0;
+const createDefaultVisibleLimit = (): number | null => null;
 
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Total arrecadado e número de doações — alimentam a seção de informações abaixo da cena.
-  const [donationTotal, setDonationTotal] = useState(INITIAL_DONATION_TOTAL);
-  const [donationCount, setDonationCount] = useState<number>(INITIAL_DONATIONS.length);
-  // `inInfo` = usuário rolou para a seção de informações (esconde CTA da cena, mostra "voltar").
   const [inInfo, setInInfo] = useState(false);
 
-  const [buildingSettings, setBuildingSettings] = useState(INITIAL_SETTINGS.building);
-  const [textureSettings, setTextureSettings] = useState(INITIAL_SETTINGS.texture);
-  const [groundSettings, setGroundSettings] = useState(INITIAL_SETTINGS.ground);
-  const [terrainSettings, setTerrainSettings] = useState(INITIAL_SETTINGS.terrain);
-  const [lightSettings, setLightSettings] = useState(INITIAL_SETTINGS.light);
-  const [shadowSettings, setShadowSettings] = useState(INITIAL_SETTINGS.shadow);
-  const [renderDirectionSettings, setRenderDirectionSettings] = useState(
-    INITIAL_SETTINGS.renderDirection,
-  );
-  const [environmentSettings, setEnvironmentSettings] = useState(INITIAL_SETTINGS.environment);
-  const [horizonSettings, setHorizonSettings] = useState(INITIAL_SETTINGS.horizon);
-  const [blockLayoutSettings, setBlockLayoutSettings] = useState(INITIAL_SETTINGS.blockLayout);
+  const [buildingSettings, setBuildingSettings] = useLocalSceneState("building", createDefaultBuildingSettings);
+  const [textureSettings, setTextureSettings] = useLocalSceneState("texture", createDefaultTextureSettings);
+  const [groundSettings, setGroundSettings] = useLocalSceneState("ground", createDefaultGroundSettings);
+  const [terrainSettings, setTerrainSettings] = useLocalSceneState("terrain", createDefaultTerrainSettings);
+  const [lightSettings, setLightSettings] = useLocalSceneState("light", createDefaultLightSettings);
+  const [environmentSettings, setEnvironmentSettings] = useLocalSceneState("environment", createDefaultEnvironmentSettings);
+  const [reflectionSettings, setReflectionSettings] = useLocalSceneState("reflection", createDefaultReflectionSettings);
+  const [horizonSettings, setHorizonSettings] = useLocalSceneState("horizon", createDefaultHorizonSettings);
+  const [blockLayoutSettings, setBlockLayoutSettings] = useLocalSceneState("blockLayout", createDefaultBlockLayoutSettings);
   const [sceneStats, setSceneStats] = useState<SceneStats>({ ...DEFAULT_SCENE_STATS });
+  // sceneReady síncrono: o runtime avisa "baixando" dentro do effect do canvas (pool novo do
+  // catálogo), antes do effect que libera o loading — o state ainda estaria com o valor velho.
+  const sceneReadyRef = useRef(false);
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
-  const [sceneSlots, setSceneSlots] = useState(listSceneSlots);
-  const [activeSceneSlot, setActiveSceneSlot] = useState(getActiveSceneSlot);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const paymentBusyRef = useRef(false);
+  const paymentIdRef = useRef(0);
+  const maxDonationRef = useRef(0);
+  const [uiVisibility, setUIVisibility] = useLocalSceneState("visibility", createDefaultUIVisibilitySettings);
+  // Granulado zerado por padrão; preferência restaura por conta.
+  const [grain, setGrain] = useLocalSceneState("grain", createDefaultGrain);
+  // Clique abre informações; administração só para dono ou admin.
+  const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
+  const [showBuildingInfo, setShowBuildingInfo] = useState(true);
+  const [myBuildingsOpen, setMyBuildingsOpen] = useState(false);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
-  // Edifício clicado: mostra modal de info (dono + valor). `null` = fechado.
-  const [infoBuilding, setInfoBuilding] = useState<{ id: number; value: number } | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
-    createInitialBuildingCustomizations,
+    () => new Map(),
+  );
+  // Espelho do mapa p/ o rAF que reaplica na cena sem virar dependência do
+  // effect de setDonations (senão cada troca de cor reconstruiria a cidade).
+  const customizationsRef = useRef(buildingCustomizations);
+  // donationId → debounce pendente. Guarda o payload junto p/ o flush do unmount.
+  const pendingSaves = useRef(
+    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization; userId: number }>(),
   );
 
-  // Edifícios que vão para o localStorage. Guarda o id de runtime junto do valor
-  // para casar com `buildingCustomizations` na hora de salvar. Doações da
-  // simulação de pagamento (seta direita) ficam de fora — só existem na sessão.
-  const [persistedDonations, setPersistedDonations] = useState<
-    Array<{ id: number; value: number }>
-  >(() => INITIAL_DONATIONS.map((value, id) => ({ id, value })));
+  // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
+  // Filtro client-side por região/UF/cidade/ONG; replace-all na cena a cada mudança.
+  const {
+    loadState,
+    donations,
+    allDonations,
+    cities,
+    ongs,
+    savedCustomizations,
+    seeded,
+    filter,
+    setFilter,
+    retry,
+  } = useDonations();
+  const [customizationRevision, setCustomizationRevision] = useState(0);
+  const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
+  const { user, isAdmin } = useAuth();
+  const handleStatsChange = useCallback((stats: SceneStats) => {
+    sceneReadyRef.current = stats.sceneReady;
+    // A interface pública só lê sceneReady; métricas por frame são do painel admin.
+    setSceneStats((previous) => !isAdmin && previous.sceneReady === stats.sceneReady ? previous : stats);
+  }, [isAdmin]);
+  const { ids: ownedDonationIds } = useOwnedDonationIds();
 
-  // Espelha o contador de ids do donation manager. Todo edifício nasce aqui
-  // (lote inicial → handleDonation/handleBulkDonation), e o manager numera
-  // sequencialmente na ordem de chegada, então os contadores não divergem.
-  const nextDonationIdRef = useRef(INITIAL_DONATIONS.length);
+  // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
+  const canEdit = (donationId: number) => isAdmin || ownedDonationIds.has(donationId);
+  const [donationsApplied, setDonationsApplied] = useState(false);
+  // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
+  const [visibleLimit, setVisibleLimit] = useLocalSceneState("visibleLimit", createDefaultVisibleLimit);
+  const [contributeOpen, setContributeOpen] = useState(false);
+  // Login controlado aqui: o modal de contribuição também pede login.
+  const [authOpen, setAuthOpen] = useState(false);
+  const [profileEditId, setProfileEditId] = useState<number | null>(null);
+  const [infoProfile, setInfoProfile] = useState<{ id: number; userId: number | undefined; profile: BuildingProfile | null } | null>(null);
+  // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
+  const pendingFocusRef = useRef<number | null>(null);
 
-  // Simulação de pagamento: um cartão por vez. `payment` guarda o ativo;
-  // `paymentBusyRef` bloqueia novas setas até o cartão sair de tela.
-  const [payment, setPayment] = useState<Payment | null>(null);
-  const paymentIdRef = useRef(0);
-  const paymentBusyRef = useRef(false);
-  // Maior doação já registrada — base para o próximo edifício da seta direita.
-  const maxDonationRef = useRef(INITIAL_MAX_DONATION);
+  useEffect(() => {
+    pendingFocusRef.current = null;
+    // Troca de conta remove seleção e perfil da cidade anterior.
+    canvasRef.current?.clearFocus();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInfoBuildingId(null);
+    setSelectedBuildingId(null);
+    setProfileEditId(null);
+    setInfoProfile(null);
+    setMyBuildingsOpen(false);
+  }, [user?.id]);
+
+  // Sobrepõe as edições locais da conta à personalização pública.
+  useEffect(() => {
+    const saved = new Map(savedCustomizations);
+    for (const [id, entry] of pendingSaves.current) {
+      if (entry.userId === user?.id) saved.set(id, entry.customization);
+    }
+    customizationsRef.current = saved;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBuildingCustomizations(saved);
+  }, [savedCustomizations, user?.id]);
+
+  useEffect(() => {
+    customizationsRef.current = buildingCustomizations;
+  }, [buildingCustomizations]);
+
+  const visibleDonations = useMemo(() => {
+    if (visibleLimit === null || visibleLimit >= donations.length) return donations;
+    // O manager já ordena por valor desc; ordenar aqui garante que o corte
+    // pegue as MAIORES doações, não as primeiras do dataset.
+    return [...donations].sort((a, b) => b.value - a.value).slice(0, visibleLimit);
+  }, [donations, visibleLimit]);
+
+  const getBuildingSelection = useEffectEvent(() => ({ managedId: selectedBuildingId, infoId: infoBuildingId }));
+
+  useEffect(() => {
+    if (loadState.status !== "ready") return;
+    const { managedId, infoId } = getBuildingSelection();
+    const keepManagement = managedId !== null && visibleDonations.some((d) => d.id === managedId);
+    const retainedInfoId = infoId !== null && visibleDonations.some((d) => d.id === infoId) ? infoId : null;
+    // Replace-all reseta dimming/foco. Administração permanece se edifício continua visível.
+    canvasRef.current?.clearFocus();
+    // Sincroniza um sistema externo (cena Three.js) imperativo e reflete o
+    // progresso no render (overlay) — set-state-in-effect é intencional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedBuildingId(keepManagement ? managedId : null);
+    setInfoBuildingId(retainedInfoId);
+    setDonationsApplied(false);
+    // setDonations é síncrono (rebuild inline ~0,5s p/ 100k). Duplo rAF: rAF
+    // dispara ANTES do paint do próprio frame — só o 2º garante o overlay
+    // pintado antes do freeze; sem isso, trocar filtro trava a UI sem máscara.
+    let rafInner = 0;
+    const rafOuter = requestAnimationFrame(() => {
+      rafInner = requestAnimationFrame(() => {
+        canvasRef.current?.setDonations(visibleDonations);
+        maxDonationRef.current = visibleDonations.reduce((max, donation) => Math.max(max, donation.value), 0);
+        // setDonations é replace-all: o manager só preserva o que já estava na
+        // cena, então o que veio do banco (e o que voltou pelo filtro) precisa
+        // ser reaplicado aqui.
+        // ponytail: updateDonationCustomization faz find O(n) por chamada — ok
+        // enquanto prédio personalizado for minoria; indexar por id se crescer.
+        for (const [id, customization] of customizationsRef.current) {
+          canvasRef.current?.updateDonationCustomization(id, customization);
+        }
+        // Aqui e não num effect à parte: focusOnDonation é no-op até o edifício
+        // existir na cena. Releitura mantém card/administração do edifício visível.
+        const { managedId: activeManagedId, infoId: activeInfoId } = getBuildingSelection();
+        const focusId = pendingFocusRef.current ?? activeManagedId ?? activeInfoId;
+        if (focusId !== null && visibleDonations.some((d) => d.id === focusId)) {
+          pendingFocusRef.current = null;
+          canvasRef.current?.focusOnDonation(focusId);
+          if (activeManagedId !== focusId) setInfoBuildingId(focusId);
+        }
+        setDonationsApplied(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafOuter);
+      cancelAnimationFrame(rafInner);
+    };
+  }, [visibleDonations, loadState.status]);
+
+  // Página de loading sai uma vez só, com tudo pronto: doações aplicadas, catálogo (pool de
+  // texturas) resolvido e cena sem nada baixando/compilando. Depois disso rebuilds usam o overlay.
+  const [booted, setBooted] = useState(false);
+  useEffect(() => {
+    if (booted || loadState.status !== "ready" || !donationsApplied || !customizationCatalog) return;
+    if (sceneReadyRef.current) setBooted(true);
+  }, [booted, loadState.status, donationsApplied, customizationCatalog, sceneStats.sceneReady]);
+
+  // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
+  // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
+  // `textureSettings.textureKey`. Cidade inicial usa pool fixo, igual em local e produção.
+  const facadeTexturePool = useMemo(() => {
+    if (!textureSettings.randomPerBuilding) return [];
+    if (seeded) return SEED_FACADE_TEXTURES;
+    const catalog = (customizationCatalog?.textures ?? [])
+      .map((option) => option.value)
+      .filter((value): value is string => !!value);
+    return catalog;
+  }, [textureSettings.randomPerBuilding, customizationCatalog, seeded]);
 
   const lightMetrics = getLightMetrics(lightSettings);
 
-  useEffect(() => {
-    saveUIVisibilitySettings(uiVisibility);
-  }, [uiVisibility]);
+  const startPayment = () => {
+    if (!booted || !donationsApplied || inInfo || myBuildingsOpen || contributeOpen || paymentBusyRef.current) return;
+    paymentBusyRef.current = true;
+    paymentIdRef.current += 1;
+    const increment = Math.round(10 + Math.random() * 30);
+    setPayment({ id: paymentIdRef.current, amount: Math.max(47, maxDonationRef.current + increment) });
+  };
 
-  // Cena serializável do momento — alimenta o autosave e os estados nomeados.
-  const currentScene = useMemo<PersistedScene>(
-    () => ({
-      donations: persistedDonations.map((d) => d.value),
-      customizations: persistedDonations.map((d) => buildingCustomizations.get(d.id) ?? null),
-      settings: {
-        building: buildingSettings,
-        texture: textureSettings,
-        ground: groundSettings,
-        terrain: terrainSettings,
-        light: lightSettings,
-        shadow: shadowSettings,
-        renderDirection: renderDirectionSettings,
-        environment: environmentSettings,
-        horizon: horizonSettings,
-        blockLayout: blockLayoutSettings,
-      },
-    }),
-    [
-      persistedDonations,
-      buildingCustomizations,
-      buildingSettings,
-      textureSettings,
-      groundSettings,
-      terrainSettings,
-      lightSettings,
-      shadowSettings,
-      renderDirectionSettings,
-      environmentSettings,
-      horizonSettings,
-      blockLayoutSettings,
-    ],
-  );
-
-  useEffect(() => {
-    savePersistedScene(currentScene);
-  }, [currentScene]);
-
-  const handleSaveSceneSlot = useCallback(
-    (name: string) => {
-      if (!saveSceneSlot(name, currentScene)) {
-        window.alert("Não foi possível salvar: armazenamento do navegador cheio ou bloqueado.");
-        return;
-      }
-      setSceneSlots(listSceneSlots());
-      setActiveSceneSlot(name);
+  const handleHoverChange = useCallback(
+    (value: number | null, x: number, y: number) => {
+      setHoverInfo(value !== null ? { value, x, y } : null);
     },
-    [currentScene],
+    [],
   );
 
-  const handleDeleteSceneSlot = useCallback((name: string) => {
-    if (!window.confirm(`Excluir o estado "${name}"?`)) return;
-    deleteSceneSlot(name);
-    setSceneSlots(listSceneSlots());
-    setActiveSceneSlot(getActiveSceneSlot());
+  const handleBuildingClick = useCallback(
+    (donationId: number | null) => {
+      setMyBuildingsOpen(false);
+      pendingFocusRef.current = null;
+      if (donationId !== null) {
+        canvasRef.current?.focusOnDonation(donationId);
+      } else {
+        canvasRef.current?.clearFocus();
+      }
+      setSelectedBuildingId(null);
+      setInfoBuildingId(donationId);
+      setShowBuildingInfo(true);
+    },
+    [],
+  );
+
+  const handleCloseInfo = useCallback(() => {
+    pendingFocusRef.current = null;
+    canvasRef.current?.clearFocus();
+    setInfoBuildingId(null);
+    setMyBuildingsOpen(false);
   }, []);
 
-  // Abrir estado = copiar para a cena ativa e recarregar. Reconstruir o runtime
-  // em memória seria bem mais código que um reload (mesmo caminho do "limpar").
-  // Antes de trocar, grava o progresso no estado atual — trocar pelo select não
-  // pode perder o que mudou desde o último save. Cena que não veio de nenhum
-  // estado não tem onde ser gravada: aí sim confirma.
-  const handleLoadSceneSlot = useCallback(
-    (name: string) => {
-      if (name === activeSceneSlot) return;
-      if (activeSceneSlot) {
-        saveSceneSlot(activeSceneSlot, currentScene);
-      } else if (
-        !window.confirm(
-          "A cena atual não está salva em nenhum estado e será substituída. Continuar?",
-        )
-      ) {
-        return;
-      }
-      if (applySceneSlot(name)) window.location.reload();
-    },
-    [activeSceneSlot, currentScene],
-  );
+  // Informações → administração. Mantém o foco/zoom no edifício.
+  const handleManageFromInfo = useCallback(() => {
+    setSelectedBuildingId(infoBuildingId);
+    setInfoBuildingId(null);
+  }, [infoBuildingId]);
 
-  // Limpa tudo que a cena guarda em localStorage e recarrega: reconstruir o
-  // runtime a partir do zero em memória seria bem mais código que um reload.
-  const handleClearStorage = useCallback(() => {
-    if (!window.confirm("Apagar edifícios e personalizações salvos? A página vai recarregar.")) {
+  const handleCloseManagement = useCallback(() => {
+    setInfoBuildingId(selectedBuildingId);
+    setSelectedBuildingId(null);
+  }, [selectedBuildingId]);
+
+  // Acesso pelo menu ou confirmação: revela o edifício mesmo fora do filtro/teto.
+  const handleOpenDonation = (donationId: number, showInfo = true) => {
+    setMyBuildingsOpen(!showInfo);
+    scrollRef.current?.scrollTo({ top: 0 });
+    setShowBuildingInfo(showInfo);
+    setSelectedBuildingId(null);
+    const visible = visibleDonations.some((d) => d.id === donationId);
+    if (visible && donationsApplied) {
+      pendingFocusRef.current = null;
+      canvasRef.current?.focusOnDonation(donationId);
+      setInfoBuildingId(donationId);
       return;
     }
-    clearPersistedScene();
-    clearUIVisibilitySettings();
-    window.location.reload();
+    setInfoBuildingId(null);
+    if (!visible) {
+      setFilter({});
+      setVisibleLimit(null);
+    }
+    // Releitura após pagamento pode chegar depois do clique.
+    pendingFocusRef.current = donationId;
+  };
+
+  // Imagem/nome/descrição ficam fora do snapshot: busca no clique.
+  useEffect(() => {
+    if (infoBuildingId === null || !showBuildingInfo) return;
+    const controller = new AbortController();
+    fetchBuildingProfile(infoBuildingId, controller.signal, user?.id).then(
+      (profile) => {
+        if (!controller.signal.aborted) setInfoProfile({ id: infoBuildingId, userId: user?.id, profile });
+      },
+      () => {},
+    );
+    return () => controller.abort();
+  }, [infoBuildingId, showBuildingInfo, user?.id]);
+
+  // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
+  const infoBuilding = useMemo(() => {
+    if (infoBuildingId === null) return null;
+    const donation = donations.find((d) => d.id === infoBuildingId);
+    if (!donation) return null;
+    const city = cities.find((c) => c.id === donation.cityId);
+    return {
+      value: donation.value,
+      ongName: ongs.filter((o) => donation.ongIds.includes(o.id)).map((o) => o.name).join(", "),
+      place: city ? `${city.name} · ${city.uf}` : undefined,
+    };
+  }, [infoBuildingId, donations, cities, ongs]);
+
+  // Meus edifícios: todos os registros próprios, incluindo os ocultos pelo filtro/teto.
+  const myDonations = useMemo(() => {
+    if (ownedDonationIds.size === 0) return [];
+    return allDonations
+      .filter((d) => ownedDonationIds.has(d.id))
+      .sort((a, b) => b.value - a.value)
+      .map((d) => {
+        const city = cities.find((c) => c.id === d.cityId);
+        return {
+          id: d.id,
+          value: d.value,
+          ongName: ongs.filter((o) => d.ongIds.includes(o.id)).map((o) => o.name).join(", "),
+          place: city ? `${city.name} · ${city.uf}` : undefined,
+        };
+      });
+  }, [ownedDonationIds, allDonations, cities, ongs]);
+
+  const myBuildingIndex = myDonations.findIndex((donation) => donation.id === infoBuildingId);
+  const currentMyBuilding = myDonations[myBuildingIndex];
+
+  const handleBrowseMyBuildings = () => {
+    const donation = currentMyBuilding ?? myDonations[0];
+    if (donation) {
+      handleOpenDonation(donation.id, false);
+    } else {
+      toast.info("Você ainda não tem edifícios. Contribua para criar o primeiro.");
+    }
+  };
+
+  const handleStepMyBuilding = (direction: number) => {
+    if (myBuildingIndex < 0) return;
+    const index = (myBuildingIndex + direction + myDonations.length) % myDonations.length;
+    handleOpenDonation(myDonations[index].id, false);
+  };
+
+  const getExistingCustomization = useCallback(
+    (donationId: number): BuildingCustomization => {
+      const existing = buildingCustomizations.get(donationId);
+      return {
+        color: existing?.color ?? buildingSettings.color,
+        buildingShape: existing?.buildingShape ?? "default" as const,
+        textureKey: existing?.textureKey ?? null,
+        tilingScale: existing?.tilingScale ?? 1,
+        textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
+        rooftopType: existing?.rooftopType ?? "none" as const,
+        signText: existing?.signText ?? "",
+        signSides: existing?.signSides ?? 1,
+        edgeLightType: existing?.edgeLightType ?? "none" as const,
+        hologramImage: existing?.hologramImage ?? null,
+        hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
+        hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
+      };
+    },
+    [buildingCustomizations, buildingSettings.color],
+  );
+
+  const selectedCustomization = useMemo(
+    () => selectedBuildingId === null ? null : getExistingCustomization(selectedBuildingId),
+    [selectedBuildingId, getExistingCustomization],
+  );
+
+  const flushSave = useCallback((donationId: number, customization: BuildingCustomization, ownerId: number) => {
+    pendingSaves.current.delete(donationId);
+    // Um toast por edifício: falhas seguidas (arrasto de slider) substituem
+    // em vez de empilhar; o próximo save ok fecha.
+    const toastId = `save-customization-${donationId}`;
+    function save(data: BuildingCustomization) {
+      saveDonationCustomization(ownerId, donationId, data)
+        .then(() => toast.dismiss(toastId))
+        .catch((err: unknown) => {
+          toast.error(err instanceof Error ? err.message : "Não foi possível salvar neste navegador.", {
+            id: toastId,
+            action: {
+              label: "Tentar de novo",
+              onClick: () => save(data),
+            },
+          });
+        });
+    }
+    save(customization);
   }, []);
+
+  // Um debounce por edifício: editar A e depois B não pode cancelar o save de A.
+  const queueSave = useCallback(
+    (donationId: number, customization: BuildingCustomization) => {
+      if (!user) return;
+      const previous = pendingSaves.current.get(donationId);
+      clearTimeout(previous?.timer);
+      if (previous && previous.userId !== user.id) flushSave(donationId, previous.customization, previous.userId);
+      pendingSaves.current.set(donationId, {
+        customization,
+        userId: user.id,
+        timer: setTimeout(() => flushSave(donationId, customization, user.id), SAVE_DEBOUNCE_MS),
+      });
+    },
+    [flushSave, user],
+  );
+
+  // Recarregar/fechar a aba também preserva a última edição do slider.
+  useEffect(() => {
+    const pending = pendingSaves.current;
+    const flushPending = () => {
+      for (const [donationId, entry] of pending) {
+        clearTimeout(entry.timer);
+        flushSave(donationId, entry.customization, entry.userId);
+      }
+    };
+    window.addEventListener("pagehide", flushPending);
+    return () => {
+      window.removeEventListener("pagehide", flushPending);
+      flushPending();
+    };
+  }, [flushSave]);
+
+  const updateCustomization = useCallback(
+    (donationId: number, patch: Partial<BuildingCustomization>) => {
+      setBuildingCustomizations((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(donationId);
+        const updated: BuildingCustomization = {
+          color: existing?.color ?? buildingSettings.color,
+          buildingShape: existing?.buildingShape ?? "default",
+          textureKey: existing?.textureKey ?? null,
+          tilingScale: existing?.tilingScale ?? 1,
+          textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
+          rooftopType: existing?.rooftopType ?? "none",
+          signText: existing?.signText ?? "",
+          signSides: existing?.signSides ?? 1,
+          edgeLightType: existing?.edgeLightType ?? "none",
+          hologramImage: existing?.hologramImage ?? null,
+          hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
+          hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
+          ...patch,
+        };
+        next.set(donationId, updated);
+        canvasRef.current?.updateDonationCustomization(donationId, updated);
+        queueSave(donationId, updated);
+        return next;
+      });
+    },
+    [buildingSettings.color, queueSave],
+  );
+
+  // Painel é ferramenta de admin.
+  const shortcuts: KeyboardShortcut[] = [
+    {
+      key: "ArrowRight",
+      description: "Adicionar edifício (simula pagamento)",
+      handler: startPayment,
+    },
+    ...(isAdmin && !myBuildingsOpen ? [{
+      key: "m",
+      ctrl: true,
+      description: "Abrir/fechar painel de controle",
+      handler: () => setShowControlPanel((open) => !open),
+    }] : []),
+    {
+      key: "?",
+      shift: true,
+      description: "Mostrar/esconder esta ajuda",
+      handler: () => { if (!myBuildingsOpen) setShowShortcutsHelp((open) => !open); },
+    },
+    {
+      key: "Escape",
+      allowInInput: true,
+      description: "Fechar painel aberto",
+      handler: () => {
+        if (showShortcutsHelp) {
+          setShowShortcutsHelp(false);
+        } else if (infoBuildingId !== null || (myBuildingsOpen && selectedBuildingId === null)) {
+          if (myBuildingsOpen && currentMyBuilding && showBuildingInfo) setShowBuildingInfo(false);
+          else handleCloseInfo();
+        } else if (selectedBuildingId === null) {
+          setShowControlPanel(false);
+        }
+      },
+    },
+  ];
+
+  useKeyboardShortcuts(shortcuts);
 
   const scrollToInfo = useCallback(() => {
     const el = scrollRef.current;
@@ -255,18 +536,12 @@ export function CitySceneEditor() {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Controla a navegação por roda do mouse: na cena, rolar para baixo só pelo botão
-  // (evita sair da cena sem querer). Na seção de info, rolar para cima no topo
-  // volta para a cena de forma suave e automática.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     const onWheel = (event: WheelEvent) => {
-      // Painéis flutuantes (controles, customização, ajuda) ficam dentro deste
-      // container. Se a roda está sobre um overlay rolável, deixa ele rolar e
-      // não sequestra o gesto para navegar cena↔info (senão preventDefault
-      // trava a rolagem interna do painel).
+      // Painel rolável mantém o gesto; navegação não bloqueia seu conteúdo.
       let node = event.target instanceof HTMLElement ? event.target : null;
       while (node && node !== el) {
         const overflowY = getComputedStyle(node).overflowY;
@@ -300,278 +575,88 @@ export function CitySceneEditor() {
     };
   }, []);
 
-  // `persist = false` para a simulação de pagamento: o edifício aparece na cena
-  // mas não entra no localStorage — e entra sempre com a fachada `default`, sem
-  // sorteio de estilo.
-  const handleDonation = (value: number, persist = true) => {
-    const id = nextDonationIdRef.current++;
-    canvasRef.current?.addDonation(value, !persist);
-    maxDonationRef.current = Math.max(maxDonationRef.current, value);
-    setDonationTotal((t) => t + value);
-    setDonationCount((c) => c + 1);
-    if (persist) setPersistedDonations((prev) => [...prev, { id, value }]);
-  };
-
-  const handleBulkDonation = (values: number[]) => {
-    const firstId = nextDonationIdRef.current;
-    nextDonationIdRef.current += values.length;
-    canvasRef.current?.addDonations(values);
-    maxDonationRef.current = Math.max(maxDonationRef.current, ...values);
-    setDonationTotal((t) => t + values.reduce((sum, v) => sum + v, 0));
-    setDonationCount((c) => c + values.length);
-    setPersistedDonations((prev) => [
-      ...prev,
-      ...values.map((value, i) => ({ id: firstId + i, value })),
-    ]);
-  };
-
-  // Seta direita → inicia a simulação de pagamento. Valor = maior doação atual +
-  // incremento sorteado, limitado a DONATION_MAX_VALUE: o edifício novo é o mais
-  // alto da cidade enquanto o teto não chegar, e nunca passa dele.
-  // Ignora novas chamadas enquanto um cartão ainda está na tela.
-  const startPayment = useCallback(() => {
-    if (paymentBusyRef.current) return;
-    paymentBusyRef.current = true;
-    paymentIdRef.current += 1;
-    const amount =
-      paymentIdRef.current === 1
-        ? FIRST_PAYMENT_VALUE
-        : Math.min(DONATION_MAX_VALUE, maxDonationRef.current + randomDonationIncrement());
-    setPayment({ id: paymentIdRef.current, amount });
-  }, []);
-
-  const handleHoverChange = useCallback(
-    (value: number | null, x: number, y: number) => {
-      setHoverInfo(value !== null ? { value, x, y } : null);
-    },
-    [],
-  );
-
-  const handleBuildingClick = useCallback(
-    (donationId: number | null) => {
-      if (donationId !== null) {
-        canvasRef.current?.focusOnDonation(donationId);
-        const value = canvasRef.current?.getDonationValue(donationId) ?? 0;
-        // Clique abre o modal de info; personalização sai do fluxo do clique.
-        setSelectedBuildingId(null);
-        setInfoBuilding({ id: donationId, value });
-      } else {
-        canvasRef.current?.clearFocus();
-        setSelectedBuildingId(null);
-        setInfoBuilding(null);
-      }
-    },
-    [],
-  );
-
-  const handleCloseInfo = useCallback(() => {
-    canvasRef.current?.clearFocus();
-    setInfoBuilding(null);
-  }, []);
-
-  // Modal de info → painel de personalização. Mantém o foco/zoom no edifício.
-  const handleCustomizeFromInfo = useCallback(() => {
-    if (infoBuilding) setSelectedBuildingId(infoBuilding.id);
-    setInfoBuilding(null);
-  }, [infoBuilding]);
-
-  const handleCloseCustomizePanel = useCallback(() => {
-    canvasRef.current?.clearFocus();
-    setSelectedBuildingId(null);
-  }, []);
-
-  const getExistingCustomization = useCallback(
-    (donationId: number) => {
-      const existing = buildingCustomizations.get(donationId);
-      return {
-        color: existing?.color ?? buildingSettings.color,
-        // Sem customização o prédio já mostra a fachada sorteada — o painel abre nela,
-        // então mexer só na cor não troca a textura do edifício.
-        facadeStyle: existing?.facadeStyle ?? randomFacadeStyle(donationId),
-        tilingScale: existing?.tilingScale ?? 1,
-        buildingShape: existing?.buildingShape ?? "default" as const,
-        rooftopType: existing?.rooftopType ?? "none" as const,
-        signText: existing?.signText ?? "",
-        signSides: existing?.signSides ?? 1,
-        edgeLightType: existing?.edgeLightType ?? "none" as const,
-        hologramImage: existing?.hologramImage ?? null,
-        hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
-        hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
-      };
-    },
-    [buildingCustomizations, buildingSettings.color],
-  );
-
-  const updateCustomization = useCallback(
-    (donationId: number, patch: Partial<BuildingCustomization>) => {
-      setBuildingCustomizations((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(donationId);
-        const updated: BuildingCustomization = {
-          color: existing?.color ?? buildingSettings.color,
-          facadeStyle: existing?.facadeStyle ?? randomFacadeStyle(donationId),
-          buildingShape: existing?.buildingShape ?? "default",
-          tilingScale: existing?.tilingScale ?? 1,
-          textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
-          rooftopType: existing?.rooftopType ?? "none",
-          signText: existing?.signText ?? "",
-          signSides: existing?.signSides ?? 1,
-          edgeLightType: existing?.edgeLightType ?? "none",
-          hologramImage: existing?.hologramImage ?? null,
-          hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
-          hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
-          ...patch,
-        };
-        next.set(donationId, updated);
-        canvasRef.current?.updateDonationCustomization(donationId, updated);
-        return next;
-      });
-    },
-    [buildingSettings.color],
-  );
-
-  const handleBuildingColorChange = useCallback(
-    (donationId: number, color: string) => updateCustomization(donationId, { color }),
-    [updateCustomization],
-  );
-
-  const handleFacadeStyleChange = useCallback(
-    (donationId: number, facadeStyle: FacadeStyle) =>
-      updateCustomization(donationId, { facadeStyle }),
-    [updateCustomization],
-  );
-
-  const handleTilingScaleChange = useCallback(
-    (donationId: number, tilingScale: number) =>
-      updateCustomization(donationId, { tilingScale }),
-    [updateCustomization],
-  );
-
-  const handleRooftopChange = useCallback(
-    (donationId: number, rooftopType: RooftopType) => updateCustomization(donationId, { rooftopType }),
-    [updateCustomization],
-  );
-
-  const handleSignTextChange = useCallback(
-    (donationId: number, signText: string) => updateCustomization(donationId, { signText }),
-    [updateCustomization],
-  );
-
-  const handleSignSidesChange = useCallback(
-    (donationId: number, signSides: number) => updateCustomization(donationId, { signSides }),
-    [updateCustomization],
-  );
-
-  const handleEdgeLightTypeChange = useCallback(
-    (donationId: number, edgeLightType: EdgeLightType) =>
-      updateCustomization(donationId, { edgeLightType }),
-    [updateCustomization],
-  );
-
-  const handleBuildingShapeChange = useCallback(
-    (donationId: number, buildingShape: BuildingShape) =>
-      updateCustomization(donationId, { buildingShape }),
-    [updateCustomization],
-  );
-
-  const handleHologramImageChange = useCallback(
-    (donationId: number, hologramImage: string | null) =>
-      updateCustomization(donationId, { hologramImage }),
-    [updateCustomization],
-  );
-
-  const handleHologramColorChange = useCallback(
-    (donationId: number, hologramColor: string) =>
-      updateCustomization(donationId, { hologramColor }),
-    [updateCustomization],
-  );
-
-  const handleHologramOpacityChange = useCallback(
-    (donationId: number, hologramOpacity: number) =>
-      updateCustomization(donationId, { hologramOpacity }),
-    [updateCustomization],
-  );
-
-  const shortcuts: KeyboardShortcut[] = [
-    {
-      key: "ArrowRight",
-      description: "Adicionar edifício (simula pagamento)",
-      handler: () => startPayment(),
-    },
-    {
-      key: "m",
-      ctrl: true,
-      description: "Abrir/fechar painel de controle",
-      handler: () => setShowControlPanel((open) => !open),
-    },
-    {
-      key: "b",
-      ctrl: true,
-      description: "Mostrar/esconder input de doação",
-      handler: () =>
-        setUIVisibility((prev) => ({ ...prev, donationInput: !prev.donationInput })),
-    },
-    {
-      key: "j",
-      ctrl: true,
-      description: "Mostrar/esconder log da câmera",
-      handler: () => setUIVisibility((prev) => ({ ...prev, cameraLog: !prev.cameraLog })),
-    },
-    {
-      key: "?",
-      shift: true,
-      description: "Mostrar/esconder esta ajuda",
-      handler: () => setShowShortcutsHelp((open) => !open),
-    },
-    {
-      key: "Escape",
-      allowInInput: true,
-      description: "Fechar painel aberto",
-      handler: () => {
-        if (showShortcutsHelp) {
-          setShowShortcutsHelp(false);
-        } else if (infoBuilding !== null) {
-          handleCloseInfo();
-        } else if (selectedBuildingId !== null) {
-          handleCloseCustomizePanel();
-        } else {
-          setShowControlPanel(false);
-        }
-      },
-    },
-  ];
-
-  useKeyboardShortcuts(shortcuts);
-
   return (
-    <div
-      ref={scrollRef}
-      className="scrollbar-hidden h-screen w-full overflow-y-auto overflow-x-hidden bg-[#05070a]"
-    >
-      <section className="relative h-screen w-full overflow-hidden bg-[#05070a]">
+    <div ref={scrollRef} className={cn("h-svh w-full overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", myBuildingsOpen ? "overflow-y-hidden" : "overflow-y-auto")}>
+    {/* svh: no mobile, h-screen (100vh) passa por baixo da barra do navegador e esconde os botões do rodapé. */}
+    <div id="city-scene" className="relative h-svh w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
-        initialDonations={INITIAL_DONATIONS}
-        initialBuildingCustomizations={INITIAL_BUILDING_CUSTOMIZATIONS}
         buildingSettings={buildingSettings}
         textureSettings={textureSettings}
         groundSettings={groundSettings}
         terrainSettings={terrainSettings}
         lightSettings={lightSettings}
-        shadowSettings={shadowSettings}
-        renderDirectionSettings={renderDirectionSettings}
         environmentSettings={environmentSettings}
+        reflectionSettings={reflectionSettings}
         horizonSettings={horizonSettings}
         blockLayoutSettings={blockLayoutSettings}
-        onStatsChange={setSceneStats}
-        onCameraDebugChange={setCameraDebugInfo}
-        onHoverChange={handleHoverChange}
+        facadeTexturePool={facadeTexturePool}
+        grain={grain}
+        onStatsChange={handleStatsChange}
+        onCameraDebugChange={isAdmin && uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
+        onHoverChange={myBuildingsOpen ? undefined : handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
-      {uiVisibility.cameraLog && cameraDebugInfo && (
-        <div className="absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text rounded-lg border border-white/10 bg-black/70 px-3 py-2 font-mono text-[11px] leading-5 text-white/80 shadow-lg backdrop-blur-md">
-          <div className="mb-1 font-sans text-xs font-semibold text-white">Camera default</div>
+      <PaymentSimulation
+        payment={payment}
+        onConfirmed={(amount) => {
+          canvasRef.current?.addDonation(amount);
+          maxDonationRef.current = Math.max(maxDonationRef.current, amount);
+        }}
+        onDone={() => setPayment(null)}
+        onExited={() => { paymentBusyRef.current = false; }}
+      />
+      {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
+      <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
+      {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
+      {booted && (
+      <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
+        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
+          <ReferralHud rewards={rewards} />
+        </aside>
+        <div className="pointer-events-auto ml-auto shrink-0">
+          <AuthMenu
+            night={environmentSettings.night}
+            onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
+            myDonations={myDonations}
+            catalog={customizationCatalog}
+            rewards={rewards}
+            onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
+            onOpenDonation={handleOpenDonation}
+            onBrowseMyBuildings={handleBrowseMyBuildings}
+            authOpen={authOpen}
+            onAuthOpenChange={setAuthOpen}
+            onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+          />
+        </div>
+      </div>
+      )}
+      {booted && (
+        <div hidden={myBuildingsOpen}>
+        <ContributeDialog
+          open={contributeOpen}
+          onOpenChange={setContributeOpen}
+          ongs={ongs}
+          buildings={myDonations}
+          onRequestLogin={() => setAuthOpen(true)}
+          onPaid={() => setCustomizationRevision((revision) => revision + 1)}
+          onViewBuilding={(donationId) => handleOpenDonation(donationId, false)}
+        />
+        </div>
+      )}
+      {booted && (loadState.status !== "ready" || !donationsApplied) && (
+        <DonationLoadOverlay state={loadState} onRetry={retry} />
+      )}
+      {/* Faixa de 4–20px do rodapé: botões do rodapé ficam em bottom-7 (sombra desce 7px) para não cobrir. */}
+      {booted && !myBuildingsOpen && (
+        <p role="note" className="pointer-events-none absolute bottom-1 left-2 z-20 max-w-[calc(100%-1rem)] px-1.5 text-[11px] leading-4 text-papel">
+          <strong className="font-semibold">Pré-lançamento:</strong> ONGs e contribuições são de teste
+        </p>
+      )}
+      {!myBuildingsOpen && isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
+        <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
+          <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
             initialCameraPosition: {"{"} x: {formatCameraValue(cameraDebugInfo.position.x)}, y:{" "}
             {formatCameraValue(cameraDebugInfo.position.y)}, z:{" "}
@@ -584,9 +669,9 @@ export function CitySceneEditor() {
           </div>
         </div>
       )}
-      {hoverInfo && (
+      {!myBuildingsOpen && hoverInfo && (
         <div
-          className="pointer-events-none fixed z-50 rounded-lg border border-white/10 bg-black/80 px-3 py-1.5 text-sm text-white backdrop-blur-sm"
+          className="pointer-events-none fixed z-50 bg-tinta px-3 py-1.5 text-sm font-semibold text-papel"
           style={{ left: hoverInfo.x + 14, top: hoverInfo.y - 14 }}
         >
           {hoverInfo.value.toLocaleString("pt-BR", {
@@ -595,70 +680,82 @@ export function CitySceneEditor() {
           })}
         </div>
       )}
-      <BuildingHeightInput
-        onSubmit={handleDonation}
-        onBulkSubmit={handleBulkDonation}
-        blockLayoutSettings={blockLayoutSettings}
-        onBlockLayoutChange={setBlockLayoutSettings}
-        visibility={uiVisibility}
-      />
-      <PaymentSimulation
-        payment={payment}
-        onConfirmed={(amount) => handleDonation(amount, false)}
-        onDone={() => setPayment(null)}
-        onExited={() => {
-          paymentBusyRef.current = false;
-        }}
-      />
-      {infoBuilding !== null && (
-        <BuildingInfoModal
-          value={infoBuilding.value}
-          onCustomize={handleCustomizeFromInfo}
+      {!myBuildingsOpen && isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+        <BuildingLayoutCard
+          settings={blockLayoutSettings}
+          onChange={setBlockLayoutSettings}
+          visibleLimit={visibleLimit}
+          onVisibleLimitChange={setVisibleLimit}
+          total={donations.length}
+          onClose={() =>
+            setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
+          }
+        />
+      )}
+      {booted && myBuildingsOpen && !contributeOpen && !showBuildingInfo && selectedBuildingId === null && (
+        <MyBuildingsNavigation
+          value={currentMyBuilding?.value}
+          place={currentMyBuilding?.place}
+          index={myBuildingIndex}
+          count={myDonations.length}
+          onPrevious={() => handleStepMyBuilding(-1)}
+          onNext={() => handleStepMyBuilding(1)}
+          onCustomize={() => {
+            setShowBuildingInfo(false);
+            handleManageFromInfo();
+          }}
+          onDetails={() => setShowBuildingInfo(true)}
           onClose={handleCloseInfo}
         />
       )}
-      {selectedBuildingId !== null && (() => {
-        const c = getExistingCustomization(selectedBuildingId);
-        return (
-          <BuildingCustomizePanel
-            key={selectedBuildingId}
-            donationId={selectedBuildingId}
-            initialColor={c.color}
-            initialFacadeStyle={c.facadeStyle}
-            initialTilingScale={c.tilingScale}
-            initialBuildingShape={c.buildingShape}
-            initialRooftopType={c.rooftopType}
-            initialSignText={c.signText}
-            initialSignSides={c.signSides}
-            initialEdgeLightType={c.edgeLightType}
-            initialHologramImage={c.hologramImage}
-            initialHologramColor={c.hologramColor}
-            initialHologramOpacity={c.hologramOpacity}
-            onColorChange={handleBuildingColorChange}
-            onFacadeStyleChange={handleFacadeStyleChange}
-            onTilingScaleChange={handleTilingScaleChange}
-            onBuildingShapeChange={handleBuildingShapeChange}
-            onRooftopChange={handleRooftopChange}
-            onSignTextChange={handleSignTextChange}
-            onSignSidesChange={handleSignSidesChange}
-            onEdgeLightTypeChange={handleEdgeLightTypeChange}
-            onHologramImageChange={handleHologramImageChange}
-            onHologramColorChange={handleHologramColorChange}
-            onHologramOpacityChange={handleHologramOpacityChange}
-            onClose={handleCloseCustomizePanel}
-          />
-        );
-      })()}
-      {showControlPanel && (
+      {!contributeOpen && showBuildingInfo && infoBuildingId !== null && infoBuilding && (
+        <BuildingInfoModal
+          value={infoBuilding.value}
+          ongName={infoBuilding.ongName}
+          place={infoBuilding.place}
+          isOwn={ownedDonationIds.has(infoBuildingId)}
+          onManage={canEdit(infoBuildingId) ? handleManageFromInfo : undefined}
+          profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
+          onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
+          onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
+        />
+      )}
+      {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. */}
+      {booted && myBuildingsOpen && currentMyBuilding && !contributeOpen && showBuildingInfo && selectedBuildingId === null && (
+        <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center sm:bottom-6">
+          <Button type="button" variant="outline" size="lg" className="pointer-events-auto has-[>svg]:px-3 max-sm:text-sm" onClick={() => setShowBuildingInfo(false)}>
+            <PixelArrow className="rotate-180" />Voltar
+          </Button>
+        </div>
+      )}
+      <BuildingProfileDialog
+        donationId={profileEditId !== null && canEdit(profileEditId) ? profileEditId : null}
+        onClose={() => setProfileEditId(null)}
+        onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
+      />
+      {/* Gate no render: sessão que cai (logout/401) fecha o painel sozinha. */}
+      {selectedBuildingId !== null && selectedCustomization && canEdit(selectedBuildingId) && (
+        <BuildingManageDialog
+          key={`${user?.id}:${selectedBuildingId}`}
+          donationId={selectedBuildingId}
+          initialTab={myBuildingsOpen && !showBuildingInfo ? "appearance" : "information"}
+          catalog={customizationCatalog}
+          customization={selectedCustomization}
+          textureSettings={textureSettings}
+          onCustomizationChange={updateCustomization}
+          onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
+          onClose={handleCloseManagement}
+        />
+      )}
+      {!myBuildingsOpen && isAdmin && showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
+          facadeTextures={customizationCatalog?.textures ?? []}
           groundSettings={groundSettings}
           blockLayoutSettings={blockLayoutSettings}
           terrainSettings={terrainSettings}
           lightSettings={lightSettings}
-          shadowSettings={shadowSettings}
-          renderDirectionSettings={renderDirectionSettings}
           sceneStats={sceneStats}
           lightMetrics={lightMetrics}
           onBuildingSettingsChange={setBuildingSettings}
@@ -667,37 +764,40 @@ export function CitySceneEditor() {
           onBlockLayoutSettingsChange={setBlockLayoutSettings}
           onTerrainSettingsChange={setTerrainSettings}
           onLightSettingsChange={setLightSettings}
-          onShadowSettingsChange={setShadowSettings}
-          onRenderDirectionSettingsChange={setRenderDirectionSettings}
           environmentSettings={environmentSettings}
+          reflectionSettings={reflectionSettings}
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
-          sceneSlots={sceneSlots}
-          activeSceneSlot={activeSceneSlot}
+          grain={grain}
           onEnvironmentSettingsChange={setEnvironmentSettings}
+          onReflectionSettingsChange={setReflectionSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
-          onSaveSceneSlot={handleSaveSceneSlot}
-          onLoadSceneSlot={handleLoadSceneSlot}
-          onDeleteSceneSlot={handleDeleteSceneSlot}
-          onClearStorage={handleClearStorage}
+          onGrainChange={setGrain}
           onClose={() => setShowControlPanel(false)}
         />
       )}
-      {showShortcutsHelp && (
+      {!myBuildingsOpen && showShortcutsHelp && (
         <KeyboardShortcutsHelp
           shortcuts={shortcuts}
           onClose={() => setShowShortcutsHelp(false)}
         />
       )}
-      {!showControlPanel && (
-        <button
+      {!myBuildingsOpen && booted && (!isAdmin || !showControlPanel) && (
+        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[5.5rem]" : "bottom-7")}>
+          <PixelChevronDown />
+        </Button>
+      )}
+      {!myBuildingsOpen && booted && isAdmin && !showControlPanel && (
+        <Button
+          variant="outline"
+          size="icon-lg"
           onClick={() => setShowControlPanel(true)}
-          className="absolute bottom-4 right-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/60 text-white/70 shadow-lg backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white"
+          className="absolute bottom-7 right-4 z-30"
           title="Configurações da cena"
           aria-label="Abrir painel de configurações"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="size-5">
             <path
               fillRule="evenodd"
               clipRule="evenodd"
@@ -705,53 +805,30 @@ export function CitySceneEditor() {
               fill="currentColor"
             />
           </svg>
-        </button>
+        </Button>
       )}
-
-      {/* CTA: rola para a seção de informações abaixo da cena */}
-      {!showControlPanel && (
-        <button
-          onClick={scrollToInfo}
-          className="absolute bottom-[4.75rem] right-4 z-30 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 text-sm font-medium text-[#e9e6df]/80 shadow-lg backdrop-blur-md transition-colors hover:border-[#c9a86a]/50 hover:text-[#c9a86a]"
-          title="Para onde vai o seu investimento"
-          aria-label="Ver para onde vai o seu investimento"
-        >
-          <span className="hidden sm:inline"></span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M12 5v14M5 12l7 7 7-7"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      )}
-      </section>
-
-      <DonationInfoSection totalRaised={donationTotal} donationCount={donationCount} />
-
-      {/* Voltar para a cena — visível apenas na seção de informações */}
-      {inInfo && (
-        <button
-          onClick={scrollToScene}
-          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-4 py-2.5 text-sm font-medium text-[#14161c] shadow-lg backdrop-blur-md transition-colors hover:border-[#a8814a]/60 hover:text-[#a8814a]"
-          title="Voltar para a cena"
-          aria-label="Voltar para a cena"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M12 19V5M5 12l7-7 7 7"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="hidden sm:inline">Voltar para a cena</span>
-        </button>
-      )}
+    </div>
+    {/* Apresentação pública independe da API, do catálogo e do WebGL. */}
+    <div hidden={myBuildingsOpen}>
+    <DonationInfoSection
+      donations={donations}
+      ongs={ongs}
+      filter={filter}
+      loadState={loadState}
+      onFilterChange={setFilter}
+      onViewOng={(ongId) => {
+        setFilter({ ...filter, ongId });
+        scrollToScene();
+      }}
+      onRetry={retry}
+    />
+    </div>
+    {!myBuildingsOpen && inInfo && (
+      <Button variant="outline" onClick={scrollToScene} title="Voltar para a cena" aria-label="Voltar para a cena" className="fixed bottom-4 right-4 z-40">
+        <PixelChevronDown className="rotate-180" />
+        <span className="hidden sm:inline">Voltar para a cena</span>
+      </Button>
+    )}
     </div>
   );
 }

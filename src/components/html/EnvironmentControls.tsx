@@ -11,7 +11,7 @@ export function EnvironmentControls({ value, onChange }: EnvironmentControlsProp
   return (
     <PanelSection
       title="Ambiente"
-      description="Ajuste a posição da imagem de fundo para alinhar o horizonte com o chão."
+      description="Ajuste a posição da imagem de fundo para alinhar o horizonte com o chão. O brilho das janelas só aparece com o modo noite ligado (menu do usuário)."
     >
       <RangeField
         label="Posição vertical (horizonte)"
@@ -39,6 +39,15 @@ export function EnvironmentControls({ value, onChange }: EnvironmentControlsProp
         step={0.01}
         onChange={(offsetZ) => onChange({ ...value, offsetZ })}
         valueLabel={value.offsetZ.toFixed(2)}
+      />
+      <RangeField
+        label="Brilho das janelas (noite)"
+        value={value.windowIntensity}
+        min={0}
+        max={6}
+        step={0.1}
+        onChange={(windowIntensity) => onChange({ ...value, windowIntensity })}
+        valueLabel={value.windowIntensity.toFixed(1)}
       />
     </PanelSection>
   );

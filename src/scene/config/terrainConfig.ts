@@ -39,3 +39,8 @@ export const DEFAULT_TERRAIN_SETTINGS: TerrainSettings = {
 export function createDefaultTerrainSettings(): TerrainSettings {
   return { ...DEFAULT_TERRAIN_SETTINGS };
 }
+
+// Cidade grande demais: o relevo (mesh fixo de size=700) vira um tapete perdido embaixo
+// dos prédios e ainda paga vértices. Acima deste número de edifícios ele some — o painel
+// continua mandando, mas o runtime sobrepõe enabled (ver createCitySceneRuntime).
+export const TERRAIN_MAX_BUILDINGS = 5000;

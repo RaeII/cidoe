@@ -316,9 +316,13 @@ export function createChunkManager({
   const tempDirectionToChunk = new THREE.Vector3();
   let currentRenderDirectionSettings = { ...renderDirectionSettings };
 
+  // Raio (mundo) dentro do qual chunks recebem envMap dinâmico (valor da antiga
+  // config envMapNearDistance — hardcoded aqui pois este manager é só referência).
+  const ENV_MAP_NEAR_DISTANCE = 26;
+
   const isChunkNear = (chunkX: number, chunkZ: number, cameraChunkX: number, cameraChunkZ: number) => {
     const dist = Math.max(Math.abs(chunkX - cameraChunkX), Math.abs(chunkZ - cameraChunkZ));
-    return dist * CITY_SCENE_CONFIG.chunkSize <= CITY_SCENE_CONFIG.envMapNearDistance;
+    return dist * CITY_SCENE_CONFIG.chunkSize <= ENV_MAP_NEAR_DISTANCE;
   };
 
   const updateAllChunkMaterials = (cameraChunkX: number, cameraChunkZ: number) => {

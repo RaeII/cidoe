@@ -20,4 +20,12 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Primitivos shadcn: exportam componente + `xxxVariants` (cva) de propósito.
+    // Regra de fast-refresh não se aplica a esses arquivos vendorizados.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

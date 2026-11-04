@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-Cidoa is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, HDRI environment, and shadow systems are all controllable via a real-time UI panel.
+Cidoe is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, HDRI environment, and shadow systems are all controllable via a real-time UI panel.
 
 ## Commands
 
@@ -73,6 +73,12 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 | Hook | `scene-hooks.md` |
 
 `doc/` uses Obsidian wikilinks (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) to cross-reference files. Maintain these links when renaming files.
+
+## UI copy
+
+Keep interface text lean. The label says what the field is; add a description only when the label
+alone is not enough — one short, direct sentence. No decorative descriptions, no long explanations,
+no repeating in prose what the placeholder or label already shows.
 
 ## TypeScript
 

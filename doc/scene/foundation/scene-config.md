@@ -1,7 +1,7 @@
 ---
 title: Scene Config
 tags:
-  - cidoa
+  - cidoe
   - config
   - defaults
 aliases:
@@ -17,7 +17,7 @@ Arquivos de configuração em `src/scene/config/`.
 > Se você quer mudar comportamento inicial **sem alterar lógica**, comece aqui.
 > - "Quero prédios mais escuros por padrão" → `buildingConfig.ts`
 > - "Quero câmera mais longe" → `citySceneConfig.ts`
-> - "Quero sombras com mapa maior" → `shadowConfig.ts`
+> - "Quero relevo mais alto" → `terrainConfig.ts`
 
 ## Objetivo da Pasta
 
@@ -52,7 +52,9 @@ Valores padrão das texturas PBR das fachadas:
 | Campo | Padrão |
 |---|---|
 | `enabled` | `true` |
-| `normalScale` | — |
+| `textureKey` | `"texture/Facade006_1K-mirrored-PNG"` (= value seed; pasta da fachada ativa, ver [[scene-textures]]) |
+| `randomPerBuilding` | `true` — cada prédio sorteia uma textura do catálogo (ver [[scene-textures#Sorteio por edifício]]). `false` = cidade inteira com `textureKey` |
+| `normalScale` | `0` |
 | `displacementScale` | — |
 | `tilingScale` | — |
 | `roughnessIntensity` | — |
@@ -119,6 +121,7 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 | `TERRAIN_CITY_PADDING` | `30` | Folga plana entre a borda do loteamento e o início do verde. Largo o bastante pra ultrapassar ~1 célula da malha (`size/segments`), senão a interpolação grosseira do relevo sangra verde sobre as quadras de borda |
 | `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
 | `TERRAIN_GROUND_Y` | `-0.04` | Nível plano do **chão único**, abaixo das ruas (−0.015) com folga. O plano cinza fica escondido no render normal (ver runtime), então não há z-fighting entre os dois |
+| `TERRAIN_MAX_BUILDINGS` | `5000` | Teto de edifícios. Acima disso o runtime esconde o relevo — cidade já passou da borda da malha (`size` 700) e o verde só paga vértices. Painel continua mandando; runtime sobrepõe `enabled` (ver [[scene-runtime#Relevo (terrainRig)]]) |
 
 **Funções exportadas:**
 - `DEFAULT_TERRAIN_SETTINGS`
@@ -140,50 +143,22 @@ Valores padrão das luzes:
 
 ---
 
-### `shadowConfig.ts`
-
-Valores padrão de sombra:
-
-| Campo | Descrição |
-|---|---|
-| `enabled` | Sombra começa ligada? |
-| `bias` | Bias do shadow map |
-| `normalBias` | Normal bias |
-| `radius` | Raio de suavização |
-| `blurSamples` | Amostras de blur |
-| `mapSize` | Resolução do shadow map |
-| `camera*` | Parâmetros da câmera ortográfica de sombra |
-| `buildingCountWithShadow` | Quantidade de prédios que geram sombra |
-
----
-
-### `renderDirectionConfig.ts`
-
-Valores padrão dos limites de carregamento de chunks por direção da câmera:
-
-- `forwardDistance`
-- `sideDistance`
-- `backwardDistance`
-
-> [!note]
-> Consumido pelo [[scene-managers|ChunkManager]] (mantido para referência arquitetural).
-
----
-
 ### `blockLayoutConfig.ts`
 
 Valores padrão do layout de quadras:
 
 | Campo | Padrão | Descrição |
 |---|---|---|
-| `blockSize` | `3` | Prédios por lado (3×3 = 9 slots por quadra) |
+| `blockSize` | `8` | Prédios por lado (8×8 = 64 slots por quadra; a central é 7×7 = 49) |
 | `streetWidth` | `6.0` | Largura das ruas entre quadras em unidades world |
-| `towerRatio` | `0.12` | Fração de doações que são torres (12%) |
-| `baseHeightCap` | `0.30` | Teto de altura da base urbana (30% de maxSceneHeight) |
+| `towerRatio` | `0.33` | Fração da camada de topo (33%). Metade do que sobra vira camada do meio |
+| `towersPerBlock` | `14` | Quantos do topo por quadra. Baixo demais espalha a cidade e deixa vazada |
+| `baseHeightCap` | `0.70` | Onde começa a faixa do topo e termina a do meio (70% de maxSceneHeight) |
 | `lotColor` | `#5b5048` | Cor dos lotes vazios das quadras (editável na aba **geral** do painel) |
 | `sidewalkColor` | `#9a9da3` | Cor do topo da calçada/meio-fio (editável na aba **geral** → seção Calçada) |
 | `sidewalkSideColor` | `#55575c` | Cor das laterais da calçada (mais escura, efeito de sombra; aba **geral** → seção Calçada) |
 | `sidewalkHeight` | `0.12` | Altura do topo da calçada (degrau acima do chão), editável na aba **geral** → seção Calçada |
+| `centerTallest` | `false` | `false` = layout por quadra (torres + base); `true` = mais alto no centro. Aba **geral** → seção Organização dos edifícios |
 
 **Funções exportadas:**
 - `createDefaultBlockLayoutSettings()`
@@ -200,12 +175,59 @@ Valores padrão do ambiente HDRI:
 - `offsetX` — rotação horizontal do skybox
 - `offsetY` — deslocamento vertical do horizonte
 - `offsetZ` — roll diagonal
+- `night` — modo noite (padrão `false`)
+- `windowIntensity` — brilho das janelas acesas, padrão `NIGHT_PRESET.windowIntensity` (slider na seção **Ambiente**)
+
+Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noite = HDRI diurno multiplicado por azul escuro.
+
+Arquivo do HDRI (WebP, céu 4K/2K por tier + fonte 1K do PMREM) não é config — mora em [[scene-builders#loadEnvironment.ts]].
+
+| Campo | Padrão | Onde bate |
+|---|---|---|
+| `skyTint` | `#1b2440` | `MeshBasicMaterial.color` da esfera do céu — multiplica o mapa, mantém nuvem |
+| `ambientColor` | `#8ea6d6` | Cor da `AmbientLight` (luar frio) |
+| `ambientScale` | `0.09` | Fator sobre `ambientTotal` — prédio escurece, LED/holograma dominam |
+| `environmentIntensity` | `0.1` | `scene.environmentIntensity`: IBL do HDRI diurno perde peso |
+| `fogColor` | `#070b16` | Cor da `FogExp2` (densidade continua do horizonte) |
+| `windowColor` · `windowLitFraction` | `#ffcb82` · `0.26` | Cor e fração das janelas acesas ([[scene-managers#Janelas acesas de noite]]) |
+| `windowIntensity` | `1.7` | Só **padrão** do slider `EnvironmentSettings.windowIntensity` — quem manda em runtime é o painel |
+| `facadeEnvMapIntensity` | `0.6` | `envMapIntensity` da fachada de noite — override do slider "Intensidade na fachada" (só de dia) |
+| `lampEmissive` · `lampPool` | `2.6` · `0.55` | Luminária acesa e mancha de luz dos postes de rua ([[scene-managers#Postes de Luz (rebuildStreetLamps)]]) |
+| `starCount` · `starRadius` · `starSize` | `1400` · `180` · `1.6` | Campo de estrelas ([[scene-builders#loadEnvironment.ts]]) |
+
+---
+
+### `reflectionConfig.ts`
+
+Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` + `DEFAULT_REFLECTION_SETTINGS`.
+
+| Campo | Padrão | Por quê |
+|---|---|---|
+| `enabled` | `true` | — |
+| `resolution` | `256` | Fachada é espelho (`roughness 0`, amostra mip 0); 128 vira mancha lisa |
+| `probeX/Y/Z` | `0, 18, 0` | Centro da cidade, logo acima dos telhados |
+| `followCamera` | `true` | Probe na câmera: cada prédio devolve o que está à frente do ponto de vista |
+| `skyDrop` | `0` | Sem deslocamento de céu na captura — cube vê o mesmo horizonte do render normal |
+| `envHorizon` | `0` | Vetor de reflexão cru, sem achatamento. Slider achata `reflectVec.y` no shader. Fachada vertical espelha pra baixo (`R.y = −V.y`) onde o cube só tem cinza; puxar pro horizonte devolve o skyline. Escala só Y → **igual em toda face** |
+| `envRotY` | `0` | Giro horizontal do envMap no material (graus). Único eixo de rotação rígida que preserva simetria entre faces |
+| `heightFadeStart` | `32.8` | Altura da câmera onde começa a suavização |
+| `heightFadeEnd` | `57.6` | Altura onde o desfoque chega ao máximo |
+| `heightBlur` | `0` | Sem piso de rugosidade por altura — fachada mantém o espelho vista de cima |
+| `reflectionDistanceStart` | `599` | Fade desligado: além do alcance do probe (`reflectionFar 260`) |
+| `reflectionDistanceEnd` | `600` | Fade desligado: proximidade sempre `1` |
+| `updateInterval` | `4` | Frames entre capturas |
+| `continuous` | `true` | Recaptura sempre — probe segue a câmera, `cubeDirty` não basta |
+| `includeGround` | `true` | Plano cinza + relevo entram no cube e aparecem nos reflexos |
+| `includeCityFloor` | `true` | Asfalto/calçada/lotes entram no cube e aparecem nos reflexos |
+
+> [!note]
+> Editável na aba **reflexo** do painel. Tipo em [[scene-types#ReflectionSettings]], mecânica em [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
 
 ---
 
 ### `uiVisibilityConfig.ts`
 
-Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoa:ui-visibility`).
+Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoe:ui-visibility`). `readProjectStorage` migra a preferência legada sem apagar o original se a gravação falhar (ver [[index#Marca, SEO e migração de nomes]]).
 
 | Campo | Padrão | Esconde |
 |---|---|---|
@@ -218,57 +240,15 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 - `createDefaultUIVisibilitySettings()` — tudo visível
 - `loadUIVisibilitySettings()` — lê `localStorage`, mescla com defaults (campo ausente/inválido cai no default); seguro contra JSON corrompido e `localStorage` bloqueado
 - `saveUIVisibilitySettings(settings)` — grava no `localStorage`, falha silenciosa se bloqueado
-- `clearUIVisibilitySettings()` — remove a chave (usado pelo botão "Limpar dados salvos")
 
 > [!note]
 > Editável em tempo real pela aba **tela** do painel. Ver [[html-components#CityControlPanel.tsx]]. Tipo em [[scene-types#UIVisibilitySettings]].
 
 ---
 
-### `scenePersistence.ts`
+### `horizonConfig.ts`
 
-Persiste a cena inteira em `localStorage` (chave `cidoa:scene`): edifícios criados, personalizações por edifício e todos os settings do painel. Escrita disparada por efeito em [[html-components#CitySceneEditor.tsx]] a cada mudança de estado.
-
-**Formato salvo (`PersistedScene`):**
-
-| Campo | Conteúdo |
-|---|---|
-| `donations` | `number[]` — valores na ordem de criação |
-| `customizations` | `Array<BuildingCustomization \| null>` — **alinhado por índice** com `donations`; `null` = sem personalização |
-| `settings` | `PersistedSceneSettings` — building, texture, ground, terrain, light, shadow, renderDirection, environment, horizon, blockLayout |
-
-> [!important]
-> `customizations` casa por **índice**, não por id de runtime. O donation manager renumera ids do zero a cada carga, e edifícios da simulação de pagamento (seta direita) consomem ids sem serem salvos — índice é a única chave estável entre sessões.
-
-**O que NÃO é salvo:** edifícios gerados pela seta direita (simulação de pagamento). Existem só na sessão. `handleDonation(value, persist=false)` em [[html-components#CitySceneEditor.tsx]] marca esse caso.
-
-**Funções exportadas (cena ativa):**
-- `createDefaultPersistedSettings()` — junta todos os `createDefault*Settings()`
-- `loadPersistedScene()` — `null` se nada salvo ou JSON corrompido; senão mescla settings recursivamente sobre os defaults (campo novo entra com default, campo removido é descartado) e filtra doações inválidas
-- `savePersistedScene(scene)` — grava; se estourar cota, tenta de novo sem `hologramImage` (data URLs de imagem sozinhas passam do limite) antes de desistir
-- `clearPersistedScene()` — remove a chave
-
-> [!note]
-> Botão "Limpar dados salvos" na aba **tela** do painel apaga esta chave + `cidoa:ui-visibility` e recarrega a página. Estados nomeados ficam. Ver [[html-components#CityControlPanel.tsx]].
-
-#### Estados nomeados (chave `cidoa:scene-slots`)
-
-Saves da cidade escolhidos pelo usuário. Chave separada da cena ativa, formato `Record<nome, PersistedScene>` — mesmo formato acima, então salvar é só copiar `currentScene`.
-
-| Função | O que faz |
-|---|---|
-| `listSceneSlots()` | Nomes ordenados (`localeCompare` pt-BR) |
-| `saveSceneSlot(name, scene)` | Grava/sobrescreve + marca `name` como ativo. `false` = cota estourada mesmo sem hologramas |
-| `deleteSceneSlot(name)` | Remove o nome do record; limpa o ativo se era ele |
-| `applySceneSlot(name)` | Copia o estado para `cidoa:scene` + marca ativo. `false` = nome inexistente |
-| `getActiveSceneSlot()` | Nome do estado que a cena ativa veio de; `null` = cena não salva em nenhum |
-
-Chave `cidoa:scene-active` guarda só esse rótulo (nome do estado ativo) — alimenta o select de troca rápida e o auto-save antes de trocar. `clearPersistedScene()` apaga junto.
-
-> [!important] Abrir estado = reload
-> `applySceneSlot` só troca o conteúdo do storage; quem chama recarrega a página, e o runtime nasce do estado novo no mount. Mesmo caminho do "Limpar dados salvos" — reconstruir o runtime em memória custaria bem mais código. UI em [[html-components#CityControlPanel.tsx]].
-
----
+Defaults de [[scene-types#HorizonSettings]]: `groundEdgeMode: "straight"`, `groundDistance: 660` (`far * 1.1`), `renderDistance: 600`, edifícios frente/trás `208.3 / 46.2`, névoa `0.007 / #8c8c8c`. Seletor na aba Horizonte oferece reta, circular e quadrado. Reta acompanha câmera e cobre frustum lateral; `1.1*far` é distância inicial, não garantia geométrica de cobertura.
 
 ### `citySceneConfig.ts` ⭐
 
@@ -283,31 +263,36 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `minHeight` | Altura mínima dos prédios |
 | `maxHeight` | Cap visual absoluto (teto de altura; prédios nunca ultrapassam) |
 | `maxBuildingsPerChunk` | Limite de prédios por chunk |
-| `dprCap` | Limite máximo de device pixel ratio (2 = qualidade nativa em retina) |
-| `far` | Far plane da câmera |
-| `shadowBuildingCap` | Limite global de prédios com sombra |
+| `dprCap` | Limite máximo de device pixel ratio. `2` = resolução nativa em retina; só corta telas 3x+ |
+| `liteDprCap` | DPR máximo no modo leve (`IS_LOW_TIER`, celular/máquina modesta): `1.5` |
+| `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto o granulado for `0`) |
+| `liteFps` | Alvo da resolução dinâmica no modo leve: `60`. Não limita frames; o loop acompanha o rAF do navegador |
+| `minRenderScale` | Piso **inicial** da escala de render. `1` = escala dinâmica desligada no boot. Em runtime quem manda é o `setGrain` do granulado — ver [[scene-runtime]] |
+| `maxRenderScale` | Escala máxima de render |
+| `far` | `600`: **padrão** do `HorizonSettings.renderDistance` (`camera.far` + raio do céu). Em runtime quem manda é o slider da aba horizonte |
+| `reflectionFar` | `260`: alcance do probe, preservado para não ampliar custo das seis capturas |
 | `maxSolarIntensity` | Intensidade solar máxima |
 | `sceneBackground` | Cor de fundo da cena (hex) |
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
-| `groundSize` | Tamanho do plano do chão |
+| ~~`groundSize`~~ | **removido**. Extensão do chão depende de `HorizonSettings.groundDistance`, `groundEdgeMode` e frustum (padrão `far * 1.1` em [[#horizonConfig.ts]]) |
 | `cameraFov` | Campo de visão da câmera |
-| `cameraNear` | Near plane |
+| `cameraNear` | `1`: near plane da câmera e do probe de reflexo. Precisão do depth ≈ distância²/near: caixilho 2 cm à frente da parede segura até ~90 un. (com `0.1` brigava a ~50 → z-fighting). Não baixar sem rever camadas finas dos builders ([[novo-edificio#2. Builder]]) |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
 | `controlTarget` | Target inicial do OrbitControls |
-| `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
-| `cubeUpdateIntervalMoving` | Intervalo de update do CubeCamera em movimento |
-| `cubeUpdateIntervalStatic` | Intervalo de update do CubeCamera parado |
-| `envMapNearDistance` | Raio para usar envMap dinâmico vs HDRI estático |
+| `controls.*` | Damping de referência a 60 Hz (normalizado pelo tempo real), velocidades, limites de zoom/pan/rotate |
+
+> [!note] Alcances independentes
+> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; `renderDistance` mexe em `camera.far` e no raio do céu; `groundDistance` controla alcance do chão conforme `groundEdgeMode`. `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global
-- `DEFAULT_SCENE_STATS` — estado inicial das métricas
+- `DEFAULT_SCENE_STATS` — estado inicial das métricas (`sceneReady: false`)
 
 ## Diferença entre Configs por Domínio e Config Global
 
 Use os arquivos menores quando a configuração pertencer a um domínio específico:
-- `buildingConfig`, `groundConfig`, `lightConfig`, `shadowConfig`, `textureConfig`, `environmentConfig`, `renderDirectionConfig`
+- `buildingConfig`, `groundConfig`, `lightConfig`, `textureConfig`, `environmentConfig`, `reflectionConfig`, `terrainConfig`, `blockLayoutConfig`
 
 Use `citySceneConfig.ts` quando for estrutural da cena inteira (tamanhos, câmera, FPS, fog).
 

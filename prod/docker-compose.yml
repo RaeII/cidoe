@@ -1,0 +1,32 @@
+name: cidoe-front
+
+services:
+  front:
+    image: ${FRONT_IMAGE:-ghcr.io/raeii/cidoe-front:prelaunch}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONT_PORT:-6161}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - cidoe
+
+networks:
+  cidoe:
+    external: true
+    name: cidoe

@@ -8,20 +8,20 @@ type ColorFieldProps = {
 export function ColorField({ label, value, onChange, placeholder }: ColorFieldProps) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm text-white/75">{label}</span>
-      <div className="flex flex-col gap-3">
+      <span className="mono-label mb-2 block text-foreground">{label}</span>
+      <div className="flex gap-2">
         <input
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-full cursor-pointer rounded-lg border border-white/10 bg-transparent p-1"
+          className="h-8 w-10 shrink-0"
         />
         <input
           type="text"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/20"
+          className="field h-8 min-w-0 flex-1 px-2 text-sm"
         />
       </div>
     </label>
