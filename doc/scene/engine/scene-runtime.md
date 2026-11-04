@@ -153,6 +153,8 @@ type CitySceneRuntime = {
 >
 > Zoom preserva o **lado atual da câmera**, com distância horizontal de 8 unidades. A câmera termina 4,3 unidades acima do topo e mira 5 unidades abaixo dele (mínimo `y = 0`), mostrando a cobertura de cima. O limite polar normal permanece ativo. `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
 >
+> **Gravação `video-1`:** `addDonation` recebe ID do Residencial (sacadas) e inicia foco com `getDonationBounds`. Aproximação em **1,2 s**, por +X/+Z para mostrar frente e lateral das sacadas. Distância usa esfera do volume completo da entrada, menor FOV vertical/horizontal e margem 10%; térreo e cobertura cabem durante levitação e pouso. Restante da cidade segue a 15%. Limite de distância do OrbitControls amplia quando necessário para vídeo vertical/prédio alto, sem salto da câmera; ao concluir retorno ao enquadramento anterior, volta ao limite normal. Mesmo interpolador/compilação/cancelamento por gesto do foco comum, sem abrir modal de informações.
+>
 > A interpolação pausa enquanto houver compilação pendente/em andamento ou fila de customização drenando: o primeiro frame pronto inicia o movimento, sem avançar invisivelmente até o destino. Um evento `start` dos controles cancela a interpolação para o usuário assumir a câmera. O listener é removido no dispose. `scripts/check-horizon.mjs` simula compilação demorada, retomada intermediária, interrupção por gesto, retorno da câmera e cliques/pinças/cancelamentos.
 
 ### createFocusRenderer.ts

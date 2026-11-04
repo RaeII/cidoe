@@ -494,6 +494,62 @@ export async function createCitySceneRuntime({
   const cancelCameraAnimation = () => { cameraAnim = null; };
   controls.addEventListener("start", cancelCameraAnimation);
 
+  const focusOnDonation = (donationId: number, entranceBounds?: THREE.Box3 | null) => {
+    const worldPos = donationManager.getDonationWorldPosition(donationId);
+    if (!worldPos) return;
+
+    // Salvar posição atual para restaurar depois
+    if (!savedCameraPos) {
+      savedCameraPos = camera.position.clone();
+      savedCameraTarget = controls.target.clone();
+    }
+
+    focusRenderer.prepare();
+    // A composição mantém os materiais originais; fallback aplica transparência individual.
+    donationManager.setFocusedDonation(donationId);
+    requestCompile();
+
+    if (entranceBounds) {
+      const targetPos = entranceBounds.getCenter(new THREE.Vector3());
+      const radius = entranceBounds.getSize(new THREE.Vector3()).length() / 2;
+      const verticalFov = THREE.MathUtils.degToRad(camera.getEffectiveFOV());
+      const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+      const distance = Math.max(CITY_SCENE_CONFIG.controls.minDistance,
+        radius / Math.sin(Math.min(verticalFov, horizontalFov) / 2) * 1.1);
+      controls.maxDistance = Math.max(CITY_SCENE_CONFIG.controls.maxDistance, distance,
+        camera.position.distanceTo(controls.target));
+      // Frente (+Z) e lateral: sacadas visíveis, prédio inteiro e espaço para levitar.
+      const direction = new THREE.Vector3(1, 0.35, 1.6).normalize();
+      cameraAnim = {
+        startPos: camera.position.clone(), startTarget: controls.target.clone(),
+        endPos: targetPos.clone().addScaledVector(direction, distance), endTarget: targetPos,
+        progress: 0, duration: 1.2,
+      };
+      return;
+    }
+
+    // Manter o lado atual e subir acima do topo para deixar a cobertura visível
+    const targetPos = worldPos.clone();
+    targetPos.y = Math.max(0, worldPos.y - 5);
+    const FOCUS_DISTANCE = 8;
+    const dir = camera.position.clone().sub(targetPos);
+    dir.y = 0;
+    // Fallback se câmera estiver exatamente acima do alvo (direção horizontal degenerada)
+    if (dir.lengthSq() < 1e-6) dir.set(1, 0, 1);
+    dir.normalize();
+    const endCamPos = targetPos.clone().add(dir.multiplyScalar(FOCUS_DISTANCE));
+    endCamPos.y = worldPos.y + 4.3;
+
+    cameraAnim = {
+      startPos: camera.position.clone(),
+      startTarget: controls.target.clone(),
+      endPos: endCamPos,
+      endTarget: targetPos,
+      progress: 0,
+      duration: 0.8,
+    };
+  };
+
   let animationId = 0;
   let lastTime = performance.now();
   let fpsAccumulator = 0;
@@ -615,6 +671,8 @@ export async function createCitySceneRuntime({
       controls.update();
       if (cameraAnim.progress >= 1) {
         cameraAnim = null;
+        controls.maxDistance = Math.max(CITY_SCENE_CONFIG.controls.maxDistance,
+          camera.position.distanceTo(controls.target));
       }
     }
 
@@ -949,7 +1007,8 @@ export async function createCitySceneRuntime({
 
     addDonation(value) {
       donationsReceived = true;
-      donationManager.addDonation(value);
+      const donationId = donationManager.addDonation(value);
+      focusOnDonation(donationId, donationManager.getDonationBounds(donationId));
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
@@ -973,42 +1032,7 @@ export async function createCitySceneRuntime({
       pendingCustomizations.set(donationId, customization);
       if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
     },
-    focusOnDonation(donationId) {
-      const worldPos = donationManager.getDonationWorldPosition(donationId);
-      if (!worldPos) return;
-
-      // Salvar posição atual para restaurar depois
-      if (!savedCameraPos) {
-        savedCameraPos = camera.position.clone();
-        savedCameraTarget = controls.target.clone();
-      }
-
-      focusRenderer.prepare();
-      // A composição mantém os materiais originais; fallback aplica transparência individual.
-      donationManager.setFocusedDonation(donationId);
-      requestCompile();
-
-      // Manter o lado atual e subir acima do topo para deixar a cobertura visível
-      const targetPos = worldPos.clone();
-      targetPos.y = Math.max(0, worldPos.y - 5);
-      const FOCUS_DISTANCE = 8;
-      const dir = camera.position.clone().sub(targetPos);
-      dir.y = 0;
-      // Fallback se câmera estiver exatamente acima do alvo (direção horizontal degenerada)
-      if (dir.lengthSq() < 1e-6) dir.set(1, 0, 1);
-      dir.normalize();
-      const endCamPos = targetPos.clone().add(dir.multiplyScalar(FOCUS_DISTANCE));
-      endCamPos.y = worldPos.y + 4.3;
-
-      cameraAnim = {
-        startPos: camera.position.clone(),
-        startTarget: controls.target.clone(),
-        endPos: endCamPos,
-        endTarget: targetPos,
-        progress: 0,
-        duration: 0.8,
-      };
-    },
+    focusOnDonation,
     clearFocus() {
       donationManager.setFocusedDonation(null);
       requestCompile();

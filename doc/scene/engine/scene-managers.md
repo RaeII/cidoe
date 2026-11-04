@@ -275,7 +275,7 @@ Lotes, calçadas, postes e asfalto somem pelo **alcance do horizonte** (`setRend
 
 ```typescript
 // Doações
-addDonation(value: number): void
+addDonation(value: number): number  // cria Residencial (sacadas) animado e devolve ID para foco da gravação
 addDonations(values: number[]): void
 setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend — ver seção abaixo
 getDonationCount(): number
@@ -304,6 +304,7 @@ tickAnimations(elapsedSeconds: number, deltaMs: number): boolean  // entrada, po
 getHoveredValue(event, camera, domElement): number | null       // picking hover → valor da doação (AABB por quadra, ver seção Picking)
 getClickedDonationId(event, camera, domElement): number | null  // picking clique → donation ID (idem)
 getDonationWorldPosition(donationId: number): THREE.Vector3 | null  // posição do topo do edifício
+getDonationBounds(donationId: number): THREE.Box3 | null  // volume completo no chão e durante entrada, para enquadramento
 
 // Foco e personalização
 setFocusedDonation(donationId: number | null): void  // contexto e destaque visual
@@ -565,7 +566,9 @@ Mexa aqui quando o problema for **comportamental**:
 
 ## Entrada animada da video-1
 
-`addDonation` preserva animação da gravação: prédio pronto levita 5u, desce lentamente e cai em 2,2 s. Impacto gera 30 partículas de poeira, dissipadas em 0,9 s. `addDonations` e `setDonations` continuam instantâneos.
+`addDonation` cria **Residencial (sacadas)** com aparência padrão antes de reconstruir cena, sem trocar caixa por modelo depois de aparecer. Retorna ID para foco automático no [[scene-runtime]]. Prédio pronto levita 5u, desce lentamente e cai em 3,2 s; primeiros 40% reservam levitação para aproximação da câmera (1,2 s). Impacto gera 30 partículas de poeira, dissipadas em 0,9 s. `addDonations` e `setDonations` continuam instantâneos e preservam modelos do dataset.
+
+`getDonationBounds(id): THREE.Box3 | null` combina volume lógico no chão com malha visível durante entrada; inclui 0,15u de margem para oscilação. Runtime usa volume completo para enquadrar térreo, sacadas e cobertura, inclusive antes do pouso. ID ausente retorna `null`.
 
 - Índice lógico → índice visível atualizado em `compactVisibleInstances`. Tick altera só matriz da instância alvo; culling/ordem de fachadas não deslocam animação para vizinho.
 - Formatos próprios, destaque de foco, platibanda e acessórios acompanham offset vertical. Transform lógico final preservado.
@@ -573,4 +576,4 @@ Mexa aqui quando o problema for **comportamental**:
 - `tickAnimations` retorna `true` durante entrada/poeira, mantendo render sob demanda do [[scene-runtime]]. Delta limitado a 50 ms; cena volta ao repouso após dissipação.
 - Poeira usa textura radial `DataTexture` em memória, sem canvas/arquivo externo. `dispose` remove Points e libera geometria, material e textura.
 
-Checagem: `node scripts/check-building-textures.mjs` usa manager real com 480 edifícios, adiciona novo líder, aplica culling, confirma levitação/pouso, repouso, replace-all e descarte. `node scripts/check-building-shapes.mjs` cobre offset da platibanda instanciada e focada. `node scripts/check-horizon.mjs` confirma frames de entrada com câmera parada e retorno ao repouso. Sem servidor/navegador/GPU.
+Checagem: `node scripts/check-building-textures.mjs` usa manager real com 480 edifícios, adiciona Residencial como novo líder, confirma sacadas/materiais, volume da entrada, culling, levitação/pouso, repouso, replace-all e descarte. `node scripts/check-building-shapes.mjs` cobre offset da platibanda instanciada e focada. `node scripts/check-horizon.mjs` confirma aproximação, destaque, enquadramento horizontal/vertical, volta à câmera anterior e repouso. Sem servidor/navegador/GPU.

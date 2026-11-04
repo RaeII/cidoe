@@ -372,30 +372,31 @@ const recording = api.createDonationManager({
 recording.setFacadeTexturePool(["texture/global", "texture/saved"]);
 recording.setDonations(Array.from({ length: 480 }, (_, index) => ({ id: index + 1, value: 600 - index })));
 assert.equal(recording.tickAnimations(0, 16), false, "lote inicial não deve animar");
-recording.addDonation(630);
+const recordingId = recording.addDonation(630);
+assert.equal(recordingId, 481);
 assert.equal(recording.getDonationCount(), 481);
 const center = recording.getDonationWorldPosition(481);
 assert.equal(center.x, 0); assert.equal(center.z, 0);
-const renderedMatrix = () => {
-  const matrix = new THREE.Matrix4();
-  for (const mesh of recordingScene.children) {
-    if (!mesh.isInstancedMesh || !Array.isArray(mesh.material) || !mesh.material[0].isMeshPhysicalMaterial) continue;
-    for (let i = 0; i < mesh.count; i++) {
-      mesh.getMatrixAt(i, matrix);
-      if (Math.abs(matrix.elements[12] - center.x) < 1e-5 && Math.abs(matrix.elements[14] - center.z) < 1e-5) return matrix.clone();
-    }
-  }
-  assert.fail("novo edifício ausente do buffer visível");
-};
-const finalY = center.y - renderedMatrix().elements[5] / 2;
-const renderedY = () => renderedMatrix().elements[13];
+const recordingResidential = recordingScene.children.find((mesh) => mesh.userData.donationId === recordingId);
+assert(recordingResidential, "Residencial precisa existir antes do primeiro frame");
+assert.equal(recordingResidential.material.length, 6, "modelo deve preservar pedra, sacadas, vidro, caixilho e aletas");
+assert.equal(recordingResidential.material[5].color.getHex(), 0x5a2c1a, "aletas terracota identificam o Residencial com sacadas");
+assert.ok(recordingResidential.geometry.getAttribute("position").count > 1000, "novo edifício não pode ser a caixa padrão");
+const finalY = center.y - recordingResidential.scale.y / 2;
+const renderedY = () => recordingResidential.position.y;
+const entranceBounds = recording.getDonationBounds(recordingId);
+assert.ok(entranceBounds.min.y <= 0 && entranceBounds.max.y >= center.y + 5,
+  "enquadramento deve incluir térreo e cobertura durante levitação");
+assert.equal(recording.getDonationBounds(-999), null);
 assert.ok(Math.abs(renderedY() - finalY - 5) < 1e-5, "prédio deve começar levitando");
 recording.updateDistanceCulling(new THREE.Vector3(0, 20, 30), new THREE.Vector3(0, 0, -1));
 assert(recording.tickAnimations(0.016, 16));
 assert.ok(renderedY() > finalY + 4.8, "culling apagou a animação");
-for (let frame = 1; frame <= 210; frame++) recording.tickAnimations(frame / 60, 1000 / 60);
+recording.setFocusedDonation(recordingId);
+assert(recording.hasFocusedDonation());
+for (let frame = 1; frame <= 270; frame++) recording.tickAnimations(frame / 60, 1000 / 60);
 assert.ok(Math.abs(renderedY() - finalY) < 1e-5, "pouso não restaurou posição final");
-assert.equal(recording.tickAnimations(4, 16), false, "cena parada deve voltar ao render sob demanda");
+assert.equal(recording.tickAnimations(5, 16), false, "cena parada deve voltar ao render sob demanda");
 const dust = recordingScene.children.find((object) => object.isPoints);
 assert.equal(dust.visible, false, "poeira não dissipou");
 assert(dust.geometry.attributes.position.array.every(Number.isFinite));

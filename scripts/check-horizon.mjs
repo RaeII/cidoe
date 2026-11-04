@@ -391,8 +391,19 @@ const beforeIdle = globalThis.horizonCheck.renders;
 for (let i = 0; i < 120; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 120);
 assert.equal(globalThis.horizonCheck.renders, beforeIdle, "Cena parada repetiu renders");
 // Entrada precisa manter o runtime desenhando mesmo com câmera parada.
+const beforeRecording = camera.position.clone();
+const beforeRecordingTarget = globalThis.horizonCheck.controls.target.clone();
 runtime.addDonation(750);
+const recordingBuilding = scene.children.find((mesh) => mesh.userData.donationValue === 750);
+assert(recordingBuilding && recordingBuilding.material.length === 6, "Gravação deve criar Residencial com sacadas");
+const recordingBounds = new THREE.Box3().setFromObject(recordingBuilding);
+recordingBounds.min.y = 0;
+recordingBounds.max.y += 0.15;
 await advance();
+assert(!camera.position.equals(beforeRecording), "Novo edifício não iniciou aproximação da câmera");
+assert.equal(recordingBuilding.material[0].opacity, 1, "Edifício novo deve manter destaque opaco");
+assert(scene.children.some((mesh) => mesh.isInstancedMesh && Array.isArray(mesh.material)
+  && mesh.material[0].opacity === 0.15), "Cidade deve esmaecer para destacar o novo edifício");
 const beforeEntrance = globalThis.horizonCheck.renders;
 for (let i = 0; i < 20; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 60);
 assert.equal(globalThis.horizonCheck.renders - beforeEntrance, 20, "Runtime congelou a entrada sem movimento de câmera");
@@ -400,6 +411,47 @@ for (let i = 0; i < 240; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 6
 const afterEntrance = globalThis.horizonCheck.renders;
 for (let i = 0; i < 120; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 60);
 assert.equal(globalThis.horizonCheck.renders, afterEntrance, "Pouso/poeira não devolveram runtime ao repouso");
+const assertFramed = (bounds) => {
+  camera.updateMatrixWorld();
+  for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+    const projected = new THREE.Vector3(x, y, z).project(camera);
+    assert(Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1 && Math.abs(projected.z) < 1,
+      "Enquadramento cortou térreo, sacadas ou cobertura da animação");
+  }
+  assert(camera.position.distanceTo(globalThis.horizonCheck.controls.target) <= globalThis.horizonCheck.controls.maxDistance + 1e-8,
+    "Limite do OrbitControls cortaria o enquadramento");
+};
+assertFramed(recordingBounds);
+assert(camera.position.x > recordingBuilding.position.x && camera.position.z > recordingBuilding.position.z,
+  "Câmera deve mostrar frente e lateral das sacadas");
+runtime.clearFocus();
+await advance();
+for (let i = 0; i < 20; i++) globalThis.horizonCheck.nextFrame(time += 50);
+assert(camera.position.distanceTo(beforeRecording) < 1e-8, "Fechar destaque não restaurou câmera da gravação");
+assert(globalThis.horizonCheck.controls.target.distanceTo(beforeRecordingTarget) < 1e-8);
+assert.equal(globalThis.horizonCheck.controls.maxDistance, api.CITY_SCENE_CONFIG.controls.maxDistance);
+// O mesmo plano deve caber em vídeo vertical, sem ser truncado pelo limite de órbita.
+const recordingAspect = camera.aspect;
+const recordingZoom = camera.zoom;
+camera.aspect = 9 / 16;
+camera.zoom = 2;
+camera.updateProjectionMatrix();
+runtime.addDonation(780);
+const portraitBuilding = scene.children.find((mesh) => mesh.userData.donationValue === 780);
+const portraitBounds = new THREE.Box3().setFromObject(portraitBuilding);
+portraitBounds.min.y = 0; portraitBounds.max.y += 0.15;
+await advance();
+for (let i = 0; i < 270; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 60);
+assertFramed(portraitBounds);
+assert(globalThis.horizonCheck.controls.maxDistance > api.CITY_SCENE_CONFIG.controls.maxDistance,
+  "Vídeo vertical com zoom precisa ampliar distância da órbita");
+camera.aspect = recordingAspect;
+camera.zoom = recordingZoom;
+camera.updateProjectionMatrix();
+runtime.clearFocus();
+await advance();
+for (let i = 0; i < 20; i++) globalThis.horizonCheck.nextFrame(time += 50);
+assert.equal(globalThis.horizonCheck.controls.maxDistance, api.CITY_SCENE_CONFIG.controls.maxDistance);
 const angles = [];
 for (const fps of [30, 60, 90, 120]) {
   const inertialCamera = new THREE.PerspectiveCamera();

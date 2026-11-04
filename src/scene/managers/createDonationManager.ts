@@ -203,7 +203,7 @@ type DonationManagerOptions = {
 };
 
 export type DonationManager = {
-  addDonation: (value: number) => void;
+  addDonation: (value: number) => number;
   addDonations: (values: number[]) => void;
   /** Replace-all com o dataset do backend (IDs preservados). Usado no load inicial e ao trocar filtro. */
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
@@ -232,6 +232,7 @@ export type DonationManager = {
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
+  getDonationBounds: (donationId: number) => THREE.Box3 | null;
   setFocusedDonation: (donationId: number | null) => void;
   hasFocusedDonation: () => boolean;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
@@ -2969,11 +2970,11 @@ export function createDonationManager({
     }
   };
 
-  // Mesmos tempos da video-1; só a instância animada é enviada à GPU.
-  const ENTRANCE_DURATION = 2.2;
+  // Tempo para a câmera se aproximar antes da queda, sem acelerar a levitação.
+  const ENTRANCE_DURATION = 3.2;
   const ENTRANCE_LIFT = 5;
-  const HOVER_END = 0.30;
-  const SLOW_END = 0.82;
+  const HOVER_END = 0.40;
+  const SLOW_END = 0.78;
   let entranceAnim: { donationId: number; elapsed: number; offset: number; landed: boolean } | null = null;
 
   const setEntranceOffset = (offset: number) => {
@@ -3048,13 +3049,22 @@ export function createDonationManager({
 
   return {
     addDonation(value) {
-      const donation = { id: nextId++, value };
+      const donation: DonationEntry = {
+        id: nextId++, value,
+        customization: {
+          buildingShape: "residential", color: currentBuildingColor.getStyle(),
+          textureKey: null, tilingScale: 1, textureTransform: { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
+          rooftopType: "none", signText: "", signSides: 1, edgeLightType: "none",
+          hologramImage: null, hologramColor: DEFAULT_HOLOGRAM_COLOR, hologramOpacity: DEFAULT_HOLOGRAM_OPACITY,
+        },
+      };
       donations.push(donation);
       donationById.set(donation.id, donation);
       donations.sort((a, b) => b.value - a.value);
       growIfNeeded(donations.length);
       rebuildInstances();
       startEntrance(donation.id);
+      return donation.id;
     },
     addDonations(values) {
       for (const value of values) {
@@ -3349,6 +3359,15 @@ export function createDonationManager({
       // Retornar o topo do prédio (pos.y é o centro, scale.y é a altura)
       pos.y += tmpTransformScale.y / 2;
       return pos;
+    },
+    getDonationBounds(donationId) {
+      if (!readDonationTransform(donationId)) return null;
+      const bounds = new THREE.Box3().setFromCenterAndSize(tmpTransformPosition, tmpTransformScale);
+      const mesh = customShapeMeshes.get(donationId)?.mesh;
+      if (mesh) bounds.union(new THREE.Box3().setFromObject(mesh));
+      // Inclui o ponto mais alto da levitação para não cortar a cobertura no vídeo.
+      if (entranceAnim?.donationId === donationId) bounds.max.y += 0.15;
+      return bounds;
     },
     setRebuildDeferred(deferred: boolean) {
       rebuildDeferred = deferred;

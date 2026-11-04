@@ -13,7 +13,7 @@ aliases:
 
 Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
 
-Branch `video-1`: merge da `beta`, mantendo cidade completa e modelos atuais. Seta direita (`→`) dispara [[html-components#Gravação da `video-1` (`PaymentSimulation.tsx`)|cartão Pix animado]] e [[scene-managers#Entrada animada da video-1|entrada do edifício]]. Simulação só da sessão.
+Branch `video-1`: merge da `beta`, mantendo cidade completa e modelos atuais. Seta direita (`→`) dispara [[html-components#Gravação da `video-1` (`PaymentSimulation.tsx`)|cartão Pix animado]] e [[scene-managers#Entrada animada da video-1|entrada do Residencial (sacadas)]], com aproximação da câmera e cidade esmaecida. Simulação só da sessão.
 
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.

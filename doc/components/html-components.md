@@ -56,7 +56,7 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 ### Gravação da `video-1` (`PaymentSimulation.tsx`)
 
-Mantém cidade completa, modelos e melhorias da `beta`. Tecla **seta direita (`→`)** abre cartão Pix animado: digitação (1,5 s), QR (1,8 s), processamento (1,8 s), confirmação (1,5 s) e saída lateral. Confirmação chama `canvasRef.addDonation(amount)`; entrada do edifício fica no [[scene-managers#Entrada animada da video-1|manager]].
+Mantém cidade completa, modelos e melhorias da `beta`. Tecla **seta direita (`→`)** abre cartão Pix animado: digitação (1,5 s), QR (1,8 s), processamento (1,8 s), confirmação (1,5 s) e saída lateral. Confirmação chama `canvasRef.addDonation(amount)` e cria **Residencial (sacadas)** desde primeiro frame. Entrada no [[scene-managers#Entrada animada da video-1|manager]] dura 3,2 s; [[scene-runtime|runtime]] aproxima câmera em 1,2 s, mostra frente/lateral e esmaece restante da cidade. Enquadramento inclui térreo e cobertura durante levitação, em vídeo horizontal ou vertical. Clique no fundo fecha foco e restaura câmera anterior.
 
 Um cartão por vez, liberado após saída completa. Atalho aguarda cena pronta e doações aplicadas; não dispara na seção HTML, em Meus edifícios nem durante contribuição. Valor supera maior doação visível em R$ 10–40 (mínimo R$ 47), inclusive torres acima do antigo teto R$ 150. Simulação só da sessão: sem pagamento/API/storage; trocar filtro ou teto reaplica dataset e remove edifícios extras.
 
