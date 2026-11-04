@@ -52,16 +52,20 @@ Novas páginas indexáveis exigem rota React, entrada `SEO_PAGES`, renderizaçã
 
 Seleção baseada no produto e nas dúvidas respondidas; **sem medição de volume, dificuldade ou posição**. Hipóteses para validar com consultas reais no Search Console.
 
+Home: **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D**. Revisão de linguagem em **4 de novembro de 2026**: metadados das quatro páginas públicas, apresentação da home, H1/H2, perguntas de Sobre e `noscript` usam termos simples. Open Graph/Twitter e JSON-LD recebem os mesmos títulos e descrições de `src/lib/seo.ts`.
+
 | Intenção | Termos | Aplicação |
 |---|---|---|
 | Marca | Cidoe, o que é Cidoe | Home, Sobre, nomes consistentes |
-| Proposta | cidade 3D solidária, cidade virtual solidária | Título, descrição e explicação da experiência |
-| Causa | proteção animal, ONGs de proteção animal, cães e gatos | Corpo público, contexto da causa |
-| Funcionamento | como funciona o Cidoe, contribuições para ONGs, edifícios personalizáveis | Perguntas e respostas da página Sobre |
+| Doação | doação para ONG, doar para ONGs, cidade 3D | Título, descrição, H1 e apresentação da home; Sobre |
+| Causa | ajudar animais, ajudar cães e gatos, ONG de animais, proteção animal | Descrição da home e explicação da causa em Sobre |
+| Funcionamento | como funciona o Cidoe, como doar para uma ONG, personalizar meu prédio | Título e perguntas de Sobre; explicação da cidade virtual |
 | Autoria | Cidoe Israel Zeferino, quem criou o Cidoe | Seção de autoria e descrição de Sobre |
-| Confiança | termos de uso, política de privacidade, contato Cidoe | Documentos próprios e contato verificável |
+| Confiança | termos de uso, regras para doações, privacidade, dados pessoais, cookies | Metadados dos documentos próprios; contato verificável em Sobre |
 
-H1 da home: **Cidoe: uma cidade 3D pela proteção animal.** Títulos internos H2. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. Nesta branch: ONGs fictícias, contribuição simulada e nenhum pagamento real. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
+H1 da home: **Cidoe: doação para ONGs em uma cidade 3D.** H2 **Doações na cidade** para os totais; seção de ONGs mantém o contexto de cada branch. Sobre responde **Como funciona a doação para uma ONG?**, **As doações já são reais?** e **Como personalizar meu prédio?**. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. Nesta branch: ONGs fictícias, contribuição simulada e nenhum pagamento real. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
+
+“Doação” substitui “contribuição” e “prédio” substitui “edifício” nas explicações públicas quando isso melhora a leitura. Nomes reais de comandos, como **Simular contribuição** e **Meus edifícios**, permanecem nas instruções. Títulos de Termos de Uso e Política de Privacidade continuam descritivos; suas descrições usam doações, pagamentos, cadastro, dados pessoais e cookies. Cláusulas e avisos operacionais preservados. Textos alternativos continuam descrevendo as imagens; marca Cidoe e autoria de Israel Zeferino preservadas.
 
 Sem `meta keywords`, listas escondidas, repetição de variantes ou densidade-alvo. Palavras entram em frases úteis; sinônimos não exigem páginas separadas. Fonte: [guia de SEO do Google](https://developers.google.com/search/docs/fundamentals/seo-starter-guide).
 

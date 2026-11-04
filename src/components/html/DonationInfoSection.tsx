@@ -78,11 +78,11 @@ export function DonationInfoSection({
               Pré-lançamento
             </p>
             <h1 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
-              Cidoe: uma cidade 3D pela proteção animal.
+              Cidoe: doação para ONGs em uma cidade 3D.
             </h1>
             <p className="mt-6 sm:mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
-              Cada contribuição para uma ONG de proteção animal ergue um edifício na cidade; o valor define a altura.
-              Cadastre-se, simule contribuições, personalize seus edifícios e indique amigos. Nesta versão, os
+              Cada doação para uma ONG de proteção animal vira um prédio na cidade; o valor define a altura.
+              Cadastre-se, simule doações, personalize seus prédios e indique amigos. Nesta versão, os
               edifícios que você cria ficam apenas neste navegador.
             </p>
             {/* max-lg:mb-3: PixelDog espia 47px acima da foto, gap do grid é 40px. */}
@@ -107,19 +107,19 @@ export function DonationInfoSection({
 
         {loadState.status === "loading" ? (
           <div role="status" className="mt-20 sm:mt-32 flex items-center gap-3 text-muted-foreground">
-            <BlockLoader /><span>Carregando ONGs e contribuições…</span>
+            <BlockLoader /><span>Carregando ONGs e doações…</span>
           </div>
         ) : loadState.status === "error" ? (
           <div className="mt-20 sm:mt-32 space-y-4">
             <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
-              <ErrorMark />Não foi possível carregar as contribuições.
+              <ErrorMark />Não foi possível carregar as doações.
             </p>
             <Button variant="outline" onClick={onRetry}>Tentar novamente</Button>
           </div>
         ) : (
           <>
             <div className="mt-20 sm:mt-32">
-              <SectionHead index="01">Impacto</SectionHead>
+              <SectionHead index="01">Doações na cidade</SectionHead>
               <div className="mt-9 grid gap-5 sm:grid-cols-3">
                 <div className="pixel bevel-edge bg-card px-6 pt-5 pb-7 sm:col-span-3">
                   <p className="mono-label text-muted-foreground">{hasFilter ? "Valor simulado neste recorte" : "Valor simulado"}</p>

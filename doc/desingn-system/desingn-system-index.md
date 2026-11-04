@@ -77,7 +77,7 @@ Fontes **self-hosted**: woff2 variável do Google Fonts em `public/fonts/` (Manr
 |---|---|---|
 | Display de página | `clamp(44px,7vw,96px)` · 600 · `leading-[0.98]` · `tracking-[-0.025em]` · `max-w-[14ch]` · `text-balance` | Título da home |
 | Abertura | 22px · 400 · `leading-normal` · `max-w-[46ch]` · `muted-foreground` | Texto sob o display |
-| Título de seção | 44px · 600 · `leading-[1.05]` | "Impacto" |
+| Título de seção | 44px · 600 · `leading-[1.05]` | "Doações na cidade" |
 | Intro de seção | 19px · `leading-[1.55]` · `max-w-[60ch]` · `muted-foreground` | Parágrafo sob título de seção |
 | Display | 48px · 600 · `tracking-[-0.02em]` | `R$ 12.480` |
 | Título | 26–30px · 600 · `leading-[1.15]` | Nome da ONG, título de modal (`DialogTitle` = 26px) |

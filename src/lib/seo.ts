@@ -9,20 +9,20 @@ export const CREATOR_SOCIAL_PROFILES = {
 
 export const SEO_PAGES = {
   "/": {
-    title: "Cidoe | Cidade 3D solidária pela proteção animal",
-    description: "Conheça o Cidoe, a cidade 3D solidária onde doações para ONGs de proteção animal viram edifícios. Contribua e personalize seu prédio.",
+    title: "Cidoe | Doação para ONGs de proteção animal em uma cidade 3D",
+    description: "No Cidoe, cada doação para uma ONG de proteção animal vira um prédio em uma cidade 3D. Saiba como funciona e como ajudar cães e gatos.",
   },
   "/sobre": {
-    title: "Sobre o Cidoe | Como funciona a cidade 3D solidária",
-    description: "Entenda como funciona o Cidoe, projeto de Israel Zeferino que une cidade 3D, edifícios personalizáveis e apoio a ONGs de proteção animal.",
+    title: "Sobre o Cidoe | Como doar para ONGs de animais",
+    description: "Saiba como funciona a doação para ONGs de animais no Cidoe, como criar seu prédio na cidade 3D e quem é Israel Zeferino, criador do projeto.",
   },
   "/termos": {
     title: "Termos de Uso · Cidoe",
-    description: "Leia os Termos de Uso do Cidoe: regras da cidade 3D, contribuições para ONGs, conta, personalizações e direitos dos usuários.",
+    description: "Leia as regras do Cidoe sobre doações para ONGs, pagamentos, cadastro e uso dos prédios na cidade 3D. Conheça seus direitos e responsabilidades.",
   },
   "/privacidade": {
     title: "Política de Privacidade · Cidoe",
-    description: "Saiba como o Cidoe trata seus dados pessoais, utiliza cookies e protege sua privacidade, e como exercer seus direitos.",
+    description: "Veja quais dados o Cidoe usa no cadastro, login e doações, como funcionam os cookies e como pedir acesso ou exclusão dos seus dados pessoais.",
   },
 } as const;
 

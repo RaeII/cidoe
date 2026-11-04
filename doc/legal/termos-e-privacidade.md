@@ -212,6 +212,6 @@ Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo d
 
 ## Marca e SEO
 
-Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. SEO permanente, idêntico em `beta` e `main`: cidade 3D solidária, doações para ONGs e proteção animal. Nenhuma fase/versão nos títulos, descrições, metadados sociais, JSON-LD ou apresentação `noscript`; lançamento não exige troca. Avisos operacionais da simulação e cláusulas legais da `beta` preservados.
+Marca pública e domínio: **Cidoe**, `https://cidoe.com.br/`. SEO permanente, idêntico em `beta` e `main`: doação para ONGs de proteção animal em uma cidade 3D. Descrições usam termos simples sobre doações, pagamentos, cadastro, dados pessoais e cookies; títulos e cláusulas legais preservados. Nenhuma fase/versão nos títulos, descrições, metadados sociais, JSON-LD ou apresentação `noscript`; lançamento não exige troca. Avisos operacionais da simulação e cláusulas legais da `beta` preservados.
 
 `/termos`: **Termos de Uso · Cidoe**. `/privacidade`: **Política de Privacidade · Cidoe**. Descrições e schema em `src/lib/seo.ts`; `RouteMetadata` aplica head em navegação. HTML inicial já contém corpo completo, canonical e previews corretos de cada documento. Sitemap: home, Sobre e dois documentos. `npm run check:seo` verifica HTML emitido e navegação entre páginas; `check-branding` inclui esse check. Autoria pública em `/sobre`, sem mudar controlador, versão ou cláusulas legais. Ver [[seo]].

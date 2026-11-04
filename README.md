@@ -1,6 +1,6 @@
 # Cidoe
 
-Cidade 3D solidária em apoio à proteção animal. No pré-lançamento, contribuições e ONGs são de teste, sem pagamentos reais.
+Cidade 3D de doações para ONGs de proteção animal. No pré-lançamento, contribuições e ONGs são de teste, sem pagamentos reais.
 
 SEO, descoberta por IA e publicação: [guia completo](doc/seo.md). Build inclui HTML estático das páginas públicas; execute `npm run build` e `npm run check:seo`. Migração de nomes: [documentação](doc/index.md#marca-seo-e-migração-de-nomes).
 

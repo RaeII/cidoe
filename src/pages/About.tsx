@@ -13,37 +13,37 @@ export default function About() {
           <Link to="/"><PixelArrow className="rotate-180" />Voltar para a cidade</Link>
         </Button>
         <header className="mt-14">
-          <p className="mono-label text-primary">Cidade 3D solidária</p>
+          <p className="mono-label text-primary">Doação para ONGs de animais</p>
           <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">Sobre o Cidoe</h1>
           <p className="mt-8 text-lg leading-relaxed text-muted-foreground">
-            Cidoe é um projeto independente de {LEGAL_CONTROLLER} que une uma cidade 3D interativa
-            ao apoio a ONGs de proteção animal. A proposta é transformar cada contribuição em um
-            edifício personalizável: quanto maior o valor, maior a altura do prédio.
+            Cidoe é um projeto independente de {LEGAL_CONTROLLER} que transforma cada doação para uma
+            ONG de proteção animal em um prédio na cidade 3D. Você pode mudar a aparência do prédio;
+            o valor da doação define sua altura.
           </p>
         </header>
         <div className="mt-12 space-y-10 text-base leading-relaxed [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_p+p]:mt-4">
           <section>
-            <h2>Como funciona a cidade 3D solidária?</h2>
+            <h2>Como funciona a doação para uma ONG?</h2>
             <p>
-              Você explora a cidade pelo navegador, escolhe uma ONG e cria seu edifício por meio de uma
-              contribuição. Os prédios representam os valores das contribuições; o maior ocupa o centro
-              da cidade. É possível personalizar o edifício e explorar contribuições por cidade e ONG.
+              Você explora a cidade pelo navegador, escolhe uma ONG e cria seu prédio com uma
+              doação. O valor define a altura: o prédio da maior doação fica no centro da cidade.
+              Também é possível personalizar os prédios e ver as doações por cidade e ONG.
             </p>
             <p>
-              A causa do projeto é a proteção animal, incluindo o cuidado de cães e gatos.
+              O objetivo é ajudar animais, como cães e gatos, por meio de ONGs de proteção animal.
               O Cidoe é a plataforma da cidade virtual; as ONGs são as organizações apresentadas para receber apoio.
             </p>
           </section>
           <section>
-            <h2>As contribuições já são reais?</h2>
+            <h2>As doações já são reais?</h2>
             {IS_PRELAUNCH ? (
               <>
                 <p><strong>O Cidoe está em pré-lançamento. Não há pagamentos reais.</strong> ONGs, edifícios e valores apresentados são de teste, sem repasse de dinheiro.</p>
-                <p>Você pode simular contribuições e personalizar até três edifícios. Essas simulações ficam apenas no seu navegador e não se transformam automaticamente em doações reais.</p>
-                <p>Cadastro, login e indicações de amigos são reais. As regras para o lançamento e para contribuições estão nos Termos de Uso.</p>
+                <p>Você pode simular doações e personalizar até três prédios. Essas simulações ficam apenas no seu navegador e não se transformam automaticamente em doações reais.</p>
+                <p>Cadastro, login e indicações de amigos são reais. As regras para o lançamento e para doações estão nos Termos de Uso.</p>
               </>
             ) : (
-              <p>Confira as ONGs disponíveis e as condições da contribuição na cidade. Destinação dos valores, pagamentos e responsabilidades estão nos Termos de Uso.</p>
+              <p>Veja as ONGs disponíveis na cidade e confira as condições antes de doar. Os Termos de Uso explicam para onde vai o dinheiro, como funciona o pagamento e quem é responsável.</p>
             )}
           </section>
           <section>
@@ -51,7 +51,7 @@ export default function About() {
             <p>Você pode conhecer a cidade sem conta. Para criar e personalizar seus edifícios, é necessário se cadastrar. As contas são destinadas a maiores de 18 anos.</p>
           </section>
           {IS_PRELAUNCH && <section>
-            <h2>Como simular uma contribuição?</h2>
+            <h2>Como simular uma doação?</h2>
             <ol className="list-decimal space-y-3 pl-6">
               <li>Entre na sua conta e clique em <strong>Simular contribuição</strong> na cidade.</li>
               <li>Escolha criar um edifício ou aumentar um dos seus, selecione a ONG de teste e informe o valor. Para um novo edifício, escolha também a cidade.</li>
@@ -59,13 +59,13 @@ export default function About() {
             </ol>
           </section>}
           <section>
-            <h2>Como personalizar meu edifício?</h2>
+            <h2>Como personalizar meu prédio?</h2>
             <p>Abra <strong>Meus edifícios</strong>, selecione um prédio e clique em <strong>Personalizar</strong>. Você pode alterar sua aparência com as opções liberadas para a sua conta, como cor, textura, formato e topo.</p>
             <p>As opções bloqueadas mostram o requisito para desbloqueá-las. Trocar a aparência não muda o valor representado pelo edifício.</p>
           </section>
           {IS_PRELAUNCH && <section>
             <h2>Onde minhas simulações ficam salvas?</h2>
-            <p>Você pode criar até três edifícios de teste por conta neste navegador. Os edifícios e suas personalizações ficam no armazenamento local: não aparecem para outras pessoas nem são transferidos para outro navegador ou aparelho.</p>
+            <p>Você pode criar até três edifícios de teste por conta neste navegador. Os prédios e suas personalizações ficam salvos neste navegador: não aparecem para outras pessoas nem são transferidos para outro navegador ou aparelho.</p>
             <p>Limpar os dados do site remove essas simulações. Seu cadastro e suas indicações ficam vinculados à conta; os edifícios simulados não se tornam doações reais no lançamento.</p>
           </section>}
           <section id="israel-zeferino" className="scroll-mt-6">
