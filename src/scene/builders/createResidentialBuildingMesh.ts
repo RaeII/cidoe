@@ -257,7 +257,18 @@ export function getResidentialTierFootprints(
   ];
 }
 
-// Y (relativo ao centro do edifício) do piso da cobertura — letreiro apoia aqui.
+// Vão do último andar (topo da laje dele → fundo da laje de cobertura), relativo ao
+// centro do edifício — letreiro ocupa essa faixa nas fachadas.
+export function getResidentialTopFloorBand(height: number): { centerY: number; height: number } {
+  const { roof, total } = getLevels(getResidentialFloorCount(height));
+  const bottom = roof - FLOOR_H + SLAB_T;
+  return {
+    centerY: ((bottom + roof) / (2 * total) - 0.5) * height,
+    height: ((roof - bottom) / total) * height,
+  };
+}
+
+// Y (relativo ao centro do edifício) do piso da cobertura.
 export function getResidentialRoofOffset(height: number): number {
   const { deck, total } = getLevels(getResidentialFloorCount(height));
   return (deck / total - 0.5) * height;

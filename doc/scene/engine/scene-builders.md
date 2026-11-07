@@ -270,6 +270,8 @@ Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTex
 
 Painéis (canvas + textura + materiais + geometrias) são **cacheados por largura da face**: faces opostas têm placa idêntica e compartilham a mesma `CanvasTexture` — antes eram até 4 rasterizações/texturas duplicadas por letreiro. A largura do letreiro se adapta à largura da fachada correspondente (`buildingW` para frente/trás, `buildingD` para laterais). A altura é consistente em todos os lados: `max(buildingW, buildingD) * 0.22`.
 
+Residencial (`residential`): placa nas 4 fachadas ocupando o vão do último andar (topo da laje dele → fundo da laje de cobertura), via `getResidentialTopFloorBand` — altura e Y vêm da faixa, não de `0.22 × largura`. Largura = face + `2 × (SIGN_FACE_OFFSET + SIGN_FACE_GAP)`: cada placa chega ao plano da vizinha → cantos fechados, faixa contínua (demais formatos: 92% da face).
+
 > [!note] Ajuste automático de fonte
 > O fontSize começa em 52% da altura do canvas; se o texto não cabe com 12% de padding lateral, um ajuste proporcional (`fontSize × larguraMáx / larguraMedida`, piso 10) — largura do texto é linear no tamanho. Antes descia de 1 em 1 px (parse de fonte + `measureText` por passo). Limite máximo: 30 caracteres (imposto pelo UI).
 
@@ -678,7 +680,7 @@ Modelo `residential`: torre residencial com sacadas. Sem textura de fachada — 
 - **Builder não carrega textura** (roda no node e no preview): `setResidentialStoneMaps(stone, set | null)` recebe o set Concrete024 do manager
 - Cores calibradas pro runtime (ambient ~8 + HDRI + exposição 1,45 ACES): pedra renderiza ≈ `#c2b8a7`, terracota ≈ `#b65630`. Vidros/metal com metalness alto (vidro 0,9, guarda-corpo 1 com opacidade 0,32) → ambient não deixa leitoso
 - Slots próprios usam `envMap` da fachada (cube probe) → **refletem a cidade**. `userData.authoredEnvMapIntensity` marca p/ manager; guarda-corpo guarda `userData.baseOpacity`
-- `RESIDENTIAL_ROOFTOP_SCALE` (0,35): acessório de topo assenta na casa de máquinas. `getResidentialTierFootprints` (LED: corpo + casa de máquinas) e `getResidentialRoofOffset` (letreiro apoiado na laje de cobertura)
+- `RESIDENTIAL_ROOFTOP_SCALE` (0,35): acessório de topo assenta na casa de máquinas. `getResidentialTierFootprints` (LED: corpo + casa de máquinas), `getResidentialTopFloorBand` (letreiro: vão do último andar) e `getResidentialRoofOffset` (piso da cobertura, preview)
 - `check-building-shapes.mjs`: lote, 6 slots/grupos, andares por altura com cache, piso/teto de andares, pedra liga/desliga textura, guarda-corpo translúcido, vidros marcados p/ envMap, dispose
 - Catálogo: migration backend `0015_residential_building.sql`, key `residential`, label **Residencial (sacadas)**. Ver [[customization-api]]
 

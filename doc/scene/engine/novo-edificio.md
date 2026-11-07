@@ -89,12 +89,15 @@ Formato autoral ganha bloco próprio no `check-building-shapes.mjs`: nº de slot
 node scripts/render-building.mjs yachthouse --height 4.5 --ref "Yatchcasa .png"
 node scripts/render-building.mjs yachthouse --slot 2=24405e,0.9,0.05   # calibrar vidro (cor, metal, rough)
 node scripts/render-building.mjs yachthouse --color c0392b              # cor da customização
+node scripts/render-building.mjs residential --height 30.4 --width 2.3 --sign Cidoe  # torre central + letreiro
 ```
 
 | Opção | Efeito |
 | --- | --- |
 | `<formato>` | key de `BUILDING_SHAPES`; desconhecida → erro escrito no PNG com a lista |
 | `--height <n>` | altura na cena (padrão 4); setter de andares aplicado |
+| `--width <n>` | largura/profundidade do lote (padrão 2; torre central 2,3) |
+| `--sign <texto>` | letreiro nos 4 lados via `createSignMesh` (posição do formato) |
 | `--ref <img>` | referência 640×640 ao lado |
 | `--color <hex>` | cor da customização, aplicada como no manager (Empire via `setEmpireBuildingMeshColor`) |
 | `--slot <i>=<hex>[,metal[,rough]]` | sobrescreve material do slot `i`; repetível |
@@ -102,7 +105,7 @@ node scripts/render-building.mjs yachthouse --color c0392b              # cor da
 
 - PNG: 4 vistas 480×640 — 3/4 frente (az 35°), 3/4 fundos (az 215°), topo (28% de cima), base (28% de baixo). Câmera encaixa a caixa do trecho
 - Fiel: HDRI do céu (IBL + fundo), ambiente padrão de [[scene-config]], ACES 1,45, chão `#292929`, materiais base do manager
-- Fora: texturas PBR (pedra do residencial sai lisa/clara), parapeito, acessórios, LED, letreiro, envMap dinâmico → conferir no `npm run dev` antes de fechar
+- Fora: texturas PBR (pedra do residencial sai lisa/clara), parapeito, acessórios, LED, envMap dinâmico → conferir no `npm run dev` antes de fechar
 - Navegador: env `CHROME`, senão Chrome/Brave/Chromium nos caminhos padrão. SwiftShader: igual com ou sem GPU
 - Bundle/HTML em pasta temporária apagada no fim; só PNG sobra
 - Ciclo: render → comparar com ref → ajustar constante → render. Agente: `--out` na pasta scratchpad da sessão

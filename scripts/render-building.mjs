@@ -6,6 +6,8 @@
  *
  * Uso: node scripts/render-building.mjs <formato> [opções]
  *   --height <n>                   altura na cena, 0,5–16 (padrão 4)
+ *   --width <n>                    largura/profundidade do lote (padrão 2; torre central = 2,3)
+ *   --sign <texto>                 letreiro nos 4 lados, como createSignMesh na cena
  *   --ref <imagem>                 referência ao lado das vistas
  *   --color <hex>                  cor da customização (aplicada como no manager)
  *   --slot <i>=<hex>[,metal[,rough]]  sobrescreve o material do slot i (calibrar autoral; repetível)
@@ -13,7 +15,7 @@
  * Navegador: env CHROME, senão Chrome/Brave/Chromium nos caminhos padrão.
  *
  * Fiel à cena: mesmo HDRI (IBL + céu), luz ambiente padrão, ACES 1,45, lote 2×2.
- * Fora: texturas PBR, parapeito, acessórios e envMap dinâmico — conferir no app.
+ * Fora: texturas PBR, parapeito, acessórios (exceto letreiro) e envMap dinâmico — conferir no app.
  * Erro na página sai escrito no próprio PNG.
  */
 import { spawnSync } from "node:child_process";
@@ -47,6 +49,7 @@ import { setApartmentBuildingHeight } from "./src/scene/builders/createApartment
 import { setGourmetBuildingHeight } from "./src/scene/builders/createGourmetBuildingMesh.ts";
 import { setLoftBuildingHeight } from "./src/scene/builders/createLoftBuildingMesh.ts";
 import { setYachthouseBuildingHeight } from "./src/scene/builders/createYachthouseBuildingMesh.ts";
+import { createSignMesh } from "./src/scene/builders/createSignMesh.ts";
 import { getLightMetrics } from "./src/scene/utils/lighting.ts";
 import { DEFAULT_LIGHT_SETTINGS } from "./src/scene/config/lightConfig.ts";
 import { DEFAULT_BUILDING_SETTINGS } from "./src/scene/config/buildingConfig.ts";
@@ -60,7 +63,6 @@ const HEIGHT_SETTERS = {
   loft: setLoftBuildingHeight,
   yachthouse: setYachthouseBuildingHeight,
 };
-const LOT = 2; // DONATION_LAYOUT.buildingWidth/Depth do manager
 // Azimute a partir de +Z (frente), elevação da câmera e faixa da altura enquadrada.
 const VIEWS = [
   { az: 35, el: 15, from: 0, to: 1 },
@@ -71,7 +73,7 @@ const VIEWS = [
 const FOV = 30;
 const hex = (value) => (value.startsWith("#") ? value : "#" + value);
 
-function render({ shape, height, color, slots, tile }) {
+function render({ shape, height, width, sign, color, slots, tile }) {
   if (!BUILDING_SHAPES.includes(shape)) {
     throw new Error("formato desconhecido: " + shape + "\\nconhecidos: " + BUILDING_SHAPES.join(", "));
   }
@@ -112,10 +114,16 @@ function render({ shape, height, color, slots, tile }) {
   const facade = new THREE.MeshPhysicalMaterial({ ...base, color: DEFAULT_BUILDING_SETTINGS.color });
   const top = new THREE.MeshPhysicalMaterial({ ...base, color: "#b9b6b1" }); // TOP_CEMENT_COLOR
   const mesh = createBuildingShapeMesh(shape, facade, top, createUnitBuildingGeometry());
-  mesh.scale.set(LOT, height, LOT);
+  mesh.scale.set(width, height, width);
   HEIGHT_SETTERS[shape]?.(mesh, height);
   mesh.position.y = height / 2;
   scene.add(mesh);
+  // Manager posiciona o group no centro do edifício.
+  const signGroup = sign && createSignMesh(sign, width, width, height, 4, shape);
+  if (signGroup) {
+    signGroup.position.y = height / 2;
+    scene.add(signGroup);
+  }
 
   if (color) {
     if (shape === "empire") setEmpireBuildingMeshColor(mesh, hex(color));
@@ -187,6 +195,8 @@ const { values, positionals: [shape] } = parseArgs({
   allowPositionals: true,
   options: {
     height: { type: "string", default: "4" },
+    width: { type: "string", default: "2" }, // DONATION_LAYOUT.buildingWidth/Depth do manager
+    sign: { type: "string" },
     ref: { type: "string" },
     color: { type: "string" },
     slot: { type: "string", multiple: true, default: [] },
@@ -194,7 +204,7 @@ const { values, positionals: [shape] } = parseArgs({
   },
 });
 if (!shape) {
-  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
+  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--width n] [--sign texto] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
   process.exit(1);
 }
 const browser = BROWSERS.find((path) => path && existsSync(path));
@@ -205,6 +215,11 @@ if (!browser) {
 const height = Number(values.height);
 if (!(height > 0)) {
   console.error(`--height inválido: ${values.height}`);
+  process.exit(1);
+}
+const width = Number(values.width);
+if (!(width > 0)) {
+  console.error(`--width inválido: ${values.width}`);
   process.exit(1);
 }
 const ref = values.ref && resolve(values.ref);
@@ -222,7 +237,7 @@ try {
     outfile: join(work, "page.js"), logLevel: "warning",
   });
   const asset = (name) => pathToFileURL(join(ROOT, "src/assets/environment", name)).href;
-  const config = { shape, height, color: values.color, slots: values.slot, tile: TILE };
+  const config = { shape, height, width, sign: values.sign, color: values.color, slots: values.slot, tile: TILE };
   writeFileSync(join(work, "index.html"), `<!doctype html>
 <body style="margin:0;display:flex;background:#fff">
 <img id="env" src="${asset("DaySkyHDRI040B_4K_TONEMAPPED.pmrem.webp")}" hidden>

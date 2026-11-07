@@ -8,7 +8,7 @@ import {
   ONE_TRADE_SIGN_Y_OFFSET_RATIO,
   getOneTradeFootprintScaleAtHeightRatio,
 } from "./createOneTradeBuildingMesh";
-import { getResidentialRoofOffset } from "./createResidentialBuildingMesh";
+import { getResidentialTopFloorBand } from "./createResidentialBuildingMesh";
 import { getApartmentRoofOffset } from "./createApartmentBuildingMesh";
 import { GOURMET_TOWER_SCALE, getGourmetRoofOffset } from "./createGourmetBuildingMesh";
 import { getLoftRoofOffset } from "./createLoftBuildingMesh";
@@ -29,6 +29,8 @@ const CANVAS_HEIGHT = 128;
 const SIGN_HEIGHT_RATIO = 0.22;
 // Mantém a textura à frente do backing para evitar z-fighting ao mover a câmera.
 const SIGN_FACE_GAP = 0.002;
+// Afastamento da placa em relação à face do edifício (caixa axis-aligned).
+const SIGN_FACE_OFFSET = 0.02;
 // Hastes visuais que conectam o letreiro afastado ao prédio torcido.
 const TWISTED_SUPPORT_THICKNESS = 0.035;
 const TWISTED_SUPPORT_FACE_OVERLAP = 0.006;
@@ -76,19 +78,22 @@ export function createSignMesh(
   const isEmpire = shape === "empire" && buildingH > 0;
   const isTaipei = shape === "taipei" && buildingH > 0;
   const isOneTrade = shape === "one-trade" && buildingH > 0;
-  const isResidential = shape === "residential" && buildingH > 0;
   const isApartment = shape === "apartment" && buildingH > 0;
   const isGourmet = shape === "gourmet" && buildingH > 0;
   const isLoft = shape === "loft" && buildingH > 0;
 
+  // Residencial: placa ocupa o vão do último andar nas fachadas, entre as lajes.
+  const residentialBand = shape === "residential" && buildingH > 0
+    ? getResidentialTopFloorBand(buildingH)
+    : null;
+
   // Altura do letreiro consistente em todos os lados
-  const signH = Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
+  const signH = residentialBand?.height ?? Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
 
   // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
-  // Residencial: letreiro apoiado na laje de cobertura, à frente do guarda-corpo.
   // Apartment, Varanda Gourmet e Loftifício: apoiado no topo da platibanda.
-  const yOffset = isResidential
-    ? getResidentialRoofOffset(buildingH) + signH / 2
+  const yOffset = residentialBand
+    ? residentialBand.centerY
     : isApartment
       ? getApartmentRoofOffset(buildingH) + signH / 2
       : isGourmet
@@ -96,14 +101,14 @@ export function createSignMesh(
         : isLoft
           ? getLoftRoofOffset(buildingH) + signH / 2
           : buildingH * (
-          isEmpire
-            ? 0.1
-            : isTaipei
-              ? TAIPEI_SIGN_Y_OFFSET_RATIO
-              : isOneTrade
-                ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
-                : 0.45
-        );
+            isEmpire
+              ? 0.1
+              : isTaipei
+                ? TAIPEI_SIGN_Y_OFFSET_RATIO
+                : isOneTrade
+                  ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
+                  : 0.45
+          );
 
   // Para edifícios torcidos, calcula o ângulo da torção exatamente na altura do
   // letreiro. A geometria torcida (createTwistedBuildingMesh) usa
@@ -210,7 +215,10 @@ export function createSignMesh(
     } else {
       faceWorldW = cfg.faceW;
     }
-    const signW = faceWorldW * 0.92;
+    // Residencial: placa vai até o plano da vizinha → cantos fechados, faixa contínua.
+    const signW = residentialBand
+      ? faceWorldW + 2 * (SIGN_FACE_OFFSET + SIGN_FACE_GAP)
+      : faceWorldW * 0.92;
 
     const panelKey = signW.toFixed(3);
     let panel = panelCache.get(panelKey);
@@ -328,7 +336,7 @@ export function createSignMesh(
                   : 1
           );
       const normalOffset = cfg.offsetZ !== 0 ? footprintD / 2 : footprintW / 2;
-      const dist = normalOffset + 0.02;
+      const dist = normalOffset + SIGN_FACE_OFFSET;
       px = cfg.offsetX * dist;
       pz = cfg.offsetZ * dist;
       const backDist = normalOffset + 0.005;
