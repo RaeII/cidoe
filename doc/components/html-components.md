@@ -73,7 +73,7 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 Contribuição: modal inteiro rola, incluindo cabeçalho, etapas e rodapé. Corpo sem `overflow-y-auto`/`overscroll-contain`: contêiner interno sem espaço de rolagem bloquearia gestos antes do modal. Sem corpo comprimido entre áreas fixas quando teclado abre. Sugestões de ONG/cidade limitadas à altura visível menos `6rem`, reservando espaço para input e margens. Navegação automática da ONG altera apenas `scrollTop` da lista, nunca dos ancestrais; filtro novo revela opção ativa mesmo quando índice continua em zero.
 
-Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
+Só com ponteiro de toque (`pointer: coarse`): mouse sem teclado virtual, alinhar só arrastava página (input do painel da cena rolava cena p/ baixo). Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
@@ -476,8 +476,9 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
 | **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Estados** | Salvar/carregar/excluir cidades nomeadas — ver [[#CityStatesControls.tsx]] |
 
-Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
+Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela" | "estados"`. Oito abas → rótulo em `text-xs`, quebram em duas linhas nos 360px do painel.
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]) e `grain: number` + `onGrainChange`.
 
@@ -499,6 +500,21 @@ Ver [[scene-types#BlockLayoutSettings]].
 
 > [!tip] Atalho
 > `Ctrl + M` abre/fecha painel. Ver [[#Atalhos de teclado]].
+
+---
+
+### `CityStatesControls.tsx`
+
+Aba **Estados** do [[#CityControlPanel.tsx]] (só admin). Feita pra gravar vídeo: monta cidades diferentes, salva cada uma com nome, troca entre elas.
+
+- **Estado** = foto de todas as chaves `cidoe:prelaunch:v1:*` do navegador: edifícios simulados de todas as contas, aparência e perfil (`guest`), ajustes `scene:*` (luz, ambiente/noite, texturas, horizonte, filtro…). Câmera fora.
+- Lista em `cidoe:prelaunch:states:v1` (`CityState[]`: `name`, `savedAt`, `data` chave → JSON cru). Fora do prefixo da cidade: foto não inclui a si mesma.
+- **Salvar**: nome obrigatório; mesmo nome sobrescreve na mesma posição. **Carregar** remove chaves da cidade ausentes na foto, grava as da foto e dispara `LOCAL_CITY_EVENT` por chave → hooks locais ([[index#Dados da cidade]]) relêem, cena troca sem reload (personalização: ver [[donation-api#Personalização persistida]]). Preenche o nome com o estado carregado (salvar de novo = atualizar). **Excluir** pede `confirm`.
+- Sem toast de sucesso (não aparece na gravação). Erro de espaço → toast. JSON inválido na lista → linha de erro, salvar lança e preserva original.
+- Lógica em `src/lib/prelaunchCity.ts` (`saveCityState`, `loadCityState`, `deleteCityState`, `readCityStates`); `node scripts/check-prelaunch.mjs` cobre foto, troca, sobrescrita, exclusão e JSON inválido.
+
+> [!warning] Espaço
+> Cada estado duplica a cidade (imagens base64 de perfil/holograma inclusas). `localStorage` ≈ 5 MB por origem.
 
 ---
 

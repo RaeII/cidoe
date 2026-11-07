@@ -17,6 +17,8 @@ export function useVisualViewport() {
     const revealInput = (event: Event) => {
       if (viewport.scale !== 1) return;
       update();
+      // Mouse = sem teclado virtual: alinhar só arrastaria a página (input do painel da cena rolava tudo).
+      if (!window.matchMedia("(pointer: coarse)").matches) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const input = document.activeElement;

@@ -24,12 +24,13 @@ import { SceneLightControls } from "./SceneLightControls";
 import { TextureControls } from "./TextureControls";
 import { ReflectionControls } from "./ReflectionControls";
 import { HorizonControls } from "./HorizonControls";
+import { CityStatesControls } from "./CityStatesControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
 
-type Tab = "geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela";
+type Tab = "geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela" | "estados";
 
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
@@ -99,9 +100,9 @@ export function CityControlPanel({
   return (
     <div className="pixel bevel-edge absolute right-0 top-0 z-[35] flex h-full w-full max-w-[360px] flex-col bg-background text-foreground">
       <div className="flex items-start border-b border-border">
-        {/* 7 abas não cabem em 360px numa linha: quebram em duas. */}
+        {/* 8 abas não cabem em 360px numa linha: quebram em duas. */}
         <div className="flex flex-1 flex-wrap">
-          {(["geral", "texturas", "reflexo", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
+          {(["geral", "texturas", "reflexo", "luz", "horizonte", "terreno", "tela", "estados"] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -276,6 +277,12 @@ export function CityControlPanel({
                 onChange={onGrainChange}
               />
             </PanelSection>
+          </div>
+        )}
+
+        {activeTab === "estados" && (
+          <div className="space-y-6 pb-8 pt-2">
+            <CityStatesControls />
           </div>
         )}
       </div>

@@ -92,6 +92,8 @@ Editor chama `setDonations(donations)` a cada mudança de `donations` (load inic
 
 Pré-lançamento: edição salva no localStorage, nunca em `donation.customization`. `savedCustomizations` mescla personalização pública → cópia antiga da conta → balde do navegador (`guest`, vence). Editor reaplica após `setDonations`, preserva payloads pendentes e salva ao fechar/recarregar (`pagehide`). Debounce 500 ms por edifício; sem conta, login/logout não perde edição.
 
+`savedCustomizations` mudou por fora (estado carregado no painel, outra aba, login/logout) → `CitySceneEditor` compara com `customizationsRef` (JSON por edifício). Diferente → `updateDonationCustomization` só naquele edifício. Edição própria volta do storage igual → nada. Edifício perdeu personalização → manager não sabe desfazer: `resetSceneRef` + `sceneRevision` fazem o effect do `setDonations` rodar `setDonations([])` antes do replace-all, cena recriada do zero com o mapa novo. Antes disso a cena só recebia personalização na edição direta ou troca de edifícios: carregar estado não mudava nada.
+
 ### Quem pode editar
 
 Beta aberto: qualquer visitante, logado ou não, administra qualquer edifício. Sem `canEdit`. Alteração vale só no navegador. Configurações da cena, botão e `Ctrl+M` apenas para admin.

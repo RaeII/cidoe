@@ -119,6 +119,8 @@ export function CitySceneEditor() {
     retry,
   } = useDonations();
   const [customizationRevision, setCustomizationRevision] = useState(0);
+  const [sceneRevision, setSceneRevision] = useState(0);
+  const resetSceneRef = useRef(false);
   const { catalog: customizationCatalog, editorCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
   const handleStatsChange = useCallback((stats: SceneStats) => {
@@ -151,12 +153,26 @@ export function CitySceneEditor() {
   }, [user?.id]);
 
   // Sobrepõe as edições ainda no debounce à personalização salva.
+  // Mudança vinda de fora (estado carregado no painel, outra aba) também vai pra cena;
+  // edição própria volta do storage igual e não mexe em nada.
   useEffect(() => {
+    const previous = customizationsRef.current;
     const saved = new Map(savedCustomizations);
     for (const [id, entry] of pendingSaves.current) saved.set(id, entry.customization);
     customizationsRef.current = saved;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBuildingCustomizations(saved);
+    if ([...previous.keys()].some((id) => !saved.has(id))) {
+      // Manager não desfaz personalização: recria a cena do zero (effect do setDonations).
+      resetSceneRef.current = true;
+      setSceneRevision((revision) => revision + 1);
+      return;
+    }
+    for (const [id, customization] of saved) {
+      if (JSON.stringify(customization) !== JSON.stringify(previous.get(id))) {
+        canvasRef.current?.updateDonationCustomization(id, customization);
+      }
+    }
   }, [savedCustomizations]);
 
   useEffect(() => {
@@ -191,6 +207,10 @@ export function CitySceneEditor() {
     let rafInner = 0;
     const rafOuter = requestAnimationFrame(() => {
       rafInner = requestAnimationFrame(() => {
+        if (resetSceneRef.current) {
+          resetSceneRef.current = false;
+          canvasRef.current?.setDonations([]);
+        }
         canvasRef.current?.setDonations(visibleDonations);
         // setDonations é replace-all: o manager só preserva o que já estava na
         // cena, então o que veio do banco (e o que voltou pelo filtro) precisa
@@ -216,7 +236,7 @@ export function CitySceneEditor() {
       cancelAnimationFrame(rafOuter);
       cancelAnimationFrame(rafInner);
     };
-  }, [visibleDonations, loadState.status]);
+  }, [visibleDonations, loadState.status, sceneRevision]);
 
   // Página de loading sai uma vez só, com tudo pronto: doações aplicadas, catálogo (pool de
   // texturas) resolvido e cena sem nada baixando/compilando. Depois disso rebuilds usam o overlay.

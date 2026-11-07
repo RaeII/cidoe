@@ -10,6 +10,9 @@ const window = {
   localStorage: {
     getItem(key) { return storage.get(key) ?? null; },
     setItem(key, value) { storage.set(key, value); },
+    removeItem(key) { storage.delete(key); },
+    key(index) { return [...storage.keys()][index] ?? null; },
+    get length() { return storage.size; },
   },
   dispatchEvent(event) { events.push(event.detail); },
 };
@@ -196,6 +199,32 @@ for (const seeded of [true, false]) {
   assert.equal(disabledContext.pool.length, 0, "Sorteio desligado mantém pool vazio");
 }
 
+// Estados nomeados: foto de todas as chaves da cidade, troca sem recarregar.
+{
+  const statesKey = "cidoe:prelaunch:states:v1";
+  const buildingsKey = local.localCityKey(1, "buildings");
+  const lightKey = local.localCityKey(1, "scene:light");
+  const saved = window.localStorage.getItem(buildingsKey);
+  local.saveCityState("A");
+  local.writeLocalValue(1, "scene:light", { sun: 1 });
+  window.localStorage.setItem(buildingsKey, "[]");
+  local.saveCityState("B");
+  const [first] = local.readCityStates();
+  assert.ok(!(statesKey in first.data), "Foto não inclui a si mesma");
+  events.length = 0;
+  local.loadCityState(first);
+  assert.equal(window.localStorage.getItem(buildingsKey), saved, "Carregar restaura edifícios");
+  assert.equal(window.localStorage.getItem(lightKey), null, "Chave criada depois da foto some");
+  assert.ok(events.includes(buildingsKey) && events.includes(lightKey), "Hooks avisados das chaves trocadas");
+  local.saveCityState("A");
+  assert.equal(local.readCityStates().map((state) => state.name).join(), "A,B", "Mesmo nome sobrescreve na posição");
+  assert.equal(local.deleteCityState("A").map((state) => state.name).join(), "B");
+  window.localStorage.setItem(statesKey, "{");
+  assert.throws(() => local.saveCityState("C"), /inválidos/);
+  assert.equal(window.localStorage.getItem(statesKey), "{", "JSON inválido preservado");
+  window.localStorage.removeItem(statesKey);
+}
+
 // Executa a lista de atalhos real para contas comum/admin.
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => item.name.getText(ast) === "shortcuts"));
 for (const isAdmin of [false, true]) {
@@ -207,4 +236,4 @@ assert.match(editorSource, /isAdmin && showControlPanel &&/);
 assert.match(editorSource, /isAdmin && !showControlPanel &&/);
 assert.match(editorSource, /window.addEventListener\("pagehide", flushPending\)/);
 assert.doesNotMatch(editorSource, /upsertDonations|refreshOwned|<BuildingHeightInput/);
-console.log("Pré-lançamento: isolamento, reload, centavos, limites, perfil/aparência, falhas locais, zero mutações HTTP e acesso admin OK.");
+console.log("Pré-lançamento: isolamento, reload, centavos, limites, perfil/aparência, estados salvos, falhas locais, zero mutações HTTP e acesso admin OK.");

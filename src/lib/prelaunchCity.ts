@@ -165,3 +165,69 @@ export function saveLocalProfile(donationId: number, profile: BuildingProfile): 
   const saved = readLocalValue<Record<string, BuildingProfile>>(null, "profiles", {});
   writeLocalValue(null, "profiles", { ...saved, [donationId]: profile });
 }
+
+// Estados nomeados = foto de todas as chaves da cidade local (edifícios, aparência, perfis, ajustes da cena).
+// Chave fora do prefixo da cidade: a foto não inclui a si mesma.
+const CITY_PREFIX = "cidoe:prelaunch:v1:";
+const CITY_STATES_KEY = "cidoe:prelaunch:states:v1";
+
+export type CityState = { name: string; savedAt: number; data: Record<string, string> };
+
+function cityKeys(): string[] {
+  const storage = window.localStorage;
+  return Array.from({ length: storage.length }, (_, index) => storage.key(index) ?? "")
+    .filter((key) => key.startsWith(CITY_PREFIX));
+}
+
+/** Lança em JSON inválido: quem chama não sobrescreve estados que não conseguiu ler. */
+export function readCityStates(): CityState[] {
+  const raw = window.localStorage.getItem(CITY_STATES_KEY);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error();
+    return parsed as CityState[];
+  } catch {
+    throw new Error("Estados salvos inválidos neste navegador.");
+  }
+}
+
+function writeCityStates(states: CityState[]): CityState[] {
+  try {
+    window.localStorage.setItem(CITY_STATES_KEY, JSON.stringify(states));
+  } catch {
+    throw new Error("Sem espaço neste navegador para salvar o estado.");
+  }
+  return states;
+}
+
+/** Mesmo nome sobrescreve, mantendo a posição na lista. */
+export function saveCityState(name: string): CityState[] {
+  const data = Object.fromEntries(cityKeys().map((key) => [key, window.localStorage.getItem(key) ?? ""]));
+  const states = readCityStates();
+  const state = { name, savedAt: Date.now(), data };
+  const index = states.findIndex((item) => item.name === name);
+  if (index < 0) states.push(state);
+  else states[index] = state;
+  return writeCityStates(states);
+}
+
+export function deleteCityState(name: string): CityState[] {
+  return writeCityStates(readCityStates().filter((state) => state.name !== name));
+}
+
+/** Substitui a cidade atual pela foto; hooks locais recebem o evento e a cena troca sem recarregar. */
+export function loadCityState(state: CityState): void {
+  const current = cityKeys();
+  // Remove antes de gravar: libera espaço pra foto.
+  for (const key of current) if (!(key in state.data)) window.localStorage.removeItem(key);
+  try {
+    for (const [key, value] of Object.entries(state.data)) window.localStorage.setItem(key, value);
+  } catch {
+    throw new Error("Sem espaço neste navegador para carregar o estado.");
+  } finally {
+    for (const key of new Set([...current, ...Object.keys(state.data)])) {
+      window.dispatchEvent(new CustomEvent(LOCAL_CITY_EVENT, { detail: key }));
+    }
+  }
+}

@@ -39,6 +39,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 - `useLocalSceneState`: iluminação, terreno, texturas, ambiente/noite, reflexos, horizonte, layout, visibilidade, granulado, limite de renderização e filtros. Restaura valores por conta; não publica alterações.
 - Personalização: debounce 500 ms por edifício, sem conta. Flush no unmount e `pagehide`. Nome/descrição/imagem salvam pelo formulário, sem conta.
 - Armazenamento bloqueado/cheio: erro visível, sem confirmar pagamento nem apagar valores anteriores. JSON inválido preservado, erro exibido.
+- Estados nomeados (admin, gravação de vídeo): foto de todas as chaves `cidoe:prelaunch:v1:*` em `cidoe:prelaunch:states:v1`; carregar troca a cidade sem reload → [[html-components#CityStatesControls.tsx]].
 
 ### Interface
 
@@ -233,6 +234,7 @@ src/
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
+      CityStatesControls.tsx       ← aba Estados: salva/carrega/exclui cidades nomeadas no localStorage → [[html-components#CityStatesControls.tsx]]
       BuildingHeightInput.tsx
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
@@ -538,6 +540,7 @@ flowchart LR
 | Botão de editar preso ao edifício em foco        | [[index#2. Container Principal]] (`CitySceneEditor`) · posição em [[scene-runtime#Sistema de foco]] |
 | Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
+| Salvar/trocar estados da cidade (vídeo)          | aba **estados** → [[html-components#CityStatesControls.tsx]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Vídeo de apresentação sob demanda               | [[html-components#IntroVideoDialog.tsx]]          |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
