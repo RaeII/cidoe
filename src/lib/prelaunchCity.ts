@@ -67,8 +67,8 @@ export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuild
   });
 }
 
-// Skyline: as 40 maiores giram pelos 15 formatos.
-const SEED_SHAPES: BuildingShape[] = ["default", "setback", "chrysler", "residential", "octagonal", "taipei",
+// Skyline: as 40 maiores giram pelos 15 formatos. Índice 0 = central e mais alto → Residencial (sacadas).
+const SEED_SHAPES: BuildingShape[] = ["residential", "setback", "chrysler", "default", "octagonal", "taipei",
   "apartment", "gourmet", "loft", "hearst", "twisted", "empire", "yachthouse", "tapered", "one-trade"];
 // Base: 1 a cada 4 foge da caixa; repetição prioriza os novos residenciais, demais seguem instanciados.
 const SEED_BASE_SHAPES: BuildingShape[] = ["apartment", "gourmet", "loft", "residential",

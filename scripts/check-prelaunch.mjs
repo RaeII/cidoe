@@ -125,6 +125,7 @@ assert.ok(seedLooks.every((c) => c.textureKey === null), "Textura segue o sortei
 assert.ok(emptyContext.allDonations.length >= 400, "Cidade inicial cheia");
 assert.ok(seedLooks.filter((c) => c.edgeLightType === "led").length <= emptyContext.allDonations.length / 40, "LED raro");
 const seedIndex = (id) => -1_000_000 - id;
+assert.equal(emptyContext.savedCustomizations.get(-1_000_000)?.buildingShape, "residential", "Central e mais alto: Residencial (sacadas)");
 for (const shape of ["apartment", "gourmet", "loft"]) {
   const buildings = [...emptyContext.savedCustomizations].filter(([, c]) => c.buildingShape === shape);
   assert.ok(buildings.length >= 25, `${shape}: muitas unidades na cidade inicial`);
