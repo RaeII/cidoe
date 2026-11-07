@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BlockLoader, ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { BuildingProfileForm } from "./donate/BuildingProfileForm";
+import { IS_PRELAUNCH } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 import { SimulationNotice } from "./donate/SimulationNotice";
 
@@ -91,14 +92,24 @@ export function BuildingManageDialog({
         onInteractOutside={(event) => event.preventDefault()}
       >
         <Tabs.Root value={buildingTab} onValueChange={setBuildingTab} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex h-12 shrink-0 items-center gap-4 px-3 pr-14 sm:h-14 sm:px-5 sm:pr-16">
-            <DialogHeader className="sr-only md:not-sr-only md:shrink-0">
-              <DialogTitle className="text-base">Edifício</DialogTitle>
+          <div className="flex h-12 shrink-0 items-center gap-2 px-3 sm:h-14 sm:gap-4 sm:px-5">
+            {/* Título só para leitor de tela: abas já dizem o que se edita. */}
+            <DialogHeader className="sr-only">
+              <DialogTitle>Edifício</DialogTitle>
             </DialogHeader>
-            <Tabs.List aria-label="Editar edifício" className="flex h-full min-w-0 flex-1 gap-2 shadow-[inset_0_-2px_0_0_var(--color-border)] md:ml-auto md:flex-none">
+            <Tabs.List aria-label="Editar edifício" className="flex h-full min-w-0 flex-1 gap-1 shadow-[inset_0_-2px_0_0_var(--color-border)] sm:gap-2">
               <Tabs.Trigger value="appearance" disabled={editBusy} className={tabClass}>Aparência</Tabs.Trigger>
               <Tabs.Trigger value="information" disabled={editBusy} className={tabClass}>Informações</Tabs.Trigger>
             </Tabs.List>
+            {/* Aparência: rodapé é a barra de categorias, então a ação sobe para o canto (Concluir = fechar; aparência já salvou). */}
+            {buildingTab === "information" ? (
+              <Button type="button" variant="ghost" size="icon" className="-mr-2 size-11 sm:-mr-3" disabled={editBusy} onClick={leaveProfile} aria-label="Fechar personalização">
+                <PixelClose className="size-3" />
+              </Button>
+            ) : profileEdit.dirty || profileEdit.busy ? <Button type="submit" form={profileFormId} className="px-4" disabled={!profileEdit.ready || editBusy}>
+              {profileEdit.busy && <BlockLoader />}
+              {profileEdit.busy ? "Aguarde…" : "Salvar"}
+            </Button> : <Button type="button" className="px-4" disabled={editBusy} onClick={leaveProfile}>Concluir</Button>}
           </div>
           <Tabs.Content value="information" forceMount className={cn(scrollClass, "data-[state=inactive]:hidden")}>
             <BuildingProfileForm
@@ -128,25 +139,24 @@ export function BuildingManageDialog({
               />
             </Suspense>
           </Tabs.Content>
-          <div className={footerClass}>
+          <div className={cn(footerClass, buildingTab === "appearance" && "border-t-0 pt-0 sm:pt-0")}>
             {profileEdit.error && (profileEdit.ready || buildingTab === "appearance") && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark /><span>{profileEdit.error}{!profileEdit.ready && " Tente novamente na aba Informações."}</span></p>}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {buildingTab === "appearance" ? (
-                <p className="min-w-0 text-[11px] text-muted-foreground">
-                  {appearanceBusy ? "Lendo imagem…" : profileEdit.dirty ? "Informações não salvas" : "Salvamento automático"}
-                </p>
-              ) : <Button type="button" variant="ghost" className="h-11 sm:h-10" disabled={editBusy} onClick={leaveProfile}>Voltar</Button>}
-              {buildingTab === "information" || profileEdit.dirty || profileEdit.busy ? <Button type="submit" form={profileFormId} className="h-11 sm:h-10 sm:min-w-32" disabled={!profileEdit.ready || editBusy}>
+            {/* Modal no pré-lançamento: aviso âmbar logo abaixo já diz onde fica salvo. */}
+            {buildingTab === "appearance" ? (appearanceBusy || profileEdit.dirty || side || !IS_PRELAUNCH) && (
+              <p className="text-center text-[11px] text-muted-foreground">
+                {appearanceBusy ? "Lendo imagem…" : profileEdit.dirty ? "Informações não salvas" : IS_PRELAUNCH ? "Salvo só neste navegador" : "Salvamento automático"}
+              </p>
+            ) : <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="ghost" className="h-11 sm:h-10" disabled={editBusy} onClick={leaveProfile}>Voltar</Button>
+              <Button type="submit" form={profileFormId} className="h-11 sm:h-10 sm:min-w-32" disabled={!profileEdit.ready || editBusy}>
                 {profileEdit.busy && <BlockLoader />}
                 {profileEdit.busy ? "Aguarde…" : "Salvar"}
-              </Button> : <Button type="button" className="h-11 sm:h-10 sm:min-w-32" disabled={editBusy} onClick={leaveProfile}>Concluir</Button>}
-            </div>
+              </Button>
+            </div>}
           </div>
         </Tabs.Root>
-        <Button type="button" variant="ghost" size="icon" className="absolute top-0.5 right-1 size-11 sm:top-1.5 sm:right-2" disabled={editBusy} onClick={leaveProfile} aria-label="Fechar personalização">
-          <PixelClose className="size-3" />
-        </Button>
-        <SimulationNotice />
+        {/* Painel lateral: cena visível já mostra o aviso de pré-lançamento; rodapé diz onde fica salvo. */}
+        {!side && <SimulationNotice />}
         <AlertDialog.Root open={confirmExit} onOpenChange={setConfirmExit}>
           <AlertDialog.Portal>
             <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-tinta/72" />

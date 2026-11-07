@@ -271,6 +271,7 @@ Logo de ONG (e imagem de holograma no [[html-components#BuildingCustomizer.tsx|p
 | Valor rápido | Botões lado a lado (`flex-1 min-w-16`, gap 6px) `pixel pixel-thin bevel-edge`, 13px bold, `pt-3 pb-[15px]`, sem sombra dura; ativo = verde com `bevel-verde-700` | — |
 | Quantidade | Grupo `pixel pixel-thin`: botões −/+ 48px `bg-secondary` + número 24px 600 em `bg-card` (72px). **Não implementado** — hover do DS (`#C9D5C0`) não tem token; criar antes de usar | — |
 | Abas | `tab text-[13px]` (+ `menu-cursor pl-6` para ▸); lista sem fundo, `border-b` | `tab` no CSS |
+| Barra em anel | Categorias em loop infinito na base do painel, 56 px, hairline em cima. Janela fixa no centro `bg-secondary` + régua verde 4px marca a ativa (15px bold `foreground`); vizinhas 20% menores, 4 px mais baixas, `muted-foreground`; demais somem. Sem degradê nas pontas | `BuildingCustomizer.tsx` |
 | Linha de erro | `<p role="alert" class="flex gap-2 text-sm text-destructive"><ErrorMark />frase</p>` | `ui/pixel-icon.tsx` |
 | Selo | `Badge`: mono 11px, borda 2px. `default` verde, `secondary` papel, `reward` âmbar, `muted` verde-100 sem borda | `ui/badge.tsx` |
 | Dica | Tooltip tinta, mono 12px papel, rabicho em degrau | `ui/tooltip.tsx` |

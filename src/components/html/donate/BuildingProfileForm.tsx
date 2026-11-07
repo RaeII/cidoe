@@ -189,7 +189,7 @@ export function BuildingProfileForm({
         <div className="min-w-0 space-y-5">
           <div>
             <label htmlFor={nameId} className={labelClass}>
-              Nome do edifício
+              Nome
             </label>
             <Input id={nameId} maxLength={NAME_MAX} value={name} onChange={(event) => setName(event.target.value)} />
           </div>

@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { LockKeyhole } from "lucide-react";
+import { animate, useMotionValue, useMotionValueEvent, useReducedMotion, type AnimationPlaybackControls } from "motion/react";
 import { Tabs } from "radix-ui";
 import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import { formatUnlockCta } from "@/lib/unlock";
@@ -11,11 +12,6 @@ import { Button } from "@/components/ui/button";
 import { BlockLoader, ErrorMark, PixelCheck } from "@/components/ui/pixel-icon";
 
 const Preview = lazy(() => import("@/components/three/BuildingPreview").then((module) => ({ default: module.BuildingPreview })));
-// Abas (DS): texto bold 13px; ativa = régua verde de 4px embaixo + ▸.
-const tabClass = "tab menu-cursor text-[13px] min-h-11 shrink-0 pr-3 pl-6 hover:bg-accent sm:min-h-10";
-// Painel lateral: categorias em coluna, todas à vista. Ativa = régua verde de 4px à direita + ▸ (aba do DS de pé).
-const railClass = "flex w-28 shrink-0 flex-col gap-0.5 overflow-y-auto pt-1 shadow-[inset_-2px_0_0_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-const railTabClass = "menu-cursor focus-inset min-h-10 shrink-0 pr-3 pl-6 text-left text-[13px] font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-[inset_-4px_0_0_0_var(--color-primary)]";
 const CATEGORIES = [
   { key: "shape", label: "Formato", field: "shapes" },
   { key: "color", label: "Cor", field: "colors" },
@@ -23,6 +19,13 @@ const CATEGORIES = [
   { key: "rooftop", label: "Topo", field: "rooftops" },
   { key: "edge_light", label: "LED", field: "edgeLights" },
 ] as const;
+// Barra de categorias: distância (px) entre centros. Painéis: respiro (px) entre um e outro no deslize.
+const SLOT = 104;
+const GAP = 12;
+/** Posição relativa num anel de `count` itens, em [-count/2, count/2): base do loop infinito. */
+const wrap = (value: number, count: number) => ((value % count) + count * 1.5) % count - count / 2;
+
+type Drag = { id: number; x: number; y: number; from: number; lastX: number; lastT: number; speed: number; axis?: "x" | "y" };
 
 function OptionCard({ category, option, selected, onSelect }: {
   category: string;
@@ -58,33 +61,137 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   textureSettings: TextureSettings;
   onChange: (patch: Partial<BuildingCustomization>) => void;
   onBusyChange?: (busy: boolean) => void;
-  /** Painel lateral sobre a cena: sem prévia (a própria cena mostra), categorias em coluna. */
+  /** Painel lateral sobre a cena: sem prévia (a própria cena mostra), opções em 3 colunas. */
   side?: boolean;
 }) {
-  const [category, setCategory] = useState("shape");
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const readerRef = useRef<FileReader | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const slidesRef = useRef<HTMLDivElement>(null);
+  // Posição contínua no anel de categorias, sem limite: barra e painéis leem o mesmo valor,
+  // então arrastar qualquer um move os dois juntos. Inteiro mais próximo = categoria ativa.
+  const pos = useMotionValue(0);
+  const [step, setStep] = useState(0);
+  const target = useRef(0);
+  const settling = useRef<AnimationPlaybackControls | null>(null);
+  const drag = useRef<Drag | null>(null);
+  const dragged = useRef(false);
+  const wheelQuietAt = useRef(0);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const pagesRef = useRef<HTMLDivElement>(null);
+  const dockItems = useRef<(HTMLElement | null)[]>([]);
+  const pages = useRef<(HTMLElement | null)[]>([]);
+  const reduceMotion = useReducedMotion();
   useEffect(() => { onBusyChange?.(imageBusy); }, [imageBusy, onBusyChange]);
   useEffect(() => () => { readerRef.current?.abort(); onBusyChange?.(false); }, [onBusyChange]);
+  useEffect(() => () => settling.current?.stop(), []);
+  useMotionValueEvent(pos, "change", (value) => setStep(Math.round(value)));
   const categories = CATEGORIES.filter((item) => (catalog?.[item.field].length ?? 0) > 0);
-  const activeCategory = categories.some((item) => item.key === category) || catalog?.features[category as "sign" | "hologram"] ? category : categories[0]?.key ?? (catalog?.features.sign ? "sign" : "hologram");
   const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : [])];
-  const tabIndex = (key: string) => tabs.findIndex((item) => item.key === key);
-  // Celular: painéis lado a lado com scroll-snap; deslizar troca a aba. Só a atual e vizinhas montam itens.
-  const near = (key: string) => Math.abs(tabIndex(key) - tabIndex(activeCategory)) <= 1;
-  const slideClass = "w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain p-1 pt-3 outline-none md:data-[state=inactive]:hidden";
-  useEffect(() => { listRef.current?.querySelector("[data-state=active]")?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [activeCategory]);
-  const openTab = (key: string) => {
-    setCategory(key);
-    slidesRef.current?.scrollTo({ left: tabIndex(key) * slidesRef.current.clientWidth });
+  const count = tabs.length;
+  const active = count ? ((step % count) + count) % count : 0;
+
+  // Estilo direto no DOM a cada quadro, sem re-render. Ativa: centro e maior; vizinhas: 20% menores e
+  // 4 px mais baixas (cor fraca vem da classe); além delas somem antes do ponto em que o anel vira.
+  useLayoutEffect(() => {
+    const paint = (value: number) => {
+      dockItems.current.forEach((item, index) => {
+        if (!item) return;
+        const offset = wrap(index - value, count);
+        const near = Math.min(Math.abs(offset), 1);
+        item.style.transform = `translate(calc(-50% + ${offset * SLOT}px), ${near * 4}px) scale(${1 - near * 0.2})`;
+        item.style.opacity = String(Math.max(0, 1 - (Math.abs(offset) - 1) * 0.9));
+      });
+      pages.current.forEach((page, index) => {
+        if (!page) return;
+        const offset = wrap(index - value, count);
+        page.style.transform = `translateX(calc(${offset * 100}% + ${offset * GAP}px))`;
+      });
+    };
+    paint(pos.get());
+    return pos.on("change", paint);
+  }, [pos, count]);
+
+  const settle = (to: number, velocity = 0) => {
+    target.current = to;
+    settling.current?.stop();
+    settling.current = animate(pos, to, reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 38, velocity });
   };
-  const followSwipe = (slides: HTMLDivElement) => {
-    const item = tabs[Math.round(slides.scrollLeft / slides.clientWidth)];
-    if (item && item.key !== activeCategory) setCategory(item.key);
+  // Caminho mais curto no anel: de Holograma para Formato anda uma casa, não volta tudo.
+  const goTo = (index: number) => settle(target.current + wrap(index - target.current, count));
+
+  // Arrasto (dedo ou mouse) na barra e nos painéis. Gesto mais vertical fica com a rolagem nativa das opções.
+  // Barra: 1 categoria = SLOT px e gira com inércia. Painéis: 1 categoria = largura do painel, no máximo uma por gesto.
+  const unit = (element: HTMLElement) => element === dockRef.current ? SLOT : element.clientWidth + GAP;
+  const swipe = {
+    onPointerDown(event: PointerEvent<HTMLElement>) {
+      dragged.current = false;
+      if (count < 2 || event.button !== 0 || (event.target as Element).closest("input, select, textarea")) return;
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, from: 0, lastX: event.clientX, lastT: event.timeStamp, speed: 0 };
+    },
+    onPointerMove(event: PointerEvent<HTMLElement>) {
+      const gesture = drag.current;
+      if (!gesture || gesture.id !== event.pointerId || gesture.axis === "y") return;
+      if (!gesture.axis) {
+        const dx = event.clientX - gesture.x;
+        const dy = event.clientY - gesture.y;
+        if (Math.hypot(dx, dy) < 8) return;
+        gesture.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        if (gesture.axis === "y") return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        settling.current?.stop();
+        dragged.current = true;
+        gesture.x = event.clientX;
+        gesture.from = pos.get();
+      }
+      gesture.speed = (event.clientX - gesture.lastX) / Math.max(1, event.timeStamp - gesture.lastT);
+      gesture.lastX = event.clientX;
+      gesture.lastT = event.timeStamp;
+      pos.set(gesture.from - (event.clientX - gesture.x) / unit(event.currentTarget));
+    },
+    onPointerUp: release,
+    onPointerCancel: release,
+    // Arrasto que termina sobre um botão não vale como clique.
+    onClickCapture(event: MouseEvent<HTMLElement>) {
+      if (!dragged.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragged.current = false;
+    },
   };
+  function release(event: PointerEvent<HTMLElement>) {
+    const gesture = drag.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    drag.current = null;
+    if (gesture.axis !== "x") return;
+    // Velocidade em categorias/s; dedo parado há mais de 80 ms solta sem arremesso.
+    const velocity = event.timeStamp - gesture.lastT > 80 ? 0 : (-gesture.speed * 1000) / unit(event.currentTarget);
+    const value = pos.get();
+    if (event.currentTarget === dockRef.current) return settle(Math.round(value + velocity * 0.25), velocity);
+    // Painel: arremesso ou 1/4 da largura já troca; menos que isso volta.
+    const base = Math.round(gesture.from);
+    const moved = value - base;
+    settle(base + (Math.abs(velocity) > 0.8 ? Math.sign(velocity) : Math.abs(moved) > 0.25 ? Math.sign(moved) : 0), velocity);
+  }
+
+  // Roda do mouse na barra (qualquer eixo) e trackpad na horizontal nos painéis: um gesto = uma categoria.
+  // Trava até 200 ms sem evento para a inércia do trackpad não pular várias.
+  const onWheel = useEffectEvent((event: WheelEvent) => {
+    const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+    if (count < 2 || (event.currentTarget === pagesRef.current && !horizontal)) return;
+    event.preventDefault();
+    const delta = horizontal ? event.deltaX : event.deltaY;
+    const locked = event.timeStamp < wheelQuietAt.current;
+    if (locked || Math.abs(delta) >= 4) wheelQuietAt.current = event.timeStamp + 200;
+    if (!locked && Math.abs(delta) >= 4) settle(target.current + Math.sign(delta));
+  });
+  const ready = catalog !== null;
+  useEffect(() => {
+    const elements = [dockRef.current, pagesRef.current];
+    const listener = (event: WheelEvent) => onWheel(event);
+    elements.forEach((element) => element?.addEventListener("wheel", listener, { passive: false }));
+    return () => elements.forEach((element) => element?.removeEventListener("wheel", listener));
+  }, [ready]);
+
   const select = (key: string, option: CatalogOption) => {
     if (option.isUnlocked === false) return;
     if (key === "shape") onChange({ buildingShape: option.key as BuildingShape });
@@ -124,6 +231,33 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
       setImageBusy(false);
     }
   }
+  const featurePanel = (key: "sign" | "hologram") => {
+    const feature = catalog?.features[key];
+    if (!feature) return null;
+    const locked = feature.isUnlocked === false;
+    return <>
+      {locked && <div className="pixel pixel-thin bg-card p-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold"><LockKeyhole aria-hidden className="size-3.5" />{key === "sign" ? "Letreiro bloqueado" : "Holograma bloqueado"}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{formatUnlockCta(feature.unlock)}</p>
+      </div>}
+      <fieldset disabled={locked || imageBusy} className="space-y-4 disabled:opacity-50">
+        {key === "sign" ? <>
+          <label className="block space-y-2"><span className="mono-label block">Texto do letreiro</span><Input maxLength={30} value={customization.signText} onChange={(event) => onChange({ signText: event.target.value })} placeholder="Marca ou empresa" /></label>
+          <label className="block space-y-2"><span className="mono-label block">Lados visíveis</span><select value={customization.signSides} onChange={(event) => onChange({ signSides: Number(event.target.value) })} className="field h-11 w-full pl-3.5 text-sm">{[1, 2, 3, 4].map((sides) => <option key={sides} value={sides}>{sides} {sides === 1 ? "lado" : "lados"}</option>)}</select></label>
+        </> : <>
+          <label className="block space-y-2"><span className="mono-label block">Imagem ou GIF</span><Input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void uploadHologram(event.target.files?.[0]); event.target.value = ""; }} /><span className="block text-xs text-muted-foreground">PNG, JPG, WebP ou GIF. Até 700 KB.</span></label>
+          {imageBusy && <p role="status" className="text-sm text-muted-foreground">Lendo imagem…</p>}
+          {customization.hologramImage && <>
+            <img src={customization.hologramImage} alt="Imagem do holograma" className="pixel h-24 w-full bg-card p-2 object-contain" />
+            <Button type="button" variant="outline" onClick={() => onChange({ hologramImage: null })}>Remover imagem</Button>
+            <label className="flex items-center justify-between gap-3"><span className="mono-label">Cor do holograma</span><input type="color" value={customization.hologramColor} onChange={(event) => onChange({ hologramColor: event.target.value })} className="h-10 w-16" /></label>
+            <label className="block space-y-2"><span className="mono-label block">Opacidade · {Math.round(customization.hologramOpacity * 100)}%</span><input type="range" min={0} max={1} step={0.01} value={customization.hologramOpacity} onChange={(event) => onChange({ hologramOpacity: Number(event.target.value) })} className="block w-full" /></label>
+          </>}
+        </>}
+      </fieldset>
+      {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
+    </>;
+  };
   return (
     <section aria-label="Personalizar edifício" className={cn("flex h-full min-h-0 min-w-0 flex-col gap-2", !side && "md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5")}>
       {!side && <div className="h-[clamp(6rem,28cqh,13rem)] min-w-0 shrink-0 md:h-full md:min-h-0">
@@ -132,55 +266,38 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
         </Suspense>
       </div>}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><BlockLoader />Carregando personalizações…</p> : (
-          <Tabs.Root value={activeCategory} onValueChange={openTab} orientation={side ? "vertical" : "horizontal"} className={cn("flex min-h-0 flex-1", side ? "gap-3" : "flex-col")}>
-            <Tabs.List ref={listRef} aria-label="Categorias de personalização" className={side ? railClass : "flex shrink-0 gap-1 overflow-x-auto shadow-[inset_0_-2px_0_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"}>
-              {tabs.map((item) => (
-                <Tabs.Trigger key={item.key} value={item.key} className={side ? railTabClass : tabClass}>{item.label}</Tabs.Trigger>
-              ))}
-            </Tabs.List>
-            <div ref={slidesRef} onScroll={(event) => followSwipe(event.currentTarget)} className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {categories.map((item) => {
-                const options = catalog[item.field];
-                const defaults = item.key === "texture" ? [{ id: -1, key: "default", label: "Padrão", value: null, sortOrder: -1, unlock: null, isUnlocked: true }] : [];
-                return <Tabs.Content key={item.key} value={item.key} forceMount inert={item.key !== activeCategory} className={cn(slideClass, "space-y-2")}>
-                  {near(item.key) && <>
-                    <h3 className="sr-only">{item.label}</h3><p className="text-[11px] text-muted-foreground">{options.filter((option) => option.isUnlocked !== false).length + defaults.length} disponíveis</p>
-                    <div className={cn("grid grid-cols-2 items-stretch gap-2", !side && "sm:grid-cols-3 xl:grid-cols-4")}>
-                      {[...defaults, ...options].map((option) => <OptionCard key={option.id} category={item.key} option={option} selected={selected(item.key, option)} onSelect={() => select(item.key, option)} />)}
+        {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><BlockLoader />Carregando personalizações…</p>
+          : !count ? <p className="py-8 text-sm text-muted-foreground">Nenhuma personalização disponível.</p> : (
+          <Tabs.Root value={tabs[active].key} onValueChange={(key) => goTo(tabs.findIndex((item) => item.key === key))} className="flex min-h-0 flex-1 flex-col">
+            {/* Painéis em anel: só a atual e as vizinhas montam itens (miniaturas 3D não renderizam todas de uma vez). */}
+            <div ref={pagesRef} {...swipe} onDragStart={(event) => event.preventDefault()}
+              className="relative min-h-0 flex-1 touch-pan-y select-none overflow-hidden [&_input]:select-text">
+              {tabs.map((item, index) => (
+                <Tabs.Content key={item.key} ref={(element) => { pages.current[index] = element; }} value={item.key} forceMount inert={index !== active}
+                  className={cn("absolute inset-0 touch-pan-y overflow-y-auto overscroll-y-contain p-1 pt-3 outline-none", "field" in item ? "space-y-2" : "space-y-3")}>
+                  {Math.abs(wrap(index - active, count)) <= 1 && ("field" in item ? <>
+                    <h3 className="sr-only">{item.label}</h3><p className="text-[11px] text-muted-foreground">{catalog[item.field].filter((option) => option.isUnlocked !== false).length + (item.key === "texture" ? 1 : 0)} disponíveis</p>
+                    <div className={cn("grid items-stretch gap-2", side ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4")}>
+                      {[...(item.key === "texture" ? [{ id: -1, key: "default", label: "Padrão", value: null, sortOrder: -1, unlock: null, isUnlocked: true }] : []), ...catalog[item.field]].map((option) => <OptionCard key={option.id} category={item.key} option={option} selected={selected(item.key, option)} onSelect={() => select(item.key, option)} />)}
                     </div>
-                  </>}
-                </Tabs.Content>;
-              })}
-              {(["sign", "hologram"] as const).map((key) => {
-                const feature = catalog.features[key];
-                if (!feature) return null;
-                const locked = feature.isUnlocked === false;
-                return <Tabs.Content key={key} value={key} forceMount inert={key !== activeCategory} className={cn(slideClass, "space-y-3")}>
-                  {locked && <div className="pixel pixel-thin bg-card p-3">
-                    <p className="flex items-center gap-1.5 text-sm font-semibold"><LockKeyhole aria-hidden className="size-3.5" />{key === "sign" ? "Letreiro bloqueado" : "Holograma bloqueado"}</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{formatUnlockCta(feature.unlock)}</p>
-                  </div>}
-                  <fieldset disabled={locked || imageBusy} className="space-y-4 disabled:opacity-50">
-                    {key === "sign" ? <>
-                      <label className="block space-y-2"><span className="mono-label block">Texto do letreiro</span><Input maxLength={30} value={customization.signText} onChange={(event) => onChange({ signText: event.target.value })} placeholder="Marca ou empresa" /></label>
-                      <label className="block space-y-2"><span className="mono-label block">Lados visíveis</span><select value={customization.signSides} onChange={(event) => onChange({ signSides: Number(event.target.value) })} className="field h-11 w-full pl-3.5 text-sm">{[1, 2, 3, 4].map((sides) => <option key={sides} value={sides}>{sides} {sides === 1 ? "lado" : "lados"}</option>)}</select></label>
-                    </> : <>
-                      <label className="block space-y-2"><span className="mono-label block">Imagem ou GIF</span><Input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void uploadHologram(event.target.files?.[0]); event.target.value = ""; }} /><span className="block text-xs text-muted-foreground">PNG, JPG, WebP ou GIF. Até 700 KB.</span></label>
-                      {imageBusy && <p role="status" className="text-sm text-muted-foreground">Lendo imagem…</p>}
-                      {customization.hologramImage && <>
-                        <img src={customization.hologramImage} alt="Imagem do holograma" className="pixel h-24 w-full bg-card p-2 object-contain" />
-                        <Button type="button" variant="outline" onClick={() => onChange({ hologramImage: null })}>Remover imagem</Button>
-                        <label className="flex items-center justify-between gap-3"><span className="mono-label">Cor do holograma</span><input type="color" value={customization.hologramColor} onChange={(event) => onChange({ hologramColor: event.target.value })} className="h-10 w-16" /></label>
-                        <label className="block space-y-2"><span className="mono-label block">Opacidade · {Math.round(customization.hologramOpacity * 100)}%</span><input type="range" min={0} max={1} step={0.01} value={customization.hologramOpacity} onChange={(event) => onChange({ hologramOpacity: Number(event.target.value) })} className="block w-full" /></label>
-                      </>}
-                    </>}
-                  </fieldset>
-                  {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
-                </Tabs.Content>;
-              })}
+                  </> : featurePanel(item.key as "sign" | "hologram"))}
+                </Tabs.Content>
+              ))}
             </div>
-            {!categories.length && !catalog.features.sign && !catalog.features.hologram && <p className="py-8 text-sm text-muted-foreground">Nenhuma personalização disponível.</p>}
+            {/* Barra de categorias infinita: janela fixa no centro marca a ativa; arrastar, rolar, clicar ou setas do teclado giram o anel. */}
+            <div ref={dockRef} {...swipe} className="relative mt-1 h-14 shrink-0 touch-none select-none overflow-hidden shadow-[inset_0_2px_0_0_var(--color-border)]">
+              <span aria-hidden className="absolute top-2.5 bottom-1 left-1/2 w-26 -translate-x-1/2 bg-secondary shadow-[inset_0_-4px_0_0_var(--color-primary)]" />
+              {/* Seleção no clique, não no mousedown do Radix: arrastar a partir de uma categoria não a escolhe. */}
+              <Tabs.List aria-label="Categorias de personalização" className="absolute inset-0">
+                {tabs.map((item, index) => (
+                  <Tabs.Trigger key={item.key} ref={(element) => { dockItems.current[index] = element; }} value={item.key}
+                    onMouseDown={(event) => event.preventDefault()} onClick={() => goTo(index)}
+                    className="focus-inset absolute top-2.5 left-1/2 flex h-10 items-center px-3 pb-1 text-[15px] font-bold whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground data-[state=active]:text-foreground">
+                    {item.label}
+                  </Tabs.Trigger>
+                ))}
+              </Tabs.List>
+            </div>
           </Tabs.Root>
         )}
       </div>
