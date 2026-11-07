@@ -119,6 +119,8 @@ export function useCustomizationCatalog(refreshKey = 0) {
 
   return {
     catalog: resolvedCatalog,
+    // Beta: editor ignora o passe. Catálogo cru não traz `isUnlocked` → tudo liberado.
+    editorCatalog: catalog,
     rewards: {
       pending,
       next,

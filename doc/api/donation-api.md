@@ -26,7 +26,7 @@ Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization(userId, id, customization)` — gravação local; nenhuma escrita HTTP. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization(id, customization)` — gravação local no balde do navegador; nenhuma escrita HTTP. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
 | `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
 | `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` locais da conta; assina alterações após simulação. Vazio sem login; outra conta usa outras chaves. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
@@ -90,11 +90,11 @@ Editor chama `setDonations(donations)` a cada mudança de `donations` (load inic
 
 ## Personalização persistida
 
-Pré-lançamento: edição salva no localStorage, nunca em `donation.customization`. `savedCustomizations` mescla personalização pública com a cópia local da conta. Editor reaplica após `setDonations`, preserva payloads pendentes e salva ao fechar/recarregar (`pagehide`). Debounce 500 ms por edifício; conta capturada no payload evita salvar uma edição na conta seguinte.
+Pré-lançamento: edição salva no localStorage, nunca em `donation.customization`. `savedCustomizations` mescla personalização pública → cópia antiga da conta → balde do navegador (`guest`, vence). Editor reaplica após `setDonations`, preserva payloads pendentes e salva ao fechar/recarregar (`pagehide`). Debounce 500 ms por edifício; sem conta, login/logout não perde edição.
 
 ### Quem pode editar
 
-`canEdit(id) = isAdmin || ownedDonationIds.has(id)`. Conta comum administra apenas IDs negativos da própria simulação. Admin altera cópia local de edifícios públicos. Logout/401 remove acesso à administração. Configurações da cena, botão e `Ctrl+M` apenas para admin.
+Beta aberto: qualquer visitante, logado ou não, administra qualquer edifício. Sem `canEdit`. Alteração vale só no navegador. Configurações da cena, botão e `Ctrl+M` apenas para admin.
 
 ### Edifícios do usuário no login
 

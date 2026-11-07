@@ -45,6 +45,7 @@ export function useDonations() {
   const userId = user?.id;
   const localBuildings = useLocalCityValue("buildings", EMPTY_LOCAL_BUILDINGS);
   const localCustomizations = useLocalCityValue("customizations", EMPTY_LOCAL_CUSTOMIZATIONS);
+  const sharedCustomizations = useLocalCityValue("customizations", EMPTY_LOCAL_CUSTOMIZATIONS, true);
   const [loadState, setLoadState] = useState<DonationsLoadState>({
     status: "loading",
     loadedBytes: 0,
@@ -107,9 +108,12 @@ export function useDonations() {
   const savedCustomizations = useMemo(() => {
     // Cidade inicial tem aparência própria; personalizações do banco ficam fora dela.
     const merged = seeds.length ? createSeedCustomizations(seeds) : new Map(dataset?.customizations);
-    if (userId) for (const [id, customization] of Object.entries(localCustomizations)) merged.set(Number(id), customization);
+    // Beta: edição do navegador vale com ou sem conta e vence a da conta (gravada antes do beta aberto).
+    for (const saved of [localCustomizations, sharedCustomizations]) {
+      for (const [id, customization] of Object.entries(saved)) merged.set(Number(id), customization);
+    }
     return merged;
-  }, [seeds, dataset, userId, localCustomizations]);
+  }, [seeds, dataset, localCustomizations, sharedCustomizations]);
 
   const cityById = useMemo(() => {
     const map = new Map<number, City>();

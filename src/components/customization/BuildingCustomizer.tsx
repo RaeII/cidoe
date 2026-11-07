@@ -120,7 +120,7 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
     }
   }
   return (
-    <section aria-label="Personalizar seu edifício" className="flex h-full min-h-0 min-w-0 flex-col gap-2 md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5">
+    <section aria-label="Personalizar edifício" className="flex h-full min-h-0 min-w-0 flex-col gap-2 md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5">
       <div className="h-[clamp(6rem,28cqh,13rem)] min-w-0 shrink-0 md:h-full md:min-h-0">
         <Suspense fallback={<div role="status" className="grid h-full place-items-center bg-muted text-muted-foreground"><BlockLoader /><span className="sr-only">Carregando prévia 3D…</span></div>}>
           <Preview customization={customization} textureSettings={textureSettings} />

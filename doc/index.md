@@ -33,18 +33,18 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
 - Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
 - IDs negativos dos seeds e da simulação; IDs públicos positivos preservados no dataset, fora da cena no pré-lançamento.
-- Chaves: `cidoe:prelaunch:v1:<userId>:<area>`. Áreas `buildings`, `customizations`, `profiles` e `scene:<setting>`. Visitante usa `guest` somente para preferências.
+- Chaves: `cidoe:prelaunch:v1:<userId>:<area>`. Áreas `buildings`, `customizations`, `profiles` e `scene:<setting>`. Visitante usa `guest` para preferências. `customizations` e `profiles` sempre gravam em `guest` (balde do navegador), com ou sem conta; balde antigo da conta segue lido por baixo.
 - `LocalBuilding` inclui cidade (`id`, nome, UF) para restaurar filtros e localização mesmo se ausente do snapshot.
-- `useLocalCityValue` usa `useSyncExternalStore`, eventos locais e `storage`: atualiza componentes e outras abas da mesma conta/navegador. Logout/troca de conta remove os edifícios e edições da conta anterior do render.
+- `useLocalCityValue` usa `useSyncExternalStore`, eventos locais e `storage`: atualiza componentes e outras abas da mesma conta/navegador. Logout/troca de conta remove edifícios da conta anterior do render; aparência e perfil do navegador ficam. `useLocalCityValue(area, fallback, true)` lê o balde `guest` independente da sessão.
 - `useLocalSceneState`: iluminação, terreno, texturas, ambiente/noite, reflexos, horizonte, layout, visibilidade, granulado, limite de renderização e filtros. Restaura valores por conta; não publica alterações.
-- Personalização: debounce 500 ms por edifício; payload captura a conta que editou. Flush no unmount e `pagehide`. Nome/descrição/imagem salvam pelo formulário.
+- Personalização: debounce 500 ms por edifício, sem conta. Flush no unmount e `pagehide`. Nome/descrição/imagem salvam pelo formulário, sem conta.
 - Armazenamento bloqueado/cheio: erro visível, sem confirmar pagamento nem apagar valores anteriores. JSON inválido preservado, erro exibido.
 
 ### Interface
 
 **Pré-lançamento** no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). Metadados usam apresentação permanente da marca, igual à `main`. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
 
-Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. Administração do edifício continua disponível para dono local ou admin; admin altera apenas sua cópia no navegador.
+Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. **Beta aberto**: qualquer visitante, logado ou não, administra e personaliza qualquer edifício (seed, próprio ou alheio) com todo o catálogo liberado (`editorCatalog`, sem passe). Alteração vale só no navegador. Passe/recompensas seguem com progresso real.
 
 ### Limites
 
@@ -406,9 +406,9 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
-- `selectedBuildingId` — edifício em administração; diálogo só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
+- `selectedBuildingId` — edifício em administração; beta: qualquer edifício, qualquer visitante (ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet/loft), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
-- Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
+- Falha da gravação (armazenamento cheio/bloqueado) → toast por edifício, ver [[donation-api#Personalização persistida]]
 
 E entrega para:
 

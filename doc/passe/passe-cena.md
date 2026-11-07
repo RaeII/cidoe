@@ -18,7 +18,10 @@ aliases: [passe-cena]
 
 Presentes dos [[primeiros-inscritos]] entram no mesmo ledger do passe. Podem incluir itens grátis, portanto ausência/presença no ledger não substitui verificar `unlock === null`.
 
-`BuildingManageDialog` usa `BuildingCustomizer` na aba Aparência: opções bloqueadas visíveis, cadeado, botão desabilitado e requisito no cartão. Letreiro/holograma exibem requisito e desabilitam seus campos. Feature consulta `unlockedCategoryKeys`, opção consulta `unlockedOptionIds`.
+> [!important] Beta aberto
+> Tabela acima vale para passe/recompensas (`catalog`). Editor recebe `editorCatalog` = catálogo cru, sem `isUnlocked`: tudo liberado, inclusive sem login. Cadeado do `BuildingCustomizer` só aparece se `isUnlocked === false` chegar.
+
+`BuildingCustomizer` mantém suporte a bloqueio: opção bloqueada visível, cadeado, botão desabilitado e requisito no cartão; letreiro/holograma exibem requisito e desabilitam campos.
 
 Troca de usuário cancela request anterior; benefícios só usados se ID coincide com sessão atual. Catálogo não mistura dados de sessões. Mudanças feitas no admin após carregamento são refletidas ao reabrir/recarregar a cena.
 

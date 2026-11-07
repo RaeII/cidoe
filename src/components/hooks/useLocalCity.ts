@@ -3,10 +3,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { LOCAL_CITY_EVENT, localCityKey, readLocalValue, writeLocalValue } from "@/lib/prelaunchCity";
 import { toast } from "@/components/ui/toast";
 
-/** Mesmo usuário/outra aba recebe apenas as alterações do seu navegador. */
-export function useLocalCityValue<T>(area: string, fallback: T): T {
+/** Mesmo usuário/outra aba recebe apenas as alterações do seu navegador. `shared` = chave do navegador, ignora a conta. */
+export function useLocalCityValue<T>(area: string, fallback: T, shared = false): T {
   const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const userId = shared ? null : user?.id ?? null;
   const key = localCityKey(userId, area);
   const subscribe = useCallback((notify: () => void) => {
     const changed = (event: Event) => {

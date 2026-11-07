@@ -119,8 +119,7 @@ export function BuildingProfileForm({
     setSaving(true);
     setSaveError(null);
     try {
-      if (!user) throw new Error("Entre na sua conta para salvar.");
-      await saveBuildingProfile(user.id, donationId, profile);
+      await saveBuildingProfile(donationId, profile);
       onDone(profile);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Não foi possível salvar. Tente de novo.");
@@ -266,7 +265,7 @@ export function BuildingProfileDialog({
         aria-describedby={undefined}
       >
         <DialogHeader className="shrink-0 px-5 pb-2 pt-6 sm:px-8 sm:pt-8">
-          <DialogTitle>Seu edifício</DialogTitle>
+          <DialogTitle>Edifício</DialogTitle>
         </DialogHeader>
         {donationId !== null && (
           <BuildingProfileForm

@@ -22,16 +22,17 @@ export async function fetchBuildingProfile(
   signal?: AbortSignal,
   userId?: number,
 ): Promise<BuildingProfile | null> {
-  if (userId !== undefined) {
-    const profiles = readLocalValue<Record<string, BuildingProfile>>(userId, "profiles", {});
-    if (profiles[donationId]) return profiles[donationId];
+  // Perfil do navegador primeiro; o da conta (gravado antes do beta aberto) por baixo.
+  for (const owner of [null, userId ?? null]) {
+    const profile = readLocalValue<Record<string, BuildingProfile>>(owner, "profiles", {})[donationId];
+    if (profile) return profile;
   }
   if (donationId < 0) return null;
   const { data } = await http.get<{ data: BuildingProfile | null }>(`/donation/${donationId}/profile`, { signal });
   return data.data;
 }
 
-/** Alteração visível somente para a conta neste navegador. */
-export async function saveBuildingProfile(userId: number, donationId: number, profile: BuildingProfile): Promise<void> {
-  saveLocalProfile(userId, donationId, profile);
+/** Alteração visível somente neste navegador, com ou sem conta. */
+export async function saveBuildingProfile(donationId: number, profile: BuildingProfile): Promise<void> {
+  saveLocalProfile(donationId, profile);
 }

@@ -14,8 +14,8 @@ tags: [cidoe, api, beta]
 | Função | Destino | Uso |
 |---|---|---|
 | `simulateContribution(userId, contribution, city?)` | localStorage da conta | Confirmação explícita; retorna ID negativo. Mínimo R$ 5, máximo 3 edifícios locais. Aumento exige edifício da própria simulação; acumula beneficiárias e valor em centavos. |
-| `fetchBuildingProfile(id, signal?, userId?)` | Perfil local primeiro; `GET /donation/:id/profile` para ID público sem edição local | Card e formulário. ID negativo nunca consulta backend. |
-| `saveBuildingProfile(userId, id, profile)` | localStorage da conta | Salva nome, descrição e imagem somente no navegador. Nenhum PUT. |
+| `fetchBuildingProfile(id, signal?, userId?)` | Perfil local primeiro (navegador, depois conta antiga); `GET /donation/:id/profile` para ID público sem edição local | Card e formulário. ID negativo nunca consulta backend. |
+| `saveBuildingProfile(id, profile)` | localStorage do navegador (`guest`), sem conta | Salva nome, descrição e imagem somente no navegador. Nenhum PUT. |
 
 ## Interface
 

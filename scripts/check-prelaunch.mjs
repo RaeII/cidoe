@@ -35,17 +35,17 @@ local.simulateContribution(1, { donationId: id, ongId: 2, value: 5.2 });
 assert.equal(local.readLocalBuildings(1)[0].value, 10.3, "Soma em centavos");
 assert.equal(local.readLocalBuildings(1)[0].ongIds.join(), "1,2");
 assert.equal(local.readLocalBuildings(2)[0].value, 5.1, "Aumento não alcança outro usuário");
-local.saveLocalCustomization(1, id, { color: "#112233", signText: "Local" });
+local.saveLocalCustomization(id, { color: "#112233", signText: "Local" });
 const profile = { name: "Meu edifício", description: "Teste", image: "data:image/jpeg;base64,AA==" };
-local.saveLocalProfile(1, id, profile);
+local.saveLocalProfile(id, profile);
 local.writeLocalValue(1, "scene:environment", { night: true });
 local = loadLocal();
 assert.equal(local.readLocalBuildings(1)[0].value, 10.3, "Remontagem/reload preserva edifício");
-assert.equal(local.readLocalValue(1, "customizations", {})[id].color, "#112233");
-assert.equal(local.readLocalValue(1, "profiles", {})[id].name, profile.name);
+// Beta: aparência e perfil ficam no navegador, com ou sem conta — login/logout não perdem nada.
+assert.equal(local.readLocalValue(null, "customizations", {})[id].color, "#112233");
+assert.equal(local.readLocalValue(null, "profiles", {})[id].name, profile.name);
 assert.equal(local.readLocalValue(1, "scene:environment", {}).night, true);
-assert.equal(Object.keys(local.readLocalValue(2, "profiles", {})).length, 0);
-assert.equal(Object.keys(local.readLocalValue(null, "customizations", {})).length, 0, "Logout não expõe personalização");
+assert.equal(Object.keys(local.readLocalValue(1, "customizations", {})).length, 0, "Sem gravação por conta");
 assert.equal(local.readLocalValue(null, "scene:environment", {}).night, undefined);
 for (const value of [0, -1, 4.99, NaN, Infinity, Number.MAX_VALUE]) {
   assert.throws(() => local.simulateContribution(1, { ...contribution, value }, city));
@@ -88,10 +88,14 @@ function loadApi(path) {
 }
 const contributionApi = await loadApi("../src/api/contributionApi.ts");
 const donationApi = await loadApi("../src/api/donationApi.ts");
-await donationApi.saveDonationCustomization(1, id, { color: "#445566" });
-await contributionApi.saveBuildingProfile(1, id, profile);
-assert.equal((await contributionApi.fetchBuildingProfile(id, undefined, 1)).name, profile.name);
-assert.equal(await contributionApi.fetchBuildingProfile(id, undefined, 2), null);
+await donationApi.saveDonationCustomization(id, { color: "#445566" });
+await contributionApi.saveBuildingProfile(id, profile);
+for (const userId of [1, 2, undefined]) {
+  assert.equal((await contributionApi.fetchBuildingProfile(id, undefined, userId)).name, profile.name, "Perfil do navegador vale para qualquer sessão");
+}
+local.writeLocalValue(5, "profiles", { [-7]: { ...profile, name: "Da conta" } });
+assert.equal((await contributionApi.fetchBuildingProfile(-7, undefined, 5)).name, "Da conta", "Perfil gravado na conta antes do beta continua visível");
+assert.equal(await contributionApi.fetchBuildingProfile(-7, undefined, 6), null);
 assert.equal(requests.length, 0, "Criar/aumentar/personalizar/perfil local nunca usa HTTP");
 await contributionApi.fetchBuildingProfile(42, undefined, 1);
 assert.equal(requests.join(), "/donation/42/profile", "Só o perfil público faz GET");
@@ -104,7 +108,7 @@ const derived = hook.body.statements.filter((node) => ts.isVariableStatement(nod
 const derivedScript = ts.transpileModule(derived.map((node) => node.getText(hookAst)).join("\n") + "\nObject.assign(globalThis, { allDonations, cities, savedCustomizations });", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 const hookGlobals = { IS_PRELAUNCH: false, EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, createSeedCustomizations: local.createSeedCustomizations, useMemo: (calculate) => calculate() };
 const publicDataset = { donations: [{ id: 42, value: 50 }], cities: [], ongs: [], customizations: new Map([[42, { color: "#000000" }]]) };
-const emptyContext = { ...hookGlobals, userId: undefined, dataset: { ...publicDataset, donations: [], customizations: new Map() }, localBuildings: [], localCustomizations: {} };
+const emptyContext = { ...hookGlobals, userId: undefined, dataset: { ...publicDataset, donations: [], customizations: new Map() }, localBuildings: [], localCustomizations: {}, sharedCustomizations: {} };
 vm.runInNewContext(derivedScript, emptyContext);
 assert.equal(emptyContext.allDonations.length, local.createSeedBuildings([]).length, "Snapshot vazio → cidade inicial do front");
 assert.ok(emptyContext.cities.length > 0);
@@ -131,14 +135,17 @@ assert.ok([...emptyContext.savedCustomizations].every(([id, c]) => c.edgeLightTy
 assert.ok(colored.every((c) => [1, 3, 5].every((at) => parseInt(c.color.slice(at, at + 2), 16) <= 0x50)), "Só cores escuras");
 const shaped = seedLooks.filter((c) => c.buildingShape !== "default").length;
 assert.ok(shaped >= 100 && shaped <= emptyContext.allDonations.length / 3, "Muitos formatos, maioria instanciada");
+const sharedCustomizations = local.readLocalValue(null, "customizations", {});
 for (const userId of [1, 2, undefined]) {
   const context = { ...hookGlobals, userId, dataset: publicDataset,
     localBuildings: userId ? local.readLocalBuildings(userId) : [],
-    localCustomizations: userId ? local.readLocalValue(userId, "customizations", {}) : {},
+    localCustomizations: { [-9]: { color: "#000001" }, [-1]: { color: "#000002" } },
+    sharedCustomizations,
   };
   vm.runInNewContext(derivedScript, context);
   assert.equal(context.allDonations.length, userId === 1 ? 4 : userId === 2 ? 2 : 1);
-  assert.equal(context.savedCustomizations.has(-1), userId === 1);
+  assert.equal(context.savedCustomizations.get(-1).color, "#445566", "Edição do navegador vale com ou sem conta e vence a da conta");
+  assert.equal(context.savedCustomizations.get(-9).color, "#000001", "Edição antiga da conta continua visível");
   assert.equal(context.cities.length, userId ? 1 : 0);
 }
 assert.equal(publicDataset.donations.length, 1);
@@ -150,7 +157,7 @@ const localDataset = { ...publicDataset,
   ongs: Array.from({ length: 150 }, (_, i) => ({ id: i + 1 })),
 };
 for (const dataset of [emptyContext.dataset, localDataset]) {
-  const context = { ...hookGlobals, IS_PRELAUNCH: true, userId: undefined, dataset, localBuildings: [], localCustomizations: {} };
+  const context = { ...hookGlobals, IS_PRELAUNCH: true, userId: undefined, dataset, localBuildings: [], localCustomizations: {}, sharedCustomizations: {} };
   vm.runInNewContext(derivedScript, context);
   assert.equal(context.allDonations.length, 480, "Mesma quantidade inicial nos dois ambientes");
   assert.deepEqual(Array.from(context.allDonations, ({ id, value, cityId }) => [id, value, cityId]),
@@ -158,7 +165,7 @@ for (const dataset of [emptyContext.dataset, localDataset]) {
   assert.deepEqual(context.savedCustomizations, emptyContext.savedCustomizations, "Mesmos formatos e aparência");
 }
 const simulatedContext = { ...hookGlobals, IS_PRELAUNCH: true, userId: 1, dataset: localDataset,
-  localBuildings: local.readLocalBuildings(1), localCustomizations: local.readLocalValue(1, "customizations", {}) };
+  localBuildings: local.readLocalBuildings(1), localCustomizations: {}, sharedCustomizations };
 vm.runInNewContext(derivedScript, simulatedContext);
 assert.equal(simulatedContext.allDonations.length, 483, "Simulações da conta somam à cidade inicial");
 assert.equal(simulatedContext.savedCustomizations.has(-1), true, "Personalização local preservada");

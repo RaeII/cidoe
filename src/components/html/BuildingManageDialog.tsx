@@ -60,7 +60,7 @@ export function BuildingManageDialog({
         <Tabs.Root value={buildingTab} onValueChange={setBuildingTab} className="flex min-h-0 flex-1 flex-col">
           <div className="flex h-12 shrink-0 items-center gap-4 px-3 pr-14 sm:h-14 sm:px-5 sm:pr-16">
             <DialogHeader className="sr-only md:not-sr-only md:shrink-0">
-              <DialogTitle className="text-base">Seu edifício</DialogTitle>
+              <DialogTitle className="text-base">Edifício</DialogTitle>
             </DialogHeader>
             <Tabs.List aria-label="Editar edifício" className="flex h-full min-w-0 flex-1 gap-2 shadow-[inset_0_-2px_0_0_var(--color-border)] md:ml-auto md:flex-none">
               <Tabs.Trigger value="appearance" disabled={editBusy} className={tabClass}>Aparência</Tabs.Trigger>

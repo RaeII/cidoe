@@ -86,7 +86,7 @@ export function CitySceneEditor() {
   const [uiVisibility, setUIVisibility] = useLocalSceneState("visibility", createDefaultUIVisibilitySettings);
   // Granulado zerado por padrão; preferência restaura por conta.
   const [grain, setGrain] = useLocalSceneState("grain", createDefaultGrain);
-  // Clique abre informações; administração só para dono ou admin.
+  // Clique abre informações; administração aberta a todos no beta.
   const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
   const [showBuildingInfo, setShowBuildingInfo] = useState(true);
   const [myBuildingsOpen, setMyBuildingsOpen] = useState(false);
@@ -99,7 +99,7 @@ export function CitySceneEditor() {
   const customizationsRef = useRef(buildingCustomizations);
   // donationId → debounce pendente. Guarda o payload junto p/ o flush do unmount.
   const pendingSaves = useRef(
-    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization; userId: number }>(),
+    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization }>(),
   );
 
   // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
@@ -117,7 +117,7 @@ export function CitySceneEditor() {
     retry,
   } = useDonations();
   const [customizationRevision, setCustomizationRevision] = useState(0);
-  const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
+  const { catalog: customizationCatalog, editorCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
   const handleStatsChange = useCallback((stats: SceneStats) => {
     sceneReadyRef.current = stats.sceneReady;
@@ -125,9 +125,6 @@ export function CitySceneEditor() {
     setSceneStats((previous) => !isAdmin && previous.sceneReady === stats.sceneReady ? previous : stats);
   }, [isAdmin]);
   const { ids: ownedDonationIds } = useOwnedDonationIds();
-
-  // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
-  const canEdit = (donationId: number) => isAdmin || ownedDonationIds.has(donationId);
   const [donationsApplied, setDonationsApplied] = useState(false);
   // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
   const [visibleLimit, setVisibleLimit] = useLocalSceneState("visibleLimit", createDefaultVisibleLimit);
@@ -151,16 +148,14 @@ export function CitySceneEditor() {
     setMyBuildingsOpen(false);
   }, [user?.id]);
 
-  // Sobrepõe as edições locais da conta à personalização pública.
+  // Sobrepõe as edições ainda no debounce à personalização salva.
   useEffect(() => {
     const saved = new Map(savedCustomizations);
-    for (const [id, entry] of pendingSaves.current) {
-      if (entry.userId === user?.id) saved.set(id, entry.customization);
-    }
+    for (const [id, entry] of pendingSaves.current) saved.set(id, entry.customization);
     customizationsRef.current = saved;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBuildingCustomizations(saved);
-  }, [savedCustomizations, user?.id]);
+  }, [savedCustomizations]);
 
   useEffect(() => {
     customizationsRef.current = buildingCustomizations;
@@ -393,13 +388,13 @@ export function CitySceneEditor() {
     [selectedBuildingId, getExistingCustomization],
   );
 
-  const flushSave = useCallback((donationId: number, customization: BuildingCustomization, ownerId: number) => {
+  const flushSave = useCallback((donationId: number, customization: BuildingCustomization) => {
     pendingSaves.current.delete(donationId);
     // Um toast por edifício: falhas seguidas (arrasto de slider) substituem
     // em vez de empilhar; o próximo save ok fecha.
     const toastId = `save-customization-${donationId}`;
     function save(data: BuildingCustomization) {
-      saveDonationCustomization(ownerId, donationId, data)
+      saveDonationCustomization(donationId, data)
         .then(() => toast.dismiss(toastId))
         .catch((err: unknown) => {
           toast.error(err instanceof Error ? err.message : "Não foi possível salvar neste navegador.", {
@@ -414,20 +409,16 @@ export function CitySceneEditor() {
     save(customization);
   }, []);
 
-  // Um debounce por edifício: editar A e depois B não pode cancelar o save de A.
+  // Um debounce por edifício: editar A e depois B não pode cancelar o save de A. Beta: salva sem conta.
   const queueSave = useCallback(
     (donationId: number, customization: BuildingCustomization) => {
-      if (!user) return;
-      const previous = pendingSaves.current.get(donationId);
-      clearTimeout(previous?.timer);
-      if (previous && previous.userId !== user.id) flushSave(donationId, previous.customization, previous.userId);
+      clearTimeout(pendingSaves.current.get(donationId)?.timer);
       pendingSaves.current.set(donationId, {
         customization,
-        userId: user.id,
-        timer: setTimeout(() => flushSave(donationId, customization, user.id), SAVE_DEBOUNCE_MS),
+        timer: setTimeout(() => flushSave(donationId, customization), SAVE_DEBOUNCE_MS),
       });
     },
-    [flushSave, user],
+    [flushSave],
   );
 
   // Recarregar/fechar a aba também preserva a última edição do slider.
@@ -436,7 +427,7 @@ export function CitySceneEditor() {
     const flushPending = () => {
       for (const [donationId, entry] of pending) {
         clearTimeout(entry.timer);
-        flushSave(donationId, entry.customization, entry.userId);
+        flushSave(donationId, entry.customization);
       }
     };
     window.addEventListener("pagehide", flushPending);
@@ -686,9 +677,9 @@ export function CitySceneEditor() {
           ongName={infoBuilding.ongName}
           place={infoBuilding.place}
           isOwn={ownedDonationIds.has(infoBuildingId)}
-          onManage={canEdit(infoBuildingId) ? handleManageFromInfo : undefined}
+          onManage={handleManageFromInfo}
           profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
-          onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
+          onEditProfile={() => setProfileEditId(infoBuildingId)}
           onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
       )}
@@ -701,17 +692,17 @@ export function CitySceneEditor() {
         </div>
       )}
       <BuildingProfileDialog
-        donationId={profileEditId !== null && canEdit(profileEditId) ? profileEditId : null}
+        donationId={profileEditId}
         onClose={() => setProfileEditId(null)}
         onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
       />
-      {/* Gate no render: sessão que cai (logout/401) fecha o painel sozinha. */}
-      {selectedBuildingId !== null && selectedCustomization && canEdit(selectedBuildingId) && (
+      {/* Beta: qualquer visitante, com ou sem conta, personaliza qualquer edifício. */}
+      {selectedBuildingId !== null && selectedCustomization && (
         <BuildingManageDialog
           key={`${user?.id}:${selectedBuildingId}`}
           donationId={selectedBuildingId}
           initialTab={myBuildingsOpen && !showBuildingInfo ? "appearance" : "information"}
-          catalog={customizationCatalog}
+          catalog={editorCatalog}
           customization={selectedCustomization}
           textureSettings={textureSettings}
           onCustomizationChange={updateCustomization}

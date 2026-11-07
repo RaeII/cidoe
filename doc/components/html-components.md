@@ -234,7 +234,7 @@ Faixa fixa no rodapé (último filho `shrink-0` do `DialogContent`, fora da rola
 
 ### `BuildingProfileForm.tsx`
 
-Pré-lançamento: perfil local da conta tem prioridade. `fetchBuildingProfile` não consulta ID negativo; `saveBuildingProfile` recebe conta e salva localmente. Informações opcionais não publicadas.
+Pré-lançamento: perfil local tem prioridade (navegador → conta antiga → público). `fetchBuildingProfile` não consulta ID negativo; `saveBuildingProfile` salva no navegador, sem conta. Informações opcionais não publicadas. Título do diálogo: **Edifício**.
 
 `html/donate/`. **Imagem** (3:2, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
@@ -403,21 +403,21 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ### `BuildingManageDialog.tsx`
 
-Administração do edifício selecionado, independente da simulação de contribuição. Abre por **Meus edifícios → Personalizar** na aba Aparência, ou pelo card → **Administrar** na aba Informações. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
+Administração do edifício selecionado, independente da simulação de contribuição. Abre por **Meus edifícios → Personalizar** na aba Aparência, ou pelo card → **Administrar** na aba Informações. Beta: aberto a qualquer visitante, logado ou não, em qualquer edifício. Substitui painel lateral antigo.
 
 - **Informações** abre por padrão (`initialTab="information"`): [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. Acesso direto de Personalizar usa `initialTab="appearance"`. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
-- **Layout**: até **1152 px**, altura estável até **800 px**, limitada pela viewport visual (inclusive teclado). Barra superior única de 48 px no celular/56 px a partir de `sm`, com abas Aparência/Informações e X de 44 px. Título **Seu edifício** fica só para leitor de tela no mobile e aparece ao lado das abas no desktop. Informações tem rolagem própria; Aparência usa `container-type: size` e mantém prévia/categorias fora da rolagem das opções.
+- **Layout**: até **1152 px**, altura estável até **800 px**, limitada pela viewport visual (inclusive teclado). Barra superior única de 48 px no celular/56 px a partir de `sm`, com abas Aparência/Informações e X de 44 px. Título **Edifício** fica só para leitor de tela no mobile e aparece ao lado das abas no desktop. Informações tem rolagem própria; Aparência usa `container-type: size` e mantém prévia/categorias fora da rolagem das opções.
 - **Rodapé compacto**: Aparência mostra **Salvamento automático** + **Concluir**, que retorna ao contexto de origem. **Salvar** só aparece em Informações ou quando o perfil tem alterações pendentes; envia `form={profileFormId}` mesmo após mudar para Aparência. Pendência e erro continuam visíveis. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída. Botões 44 px no celular/40 px no desktop.
 - **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
 - **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação da simulação.
-- **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, posse e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
+- **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, acesso aberto e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `donationId` | `number` | Edifício selecionado; `key` reseta estado ao trocar |
 | `initialTab` | `"information" \| "appearance"` opcional | Aba inicial; padrão Informações |
-| `catalog` | `CustomizationCatalog \| null` | Inventário e `isUnlocked` da sessão |
+| `catalog` | `CustomizationCatalog \| null` | `editorCatalog`: inventário cru, sem `isUnlocked` → tudo liberado no beta |
 | `customization` | `BuildingCustomization` | Aparência completa atual, memoizada no editor |
 | `textureSettings` | `TextureSettings` | Textura global herdada na prévia |
 | `onCustomizationChange` | `(id, patch) => void` | `updateCustomization`: cena, estado e persistência |

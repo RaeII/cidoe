@@ -155,12 +155,13 @@ export function simulateContribution(userId: number, contribution: Contribution,
   return donationId;
 }
 
-export function saveLocalCustomization(userId: number, donationId: number, customization: BuildingCustomization): void {
-  const saved = readLocalValue<Record<string, BuildingCustomization>>(userId, "customizations", {});
-  writeLocalValue(userId, "customizations", { ...saved, [donationId]: customization });
+// Beta: aparência e perfil de qualquer edifício valem pro navegador, com ou sem conta (chave `guest`).
+export function saveLocalCustomization(donationId: number, customization: BuildingCustomization): void {
+  const saved = readLocalValue<Record<string, BuildingCustomization>>(null, "customizations", {});
+  writeLocalValue(null, "customizations", { ...saved, [donationId]: customization });
 }
 
-export function saveLocalProfile(userId: number, donationId: number, profile: BuildingProfile): void {
-  const saved = readLocalValue<Record<string, BuildingProfile>>(userId, "profiles", {});
-  writeLocalValue(userId, "profiles", { ...saved, [donationId]: profile });
+export function saveLocalProfile(donationId: number, profile: BuildingProfile): void {
+  const saved = readLocalValue<Record<string, BuildingProfile>>(null, "profiles", {});
+  writeLocalValue(null, "profiles", { ...saved, [donationId]: profile });
 }

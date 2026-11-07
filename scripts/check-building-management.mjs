@@ -169,12 +169,12 @@ for (const props of [{ ready: false }, { editBusy: true }]) {
 }
 assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^]*?<span>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
 
-// Foco real: filtro/teto, chegada atrasada do edifício pago e sessão sem permissão.
+// Foco real: filtro/teto e chegada atrasada do edifício pago. Beta: administração aberta a todos.
 const editorSource = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
 const editorAst = ts.createSourceFile("CitySceneEditor.tsx", editorSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const editor = editorAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
 const openDonation = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(editorAst) === "handleOpenDonation"));
-const callbacks = editor.body.statements.filter(ts.isVariableStatement).filter((node) => node.declarationList.declarations.some((declaration) => ["handleBuildingClick", "handleCloseInfo", "handleManageFromInfo", "handleCloseManagement", "canEdit"].includes(declaration.name.getText(editorAst))));
+const callbacks = editor.body.statements.filter(ts.isVariableStatement).filter((node) => node.declarationList.declarations.some((declaration) => ["handleBuildingClick", "handleCloseInfo", "handleManageFromInfo", "handleCloseManagement"].includes(declaration.name.getText(editorAst))));
 const rebuild = editor.body.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(editorAst) === "useEffect" && node.getText(editorAst).includes("setDonations(visibleDonations)"));
 const frames = [];
 const city = {
@@ -206,14 +206,11 @@ city.canvasRef = { current: {
   setDonations(entries) { city.renderedIds = entries.map((entry) => entry.id); },
   updateDonationCustomization() {},
 } };
-const code = `${callbacks.map((node) => node.getText(editorAst)).join("\n")}\n${openDonation.getText(editorAst)}\nObject.assign(globalThis, { handleOpenDonation, handleBuildingClick, handleCloseInfo, handleManageFromInfo, handleCloseManagement, canEdit });`;
+const code = `${callbacks.map((node) => node.getText(editorAst)).join("\n")}\n${openDonation.getText(editorAst)}\nObject.assign(globalThis, { handleOpenDonation, handleBuildingClick, handleCloseInfo, handleManageFromInfo, handleCloseManagement });`;
 vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, city);
-assert.equal(city.canEdit(42), true);
-assert.equal(city.canEdit(99), false, "Conta comum não administra edifício alheio");
-city.ownedDonationIds.clear();
-assert.equal(city.canEdit(42), false, "Logout remove acesso à administração");
-city.isAdmin = true;
-assert.equal(city.canEdit(42), true);
+assert.match(editorSource, /onManage=\{handleManageFromInfo\}/, "Beta: qualquer visitante administra qualquer edifício");
+assert.match(editorSource, /catalog=\{editorCatalog\}/, "Beta: editor recebe catálogo sem bloqueio do passe");
+assert.doesNotMatch(editorSource, /canEdit|if \(!user\) return/, "Beta: sem gate de posse ou sessão na personalização");
 city.handleOpenDonation(42);
 assert.equal(city.focusedId, 42);
 assert.equal(city.infoId, 42);

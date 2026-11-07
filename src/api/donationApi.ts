@@ -89,11 +89,10 @@ export async function fetchDonationSnapshot(
   };
 }
 
-/** Pré-lançamento: personalização salva somente neste navegador. */
+/** Pré-lançamento: personalização salva somente neste navegador, com ou sem conta. */
 export async function saveDonationCustomization(
-  userId: number,
   donationId: number,
   customization: BuildingCustomization,
 ): Promise<void> {
-  saveLocalCustomization(userId, donationId, customization);
+  saveLocalCustomization(donationId, customization);
 }

@@ -48,7 +48,7 @@ export default function About() {
           </section>
           <section>
             <h2>Preciso criar uma conta para visitar?</h2>
-            <p>Você pode conhecer a cidade sem conta. Para criar e personalizar seus edifícios, é necessário se cadastrar. As contas são destinadas a maiores de 18 anos.</p>
+            <p>Você pode conhecer a cidade sem conta.{IS_PRELAUNCH ? " No período de teste, também pode personalizar qualquer edifício sem conta. Para criar edifícios, é necessário se cadastrar." : " Para criar e personalizar seus edifícios, é necessário se cadastrar."} As contas são destinadas a maiores de 18 anos.</p>
           </section>
           {IS_PRELAUNCH && <section>
             <h2>Como simular uma doação?</h2>
@@ -60,8 +60,10 @@ export default function About() {
           </section>}
           <section>
             <h2>Como personalizar meu prédio?</h2>
-            <p>Abra <strong>Meus edifícios</strong>, selecione um prédio e clique em <strong>Personalizar</strong>. Você pode alterar sua aparência com as opções liberadas para a sua conta, como cor, textura, formato e topo.</p>
-            <p>As opções bloqueadas mostram o requisito para desbloqueá-las. Trocar a aparência não muda o valor representado pelo edifício.</p>
+            {IS_PRELAUNCH
+              ? <p>Clique em qualquer edifício da cidade e em <strong>Administrar</strong>. No período de teste, todas as opções ficam liberadas, como cor, textura, formato e topo, mesmo sem conta.</p>
+              : <p>Abra <strong>Meus edifícios</strong>, selecione um prédio e clique em <strong>Personalizar</strong>. Você pode alterar sua aparência com as opções liberadas para a sua conta, como cor, textura, formato e topo.</p>}
+            <p>{!IS_PRELAUNCH && "As opções bloqueadas mostram o requisito para desbloqueá-las. "}Trocar a aparência não muda o valor representado pelo edifício.</p>
           </section>
           {IS_PRELAUNCH && <section>
             <h2>Onde minhas simulações ficam salvas?</h2>
