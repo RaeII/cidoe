@@ -36,6 +36,7 @@ export function BuildingProfileForm({
   onEditStateChange,
   showActions = true,
   disabled = false,
+  compact = false,
 }: {
   id?: string;
   donationId: number;
@@ -46,6 +47,8 @@ export function BuildingProfileForm({
   onEditStateChange?: (state: { dirty: boolean; busy: boolean; ready: boolean; error: string | null }) => void;
   showActions?: boolean;
   disabled?: boolean;
+  /** Coluna estreita (painel lateral): layout do celular em qualquer tela. */
+  compact?: boolean;
 }) {
   const { user } = useAuth();
   const nameId = useId();
@@ -133,16 +136,16 @@ export function BuildingProfileForm({
       <div>
         <p className="text-sm text-muted-foreground">Informações opcionais, salvas apenas neste navegador.</p>
       </div>
-      <fieldset disabled={loadState !== "ready" || saving || imageBusy || disabled} className={cn("min-w-0 space-y-5", onSkip && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
+      <fieldset disabled={loadState !== "ready" || saving || imageBusy || disabled} className={cn("min-w-0 space-y-5", onSkip && !compact && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
         <div>
           <p className={labelClass}>Imagem</p>
-          <div className="flex items-start gap-3 md:block md:space-y-3">
+          <div className={cn("flex items-start gap-3", !compact && "md:block md:space-y-3")}>
             <button
               type="button"
               aria-label={image ? "Trocar imagem" : "Adicionar imagem"}
               disabled={imageBusy}
               onClick={() => fileRef.current?.click()}
-              className="grid aspect-[3/2] w-28 shrink-0 place-items-center overflow-hidden pixel pixel-thin raised press bg-muted text-muted-foreground hover:pixel-ink-verde disabled:cursor-wait md:w-full md:max-w-64 md:[--pixel-w:3px]"
+              className={cn("grid aspect-[3/2] w-28 shrink-0 place-items-center overflow-hidden pixel pixel-thin raised press bg-muted text-muted-foreground hover:pixel-ink-verde disabled:cursor-wait", !compact && "md:w-full md:max-w-64 md:[--pixel-w:3px]")}
             >
               {imageBusy ? (
                 <BlockLoader />

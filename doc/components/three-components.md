@@ -53,6 +53,7 @@ Componente pequeno por design. Faz três coisas:
 | `facadeTexturePool` | `readonly string[]` | Texturas sorteáveis por edifício (`value` das ativas do catálogo). Vazio = textura global em tudo. Ver [[scene-textures#Sorteio por edifício]] |
 | `grain` | `number` | Granulado de renderização. `0` = resolução nativa travada. Repassado ao `setGrain` do runtime — ver [[scene-runtime]] |
 | `onStatsChange` | `(stats: SceneStats) => void` | Callback de métricas |
+| `onFocusScreenPosition` | `(x: number, y: number) => void` | Lateral do edifício em foco na tela (px do canvas), a cada frame desenhado. Posiciona botão de editar — [[scene-runtime#Sistema de foco]] |
 
 > [!note] Estado próprio
 > `CitySceneCanvas` não guarda estado da cena. Apenas recebe estado do `CitySceneEditor` e entrega ao hook.
@@ -67,6 +68,7 @@ canvasRef.current?.addDonations(values)
 canvasRef.current?.setDonations(entries)  // replace-all do backend
 canvasRef.current?.focusOnDonation(id)
 canvasRef.current?.clearFocus()
+canvasRef.current?.setViewShift(px)     // cena desliza px para a esquerda; edifício fica ao lado do painel lateral
 canvasRef.current?.updateDonationCustomization(id, customization)
 ```
 

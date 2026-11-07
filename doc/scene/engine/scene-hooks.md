@@ -51,7 +51,7 @@ Quando [[three-components|CitySceneCanvas]] monta:
 > `facadeTexturePool` vem do editor: pool fixo na cidade inicial, catálogo do backend nas cidades públicas. Entra pelo efeito de sincronização (ou pelo passo 4). Ver [[scene-textures#Sorteio por edifício]].
 
 > [!note] Fila de chamadas (`callRuntime`)
-> `addDonation`, `addDonations`, `setDonations`, `updateDonationCustomization`, `focusOnDonation`, `clearFocus` antes do runtime existir vão pra `pendingCallsRef` e rodam na ordem quando ele sobe — o editor pode chamar `setDonations` antes da criação terminar.
+> `addDonation`, `addDonations`, `setDonations`, `updateDonationCustomization`, `focusOnDonation`, `clearFocus`, `setViewShift` antes do runtime existir vão pra `pendingCallsRef` e rodam na ordem quando ele sobe — o editor pode chamar `setDonations` antes da criação terminar.
 
 ### Sincronização
 
@@ -120,6 +120,7 @@ O hook retorna um objeto com referências estáveis (via `useCallback`) que dele
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void
   focusOnDonation: (donationId: number) => void
   clearFocus: () => void
+  setViewShift: (px: number) => void
 }
 ```
 
@@ -145,6 +146,11 @@ const handleBuildingClick = useEffectEvent(
     onBuildingClick?.(donationId);
   },
 );
+
+// Posição do botão de editar: px do canvas, a cada frame desenhado com foco.
+const handleFocusScreenPosition = useEffectEvent((x: number, y: number) => {
+  onFocusScreenPosition?.(x, y);
+});
 ```
 
 Isso repassa os callbacks para o runtime sem recriar o runtime toda vez que o React renderiza — cada callback sempre vê o valor mais recente sem precisar ser listado como dependência.

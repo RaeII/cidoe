@@ -13,6 +13,9 @@ import { BlockLoader, ErrorMark, PixelCheck } from "@/components/ui/pixel-icon";
 const Preview = lazy(() => import("@/components/three/BuildingPreview").then((module) => ({ default: module.BuildingPreview })));
 // Abas (DS): texto bold 13px; ativa = régua verde de 4px embaixo + ▸.
 const tabClass = "tab menu-cursor text-[13px] min-h-11 shrink-0 pr-3 pl-6 hover:bg-accent sm:min-h-10";
+// Painel lateral: categorias em coluna, todas à vista. Ativa = régua verde de 4px à direita + ▸ (aba do DS de pé).
+const railClass = "flex w-28 shrink-0 flex-col gap-0.5 overflow-y-auto pt-1 shadow-[inset_-2px_0_0_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+const railTabClass = "menu-cursor focus-inset min-h-10 shrink-0 pr-3 pl-6 text-left text-[13px] font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-[inset_-4px_0_0_0_var(--color-primary)]";
 const CATEGORIES = [
   { key: "shape", label: "Formato", field: "shapes" },
   { key: "color", label: "Cor", field: "colors" },
@@ -49,12 +52,14 @@ function OptionCard({ category, option, selected, onSelect }: {
 }
 
 /** Editor de aparência reutilizável: catálogo e persistência pertencem ao chamador. */
-export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange }: {
+export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange, side = false }: {
   catalog: CustomizationCatalog | null;
   customization: BuildingCustomization;
   textureSettings: TextureSettings;
   onChange: (patch: Partial<BuildingCustomization>) => void;
   onBusyChange?: (busy: boolean) => void;
+  /** Painel lateral sobre a cena: sem prévia (a própria cena mostra), categorias em coluna. */
+  side?: boolean;
 }) {
   const [category, setCategory] = useState("shape");
   const [imageBusy, setImageBusy] = useState(false);
@@ -120,28 +125,28 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
     }
   }
   return (
-    <section aria-label="Personalizar edifício" className="flex h-full min-h-0 min-w-0 flex-col gap-2 md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5">
-      <div className="h-[clamp(6rem,28cqh,13rem)] min-w-0 shrink-0 md:h-full md:min-h-0">
+    <section aria-label="Personalizar edifício" className={cn("flex h-full min-h-0 min-w-0 flex-col gap-2", !side && "md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5")}>
+      {!side && <div className="h-[clamp(6rem,28cqh,13rem)] min-w-0 shrink-0 md:h-full md:min-h-0">
         <Suspense fallback={<div role="status" className="grid h-full place-items-center bg-muted text-muted-foreground"><BlockLoader /><span className="sr-only">Carregando prévia 3D…</span></div>}>
           <Preview customization={customization} textureSettings={textureSettings} />
         </Suspense>
-      </div>
+      </div>}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><BlockLoader />Carregando personalizações…</p> : (
-          <Tabs.Root value={activeCategory} onValueChange={openTab} className="flex min-h-0 flex-1 flex-col">
-            <Tabs.List ref={listRef} aria-label="Categorias de personalização" className="flex shrink-0 gap-1 overflow-x-auto shadow-[inset_0_-2px_0_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Tabs.Root value={activeCategory} onValueChange={openTab} orientation={side ? "vertical" : "horizontal"} className={cn("flex min-h-0 flex-1", side ? "gap-3" : "flex-col")}>
+            <Tabs.List ref={listRef} aria-label="Categorias de personalização" className={side ? railClass : "flex shrink-0 gap-1 overflow-x-auto shadow-[inset_0_-2px_0_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"}>
               {tabs.map((item) => (
-                <Tabs.Trigger key={item.key} value={item.key} className={tabClass}>{item.label}</Tabs.Trigger>
+                <Tabs.Trigger key={item.key} value={item.key} className={side ? railTabClass : tabClass}>{item.label}</Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div ref={slidesRef} onScroll={(event) => followSwipe(event.currentTarget)} className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div ref={slidesRef} onScroll={(event) => followSwipe(event.currentTarget)} className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {categories.map((item) => {
                 const options = catalog[item.field];
                 const defaults = item.key === "texture" ? [{ id: -1, key: "default", label: "Padrão", value: null, sortOrder: -1, unlock: null, isUnlocked: true }] : [];
                 return <Tabs.Content key={item.key} value={item.key} forceMount inert={item.key !== activeCategory} className={cn(slideClass, "space-y-2")}>
                   {near(item.key) && <>
                     <h3 className="sr-only">{item.label}</h3><p className="text-[11px] text-muted-foreground">{options.filter((option) => option.isUnlocked !== false).length + defaults.length} disponíveis</p>
-                    <div className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                    <div className={cn("grid grid-cols-2 items-stretch gap-2", !side && "sm:grid-cols-3 xl:grid-cols-4")}>
                       {[...defaults, ...options].map((option) => <OptionCard key={option.id} category={item.key} option={option} selected={selected(item.key, option)} onSelect={() => select(item.key, option)} />)}
                     </div>
                   </>}

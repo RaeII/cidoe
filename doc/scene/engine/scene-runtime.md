@@ -135,8 +135,9 @@ type CitySceneRuntime = {
 
   // Personalização individual
   updateDonationCustomization(donationId: number, customization: BuildingCustomization): void // enfileira; drena em fatias
-  focusOnDonation(donationId: number): void  // destaque visual no edifício
+  focusOnDonation(donationId: number): void  // destaque visual no edifício + posição do botão de editar
   clearFocus(): void                          // remove destaque
+  setViewShift(px: number): void              // cena desliza px para a esquerda (painel lateral ao lado do edifício)
 
   dispose(): void
 }
@@ -152,6 +153,10 @@ type CitySceneRuntime = {
 > `focusOnDonation` delega para `donationManager.setFocusedDonation(id)`. Com HDR, separa contexto/selecionado por camadas e compõe o contexto a 15%, preservando os materiais; sem suporte, usa transparência por material. Prédio padrão recebe mesh isolado; formato custom usa o existente. `clearFocus` restaura cena e câmera.
 >
 > Zoom preserva o **lado atual da câmera**, com distância horizontal de 8 unidades. A câmera termina 4,3 unidades acima do topo e mira 5 unidades abaixo dele (mínimo `y = 0`), mostrando a cobertura de cima. O limite polar normal permanece ativo. `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
+>
+> **Botão de editar.** `focusOnDonation` guarda `focusBox` (`donationManager.getDonationBox`, caixa base). Com foco, cada frame desenhado (e o próprio `focusOnDonation`, antes do voo) chama `onFocusScreenPosition(x, y)`: ponto na face do edifício que fica à direita na tela — centro + meia largura ao longo do eixo X da câmera (`hx·|right.x| + hz·|right.z|`), altura do alvo do foco (topo − 5; meio do edifício se baixo) — projetado em px do canvas. Sem frame novo = sem chamada (render sob demanda). `clearFocus` zera `focusBox`. Consumidor: [[index#2. Container Principal]].
+>
+> **Painel lateral.** `setViewShift(px)` → alvo `viewShift = px`. Loop aproxima `viewShift` exponencial (`1 − e^(−8·Δt)`, ~0,4 s) e aplica `camera.setViewOffset(w, h, viewShift, 0, w, h)` (`clearViewOffset` em 0): frustum desliza, alvo da órbita vai `px` para a esquerda. Câmera/target intactos — órbita gira em torno do edifício, picking/hover/cull usam mesma matriz. `handleResize` reaplica. Mesma pausa da interpolação abaixo.
 >
 > A interpolação pausa enquanto houver compilação pendente/em andamento ou fila de customização drenando: o primeiro frame pronto inicia o movimento, sem avançar invisivelmente até o destino. Um evento `start` dos controles cancela a interpolação para o usuário assumir a câmera. O listener é removido no dispose. `scripts/check-horizon.mjs` simula compilação demorada, retomada intermediária, interrupção por gesto, retorno da câmera e cliques/pinças/cancelamentos.
 

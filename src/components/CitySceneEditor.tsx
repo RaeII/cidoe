@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { ReferralHud } from "./referral/ReferralHud";
@@ -91,6 +92,7 @@ export function CitySceneEditor() {
   const [showBuildingInfo, setShowBuildingInfo] = useState(true);
   const [myBuildingsOpen, setMyBuildingsOpen] = useState(false);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
+  const [manageTab, setManageTab] = useState<"information" | "appearance">("information");
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
   );
@@ -245,8 +247,20 @@ export function CitySceneEditor() {
     [],
   );
 
+  // Botão de editar segue o edifício em foco sem re-render: runtime grava a posição no estilo.
+  const editButtonRef = useRef<HTMLDivElement>(null);
+  const handleFocusScreenPosition = useCallback((x: number, y: number) => {
+    editButtonRef.current?.style.setProperty("--edit-x", `${x}px`);
+    editButtonRef.current?.style.setProperty("--edit-y", `${y}px`);
+  }, []);
+
+  // Painel lateral de edição cobre a direita: a cena recentra o edifício na área livre.
+  const handleViewShift = useCallback((px: number) => canvasRef.current?.setViewShift(px), []);
+
   const handleBuildingClick = useCallback(
     (donationId: number | null) => {
+      // Edição aberta (painel lateral deixa a cena clicável): clique não troca de edifício.
+      if (selectedBuildingId !== null) return;
       setMyBuildingsOpen(false);
       pendingFocusRef.current = null;
       if (donationId !== null) {
@@ -258,7 +272,7 @@ export function CitySceneEditor() {
       setInfoBuildingId(donationId);
       setShowBuildingInfo(true);
     },
-    [],
+    [selectedBuildingId],
   );
 
   const handleCloseInfo = useCallback(() => {
@@ -269,7 +283,8 @@ export function CitySceneEditor() {
   }, []);
 
   // Informações → administração. Mantém o foco/zoom no edifício.
-  const handleManageFromInfo = useCallback(() => {
+  const handleManageFromInfo = useCallback((tab: "information" | "appearance" = "information") => {
+    setManageTab(tab);
     setSelectedBuildingId(infoBuildingId);
     setInfoBuildingId(null);
   }, [infoBuildingId]);
@@ -343,6 +358,11 @@ export function CitySceneEditor() {
         };
       });
   }, [ownedDonationIds, allDonations, cities, ongs]);
+
+  // Edifício de outra pessoa em foco: só visualização (sem Administrar, perfil nem Simular contribuição).
+  const infoIsOwn = infoBuildingId !== null && ownedDonationIds.has(infoBuildingId);
+  const focusedId = infoBuildingId ?? selectedBuildingId;
+  const viewingOthers = focusedId !== null && !ownedDonationIds.has(focusedId);
 
   const myBuildingIndex = myDonations.findIndex((donation) => donation.id === infoBuildingId);
   const currentMyBuilding = myDonations[myBuildingIndex];
@@ -568,16 +588,15 @@ export function CitySceneEditor() {
         onCameraDebugChange={isAdmin && uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={myBuildingsOpen ? undefined : handleHoverChange}
         onBuildingClick={handleBuildingClick}
+        onFocusScreenPosition={handleFocusScreenPosition}
       />
       {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
       {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
       {booted && (
-      <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
+      <div hidden={myBuildingsOpen || selectedBuildingId !== null} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
-        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
-          <ReferralHud rewards={rewards} />
-        </aside>
+        <ReferralHud rewards={rewards} onLogin={() => setAuthOpen(true)} />
         <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
             night={environmentSettings.night}
@@ -605,6 +624,7 @@ export function CitySceneEditor() {
           onRequestLogin={() => setAuthOpen(true)}
           onPaid={() => setCustomizationRevision((revision) => revision + 1)}
           onViewBuilding={(donationId) => handleOpenDonation(donationId, false)}
+          hideTrigger={viewingOthers || selectedBuildingId !== null}
         />
         </div>
       )}
@@ -632,7 +652,7 @@ export function CitySceneEditor() {
           </div>
         </div>
       )}
-      {!myBuildingsOpen && hoverInfo && (
+      {!myBuildingsOpen && selectedBuildingId === null && hoverInfo && (
         <div
           className="pointer-events-none fixed z-50 bg-tinta px-3 py-1.5 text-sm font-semibold text-papel"
           style={{ left: hoverInfo.x + 14, top: hoverInfo.y - 14 }}
@@ -665,7 +685,7 @@ export function CitySceneEditor() {
           onNext={() => handleStepMyBuilding(1)}
           onCustomize={() => {
             setShowBuildingInfo(false);
-            handleManageFromInfo();
+            handleManageFromInfo("appearance");
           }}
           onDetails={() => setShowBuildingInfo(true)}
           onClose={handleCloseInfo}
@@ -676,13 +696,27 @@ export function CitySceneEditor() {
           value={infoBuilding.value}
           ongName={infoBuilding.ongName}
           place={infoBuilding.place}
-          isOwn={ownedDonationIds.has(infoBuildingId)}
-          onManage={handleManageFromInfo}
+          isOwn={infoIsOwn}
+          onManage={infoIsOwn ? () => handleManageFromInfo() : undefined}
           profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
-          onEditProfile={() => setProfileEditId(infoBuildingId)}
+          onEditProfile={infoIsOwn ? () => setProfileEditId(infoBuildingId) : undefined}
           onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
       )}
+      {/* Sempre montado: guarda a última posição gravada pelo runtime. clamp mantém na tela, fora do HUD e do rodapé. */}
+      <div
+        ref={editButtonRef}
+        hidden={!booted || myBuildingsOpen || contributeOpen || infoBuildingId === null}
+        className="absolute z-30"
+        style={{
+          left: "clamp(0.75rem, var(--edit-x) + 0.5rem, 100% - 3.75rem)",
+          top: "clamp(4.5rem, var(--edit-y) - 1.5rem, 100% - 8rem)",
+        }}
+      >
+        <Button size="icon-lg" onClick={() => handleManageFromInfo("appearance")} title="Editar edifício" aria-label="Editar edifício">
+          <Pencil className="size-5" />
+        </Button>
+      </div>
       {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. */}
       {booted && myBuildingsOpen && currentMyBuilding && !contributeOpen && showBuildingInfo && selectedBuildingId === null && (
         <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center sm:bottom-6">
@@ -701,13 +735,14 @@ export function CitySceneEditor() {
         <BuildingManageDialog
           key={`${user?.id}:${selectedBuildingId}`}
           donationId={selectedBuildingId}
-          initialTab={myBuildingsOpen && !showBuildingInfo ? "appearance" : "information"}
+          initialTab={manageTab}
           catalog={editorCatalog}
           customization={selectedCustomization}
           textureSettings={textureSettings}
           onCustomizationChange={updateCustomization}
           onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
           onClose={handleCloseManagement}
+          onViewShiftChange={handleViewShift}
         />
       )}
       {!myBuildingsOpen && isAdmin && showControlPanel && (
@@ -746,12 +781,12 @@ export function CitySceneEditor() {
           onClose={() => setShowShortcutsHelp(false)}
         />
       )}
-      {!myBuildingsOpen && booted && (!isAdmin || !showControlPanel) && (
+      {!myBuildingsOpen && booted && selectedBuildingId === null && (!isAdmin || !showControlPanel) && (
         <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[5.5rem]" : "bottom-7")}>
           <PixelChevronDown />
         </Button>
       )}
-      {!myBuildingsOpen && booted && isAdmin && !showControlPanel && (
+      {!myBuildingsOpen && booted && isAdmin && !showControlPanel && selectedBuildingId === null && (
         <Button
           variant="outline"
           size="icon-lg"

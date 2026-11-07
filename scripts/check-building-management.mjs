@@ -83,7 +83,7 @@ const bundle = await build({
     const scrollClass = ${JSON.stringify(constant("scrollClass"))};
     const footerClass = ${JSON.stringify(constant("footerClass"))};
     const tabClass = ${JSON.stringify(constant("tabClass"))};
-    function Section({ buildingTab = 'information', ready = true, editBusy = false, dirty = false, error = null }) {
+    function Section({ buildingTab = 'information', ready = true, editBusy = false, dirty = false, error = null, side = false }) {
       const profileFormId = 'building-profile';
       const profileEdit = { ready, busy: editBusy, dirty, error };
       const appearanceBusy = false;
@@ -192,6 +192,7 @@ const city = {
   setShowBuildingInfo: (show) => { city.showBuildingInfo = show; },
   setMyBuildingsOpen: (open) => { city.myBuildingsOpen = open; },
   setSelectedBuildingId: (id) => { city.selectedId = id; },
+  setManageTab: (tab) => { city.manageTab = tab; },
   setProfileEditId: (id) => { city.profileEditId = id; },
   setInfoProfile: (profile) => { city.infoProfile = profile; },
   setDonationsApplied: (value) => { city.donationsApplied = value; },
@@ -208,7 +209,8 @@ city.canvasRef = { current: {
 } };
 const code = `${callbacks.map((node) => node.getText(editorAst)).join("\n")}\n${openDonation.getText(editorAst)}\nObject.assign(globalThis, { handleOpenDonation, handleBuildingClick, handleCloseInfo, handleManageFromInfo, handleCloseManagement });`;
 vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, city);
-assert.match(editorSource, /onManage=\{handleManageFromInfo\}/, "Beta: qualquer visitante administra qualquer edifício");
+assert.match(editorSource, /onManage=\{infoIsOwn \? \(\) => handleManageFromInfo\(\) : undefined\}/, "Administrar só no card do edifício próprio");
+assert.match(editorSource, /onEditProfile=\{infoIsOwn \? [^}]+ : undefined\}/, "Nome e imagem só no card do edifício próprio");
 assert.match(editorSource, /catalog=\{editorCatalog\}/, "Beta: editor recebe catálogo sem bloqueio do passe");
 assert.doesNotMatch(editorSource, /canEdit|if \(!user\) return/, "Beta: sem gate de posse ou sessão na personalização");
 city.handleOpenDonation(42);
@@ -281,6 +283,10 @@ assert.equal(city.focusedId, 99);
 assert.equal(city.showBuildingInfo, false, "Rebuild não abre card durante navegação direta");
 city.handleManageFromInfo();
 assert.equal(city.selectedId, 99);
+city.handleBuildingClick(42);
+city.handleBuildingClick(null);
+assert.equal(city.selectedId, 99, "Edição aberta: clique na cena não troca nem fecha o edifício");
+assert.equal(city.focusedId, 99);
 assert.equal(city.infoId, null);
 assert.equal(city.myBuildingsOpen, true, 'Personalizar mantém UI geral oculta');
 city.handleCloseManagement();
@@ -352,7 +358,10 @@ for (const name of ['AuthMenu', 'ContributeDialog', 'DonationInfoSection']) {
   while (!ts.isJsxElement(wrapper) || !wrapper.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(editorAst) === 'hidden')) wrapper = wrapper.parent;
   const hidden = wrapper.openingElement.attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'hidden').initializer.expression;
   for (const myBuildingsOpen of [true, false]) {
-    assert.equal(vm.runInNewContext(hidden.getText(editorAst), { myBuildingsOpen }), myBuildingsOpen, `${name}: oculta ao entrar e restaura ao sair`);
+    assert.equal(vm.runInNewContext(hidden.getText(editorAst), { myBuildingsOpen, selectedBuildingId: null }), myBuildingsOpen, `${name}: oculta ao entrar e restaura ao sair`);
+  }
+  if (name === 'AuthMenu') {
+    assert.equal(vm.runInNewContext(hidden.getText(editorAst), { myBuildingsOpen: false, selectedBuildingId: 42 }), true, 'HUD some durante a edição (painel lateral deixa a cena à vista)');
   }
 }
 for (const name of ['BuildingLayoutCard', 'CityControlPanel', 'KeyboardShortcutsHelp']) {
@@ -361,12 +370,33 @@ for (const name of ['BuildingLayoutCard', 'CityControlPanel', 'KeyboardShortcuts
   assert.equal(vm.runInNewContext(conditionNode.left.getText(editorAst), { myBuildingsOpen: true }), false, `${name} não aparece na visualização dedicada`);
 }
 const customize = scenePanels.get('MyBuildingsNavigation').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'onCustomize').initializer.expression;
-const manage = { showBuildingInfo: true, managed: false, setShowBuildingInfo: (show) => { manage.showBuildingInfo = show; }, handleManageFromInfo: () => { manage.managed = true; } };
+const manage = { infoIsOwn: true, showBuildingInfo: true, managed: false, setShowBuildingInfo: (show) => { manage.showBuildingInfo = show; }, handleManageFromInfo: (tab = "information") => { manage.managed = true; manage.manageTab = tab; } };
 vm.runInNewContext(ts.transpileModule(`(${customize.getText(editorAst)})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, manage);
 assert.equal(manage.managed, true);
 const initialTab = scenePanels.get('BuildingManageDialog').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'initialTab').initializer.expression;
-assert.equal(vm.runInNewContext(initialTab.getText(editorAst), { ...manage, myBuildingsOpen: true }), 'appearance', 'Personalizar abre direto em Aparência');
-assert.equal(vm.runInNewContext(initialTab.getText(editorAst), { showBuildingInfo: true, myBuildingsOpen: true }), 'information', 'Administrar pelo card abre Informações');
+assert.equal(vm.runInNewContext(initialTab.getText(editorAst), manage), 'appearance', 'Personalizar abre direto em Aparência');
+const cardManage = scenePanels.get('BuildingInfoModal').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'onManage').initializer.expression;
+vm.runInNewContext(`(${cardManage.getText(editorAst)})();`, manage);
+assert.equal(vm.runInNewContext(initialTab.getText(editorAst), manage), 'information', 'Administrar pelo card abre Informações');
+assert.equal(vm.runInNewContext(cardManage.getText(editorAst), { ...manage, infoIsOwn: false }), undefined, 'Edifício alheio: card só visualiza');
+// Edifício alheio em foco (card ou personalização): some o Simular contribuição.
+const hideTrigger = scenePanels.get('ContributeDialog').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'hideTrigger').initializer.expression;
+const viewingOthers = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.getText(editorAst).includes('const viewingOthers'));
+const focusedIdDecl = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.getText(editorAst).includes('const focusedId'));
+const triggerHidden = (scope) => vm.runInNewContext(`${focusedIdDecl.getText(editorAst)}\n${viewingOthers.getText(editorAst)}\n${hideTrigger.getText(editorAst)}`, { ownedDonationIds: new Set([42]), infoBuildingId: null, selectedBuildingId: null, ...scope });
+assert.equal(triggerHidden({}), false, 'Sem foco: Simular contribuição visível');
+assert.equal(triggerHidden({ infoBuildingId: 42 }), false, 'Edifício próprio: Simular contribuição visível');
+assert.equal(triggerHidden({ infoBuildingId: 7 }), true, 'Edifício alheio: sem Simular contribuição');
+assert.equal(triggerHidden({ selectedBuildingId: 7 }), true, 'Personalizando edifício alheio: sem Simular contribuição');
+// Botão de editar flutuante: só com edifício em foco, abre Aparência.
+const editButton = editorSource.match(/hidden=\{([^}]+)\}\s*className="absolute z-30"[^]*?onClick=\{([^}]+\))\} title="Editar edifício"/);
+assert.ok(editButton, 'Botão de editar flutuante presente');
+const editHidden = (scope) => vm.runInNewContext(editButton[1], { booted: true, myBuildingsOpen: false, contributeOpen: false, infoBuildingId: 42, ...scope });
+assert.equal(editHidden({}), false, 'Edifício em foco mostra botão de editar');
+assert.equal(editHidden({ infoBuildingId: null }), true, 'Sem foco, sem botão de editar');
+assert.equal(editHidden({ myBuildingsOpen: true }), true, 'Meus edifícios já tem Personalizar');
+vm.runInNewContext(`(${editButton[2]})();`, manage);
+assert.equal(vm.runInNewContext(initialTab.getText(editorAst), manage), 'appearance', 'Botão de editar abre direto em Aparência');
 city.handleCloseInfo();
 assert.equal(city.myBuildingsOpen, false, 'X restaura interface geral');
 assert.equal(city.focusedId, null);

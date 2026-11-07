@@ -22,6 +22,8 @@ export type CitySceneCanvasHandle = {
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  /** Desloca a cena px para a esquerda (painel lateral ao lado do edifício). */
+  setViewShift: (px: number) => void;
 };
 
 export type CitySceneCanvasProps = {
@@ -42,6 +44,8 @@ export type CitySceneCanvasProps = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  /** Lateral do edifício em foco na tela (px do canvas), a cada frame desenhado. */
+  onFocusScreenPosition?: (x: number, y: number) => void;
 };
 
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(
@@ -62,12 +66,13 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onFocusScreenPosition,
     },
     ref,
   ) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
-    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
+    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, setViewShift } = useCityScene({
       mountRef,
       buildingSettings,
       textureSettings,
@@ -84,12 +89,13 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onFocusScreenPosition,
     });
 
     useImperativeHandle(
       ref,
-      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
-      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus],
+      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, setViewShift }),
+      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, setViewShift],
     );
 
     return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;

@@ -52,6 +52,8 @@ type CitySceneRuntimeOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  /** Lateral direita (na tela) do edifício em foco, em px do canvas. A cada frame desenhado com foco. */
+  onFocusScreenPosition?: (x: number, y: number) => void;
 };
 
 export type CitySceneRuntime = {
@@ -74,6 +76,8 @@ export type CitySceneRuntime = {
   setFacadeTexturePool: (keys: readonly string[]) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  /** Desloca a cena px para a esquerda (painel lateral ao lado do edifício). 0 = centro. */
+  setViewShift: (px: number) => void;
   dispose: () => void;
 };
 
@@ -98,6 +102,7 @@ export async function createCitySceneRuntime({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onFocusScreenPosition,
 }: CitySceneRuntimeOptions): Promise<CitySceneRuntime> {
   runDevAssertionsOnce();
   await afterNextFrame();
@@ -492,6 +497,32 @@ export async function createCitySceneRuntime({
   let savedCameraTarget: THREE.Vector3 | null = null;
   // Um gesto do usuário assume a câmera; a interpolação não pode puxá-la de volta.
   const cancelCameraAnimation = () => { cameraAnim = null; };
+
+  // Painel lateral: projeção desloca (setViewOffset) e o alvo da órbita vai px para a esquerda,
+  // ao lado do painel. Órbita, picking e cull seguem a mesma matriz.
+  let viewShift = 0;
+  let viewShiftTarget = 0;
+  const applyViewShift = () => {
+    const width = mount.clientWidth;
+    const height = mount.clientHeight;
+    if (viewShift === 0) camera.clearViewOffset();
+    else camera.setViewOffset(width, height, viewShift, 0, width, height);
+  };
+
+  // Botão de editar preso ao edifício em foco: projeta a face que fica à direita na tela.
+  let focusBox: THREE.Box3 | null = null;
+  const focusRight = new THREE.Vector3();
+  const focusAnchor = new THREE.Vector3();
+  const emitFocusScreenPosition = () => {
+    if (!focusBox || !onFocusScreenPosition) return;
+    focusRight.setFromMatrixColumn(camera.matrixWorld, 0);
+    focusBox.getCenter(focusAnchor);
+    // Meia largura da caixa ao longo do eixo X da câmera; altura do alvo do foco (meio, se baixo).
+    const reach = (focusBox.max.x - focusAnchor.x) * Math.abs(focusRight.x) + (focusBox.max.z - focusAnchor.z) * Math.abs(focusRight.z);
+    focusAnchor.y = Math.max(focusBox.max.y - 5, focusAnchor.y);
+    focusAnchor.addScaledVector(focusRight, reach).project(camera);
+    onFocusScreenPosition((focusAnchor.x + 1) / 2 * mount.clientWidth, (1 - focusAnchor.y) / 2 * mount.clientHeight);
+  };
   controls.addEventListener("start", cancelCameraAnimation);
 
   let animationId = 0;
@@ -616,6 +647,13 @@ export async function createCitySceneRuntime({
       if (cameraAnim.progress >= 1) {
         cameraAnim = null;
       }
+    }
+    if (viewShift !== viewShiftTarget && !compileRequested && !compiling && pendingCustomizations.size === 0 && !shapesPending) {
+      viewShift += (viewShiftTarget - viewShift) * (1 - Math.exp(-delta * 8));
+      if (Math.abs(viewShiftTarget - viewShift) < 0.5) viewShift = viewShiftTarget;
+      applyViewShift();
+      renderNeeded = true;
+      cullPending = true;
     }
 
     // O frustum precisa acompanhar cada movimento: throttle deixaria buracos ao girar.
@@ -781,6 +819,7 @@ export async function createCitySceneRuntime({
     if (donationManager.tickAnimations(time / 1000, elapsed * 1000)) renderNeeded = true;
 
     focusRenderer.render(donationManager.hasFocusedDonation());
+    emitFocusScreenPosition();
     if (sampledFps !== null) {
       emitStatsPatch({ performance: {
         fps: sampledFps,
@@ -825,7 +864,7 @@ export async function createCitySceneRuntime({
 
   const handleResize = () => {
     camera.aspect = mount.clientWidth / mount.clientHeight;
-    camera.updateProjectionMatrix();
+    applyViewShift();
     renderer.setPixelRatio(getPixelRatio());
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     requestRender();
@@ -974,8 +1013,13 @@ export async function createCitySceneRuntime({
       if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
     },
     focusOnDonation(donationId) {
-      const worldPos = donationManager.getDonationWorldPosition(donationId);
-      if (!worldPos) return;
+      const box = donationManager.getDonationBox(donationId);
+      if (!box) return;
+      // Topo do edifício
+      const worldPos = box.getCenter(new THREE.Vector3()).setY(box.max.y);
+      focusBox = box;
+      // Já posiciona com a câmera atual: o botão aparece no lugar antes do 1º frame do voo.
+      emitFocusScreenPosition();
 
       // Salvar posição atual para restaurar depois
       if (!savedCameraPos) {
@@ -1010,6 +1054,7 @@ export async function createCitySceneRuntime({
       };
     },
     clearFocus() {
+      focusBox = null;
       donationManager.setFocusedDonation(null);
       requestCompile();
 
@@ -1025,6 +1070,9 @@ export async function createCitySceneRuntime({
         savedCameraPos = null;
         savedCameraTarget = null;
       }
+    },
+    setViewShift(px) {
+      viewShiftTarget = Math.max(0, px);
     },
     dispose() {
       if (handleMouseMove) renderer.domElement.removeEventListener("mousemove", handleMouseMove);

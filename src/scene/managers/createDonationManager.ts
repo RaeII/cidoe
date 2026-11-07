@@ -231,7 +231,8 @@ export type DonationManager = {
   getCityRadius: () => number;
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
-  getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
+  /** Caixa do edifício (caixa base, sem acessórios). */
+  getDonationBox: (donationId: number) => THREE.Box3 | null;
   setFocusedDonation: (donationId: number | null) => void;
   hasFocusedDonation: () => boolean;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
@@ -3181,12 +3182,10 @@ export function createDonationManager({
     getClickedDonationId(event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) {
       return pickAt(event, camera, domElement)?.donationId ?? null;
     },
-    getDonationWorldPosition(donationId: number) {
+    getDonationBox(donationId: number) {
       if (!readDonationTransform(donationId)) return null;
-      const pos = tmpTransformPosition.clone();
-      // Retornar o topo do prédio (pos.y é o centro, scale.y é a altura)
-      pos.y += tmpTransformScale.y / 2;
-      return pos;
+      // position = centro, scale = largura × altura × profundidade
+      return new THREE.Box3().setFromCenterAndSize(tmpTransformPosition, tmpTransformScale);
     },
     setRebuildDeferred(deferred: boolean) {
       rebuildDeferred = deferred;

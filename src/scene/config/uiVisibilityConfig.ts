@@ -5,11 +5,11 @@ const STORAGE_KEY = "cidoe:ui-visibility";
 
 export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
   return {
-    cameraLog: true,
+    cameraLog: false,
     donationInput: true,
     bulkInput: true,
     blockLayoutInput: true,
-    buildingLayoutCard: true,
+    buildingLayoutCard: false,
   };
 }
 

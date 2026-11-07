@@ -64,7 +64,7 @@ Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/a
 
 | Requisito | Onde atende |
 |---|---|
-| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon-96.png` |
+| Identifica app/marca | Placa da cena (logo, sem nome), `<title>`, `favicon-96.png` |
 | Descreve funcionalidade | Hero da `DonationInfoSection` no HTML estático + página `/sobre` |
 | Explica finalidade dos dados do Google | `/privacidade#google`; parágrafo existente em `noscript` preservado. Corpo normal da home sem esse parágrafo |
 | Link fácil para política (mesma URL do console) | Rodapé da home (seta da cena leva até ele), aviso de cookies, `<noscript>` |

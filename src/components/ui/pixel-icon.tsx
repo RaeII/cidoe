@@ -51,12 +51,17 @@ export function PixelCoin({ className, ...props }: IconProps) {
   )
 }
 
-/** Presente âmbar: recompensa a conquistar. Cor fixa, como a moeda; fita e laço no tom 700. */
+/** Presente âmbar: recompensa a conquistar. Cor fixa, como a moeda; fita e laço no tom 700.
+ *  Tampa em `<g data-lid>` (overflow visível) pra placa do visitante abrir o presente. */
 export function PixelGift({ className, ...props }: IconProps) {
   return (
-    <svg viewBox="0 0 8 8" width={16} height={16} shapeRendering="crispEdges" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
-      <path fill="var(--color-ambar)" d="M0 2h8v2h-8zM1 4h6v4h-6z" />
-      <path fill="var(--color-ambar-700)" d="M1 0h2v1h-2zM5 0h2v1h-2zM2 1h4v1h-4zM3 2h2v6h-2zM0 3h8v1h-8z" />
+    <svg viewBox="0 0 8 8" width={16} height={16} shapeRendering="crispEdges" overflow="visible" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
+      <path fill="var(--color-ambar)" d="M1 4h6v4h-6z" />
+      <path fill="var(--color-ambar-700)" d="M3 4h2v4h-2z" />
+      <g data-lid>
+        <path fill="var(--color-ambar)" d="M0 2h8v2h-8z" />
+        <path fill="var(--color-ambar-700)" d="M1 0h2v1h-2zM5 0h2v1h-2zM2 1h4v1h-4zM3 2h2v2h-2zM0 3h8v1h-8z" />
+      </g>
     </svg>
   )
 }

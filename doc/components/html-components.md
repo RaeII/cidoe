@@ -77,20 +77,20 @@ Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
-Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo. `aside aria-label="Cidoe"`; logo oficial `public/logo.webp` 32px (`alt=""`) + conteúdo vêm de `referral/ReferralHud.tsx`. Logo + nome visíveis na 1ª tela pro visitante deslogado, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
+Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo. `aside aria-label="Cidoe"`, logo oficial `public/logo.webp` 32px (`alt=""`) e conteúdo inteiros em `referral/ReferralHud.tsx`; editor só passa `rewards` + `onLogin` (abre `AuthDialog`). Logo visível na 1ª tela pro visitante deslogado, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
 
 - **Logado com próxima faixa** — `referral/ReferralHud.tsx`. Linha 1: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, `truncate` só como último recurso). Linha 2: `ReferralBar size="sm"` + `PixelGift` âmbar no fim (= presente a chegar). Largura segue o texto.
   - `ReferralBar` (exportada de `ReferralHud.tsx`, mesma no menu): incentivo, não contagem real. Até 3 blocos (`min(3, meta + 1)`), sempre 1+ aceso. Vazios = indicações que faltam, até 2. Meta 2 sem indicação → ■□□; meta 3 faltando 1 → ■■□; meta 4 faltando 2 → ■□□. Vazios sem cor (`bg-muted`, `highlightNext={false}`). Meta = próxima faixa da campanha (`nextChoice.referralMin`).
   - Admin: backend o exclui da campanha → prévia da 1ª faixa de `/admin/early-signups` (só se ativa) com 0 indicações.
-- **Deslogado** — logo + **Cidoe** 14px 600.
+- **Deslogado** — chamariz fixo: logo + mesmo contador do logado com meta fixa 2 (`GUEST_GOAL`): **Faltam apenas 2 indicações** + ■□□. Sem consulta à campanha. Contador = `<button>` com `after:absolute after:inset-0` → clique em qualquer ponto da placa abre login. Chamariz `useAnimate` (motion), sequência ~3,6s, 1ª vez 1,5s após carregar, depois pausa 6s: logo, linha 1 e barra somem (opacity) → `PixelGift` vai pro centro do logo e cresce 1,8× → tampa (`<g data-lid>`) pula + 4 faíscas âmbar → frase `aria-hidden` 14px 700: **Surpresa!** em etiqueta `bg-ambar text-tinta` (conquista) + **clique aqui** `text-primary` (ação); letras entram em onda (`stagger` 30ms, sobe 8px + escala, `backOut`); frase inteira na tela ~2,5s pra dar tempo de ler → tudo volta. Frase cabe na largura do contador (placa não cresce). Destino medido a cada ciclo. Desmontar/logar no meio → `complete()` = placa normal. Movimento reduzido (`useReducedMotion`) → parada. Sem nome **Cidoe** nem divisor (decisão do dono). Sessão carregando (`isLoading`) → só logo, sem chamariz, pra não piscar pra quem está logado.
 - **Logado fora da campanha ou faixas esgotadas** — só logo, sem texto (contador some).
 
-Placa sem links; navegação pública na seção HTML abaixo da cena, via [[#Menu público (`PublicPageNav.tsx`)]]. Termos/Privacidade também no rodapé da [[#DonationInfoSection.tsx]] e no aviso de cookies. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
+Placa sem links; navegação pública na seção HTML abaixo da cena, via [[#Menu público (`PublicPageNav.tsx`)]]. Termos/Privacidade também no rodapé da [[#DonationInfoSection.tsx]] e no aviso de cookies. Logo visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
 Ocupa apenas a largura do conteúdo, margem externa de 16px. Placa e conta na mesma linha no topo da cena; no mobile, placa pode descer conforme espaço. Espaços vazios do cabeçalho deixam passar gestos para a cena.
 
 > [!note] Mobile (< `sm`)
-> Altura 40px = botões. Com contador ou **Cidoe**, logo some; placa só com logo mantém logo. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda (320/375px); 430px+ fica numa linha. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
+> Altura 40px = botões. Logado com contador → logo some. Visitante e placa só com logo mantêm logo. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda (320/375px); 430px+ fica numa linha. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
 
 ### Aviso de pré-lançamento (`CitySceneEditor.tsx`)
 
@@ -149,7 +149,7 @@ Componente de depuração preservado no código, não montado na versão de pré
 
 Pré-lançamento: apenas admin, no canto inferior esquerdo. Layout e limite de renderização persistem localmente.
 
-Card flutuante no canto superior esquerdo. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
+Card flutuante no canto superior esquerdo. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Desligado por padrão (`buildingLayoutCard: false`); aba **Tela** do painel liga. Botão `×` no cabeçalho desliga de novo.
 
 **Responsabilidades:**
 - Par de botões que alterna `centerTallest` — **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra, menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas idênticas nos dois — ver [[scene-managers#Layout dos Prédios — 2 Modos]]
@@ -220,6 +220,8 @@ Barra temporariamente oculta na tela principal: `SHOW_DONATION_FILTERS = false` 
 
 Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não conclui simulação.
 
+Gatilho some com edifício de outra pessoa em foco (card ou personalização): `hideTrigger={viewingOthers}` no editor. Tela só de visualização.
+
 Gatilho: `lg` centrado a 28px do rodapé (`bottom-7`, livra o [[#Aviso de pré-lançamento (CitySceneEditor.tsx)|aviso]] embaixo). Mobile: `left-4 right-20`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-7 right-4`; admin sobe para `bottom-[5.5rem]`, livra a engrenagem).
 
 `Flow` (`form` | `pay` | `done`) captura conta. Outra sessão não reaproveita simulação. Fechar confirmação libera nova simulação; fechar pagamento mantém etapa somente em memória. Troca de etapa foca título. **Ver meu edifício** usa `handleOpenDonation(id, false)`: foca o prédio na navegação dedicada de Meus edifícios, sem abrir o card. Administração independente no card/Meus edifícios.
@@ -238,7 +240,7 @@ Pré-lançamento: perfil local tem prioridade (navegador → conta antiga → p�
 
 `html/donate/`. **Imagem** (3:2, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
-- Imagem compacta no celular (112 px, moldura 2px), até 256 px no desktop (moldura 3px); botão = [[desingn-system-index#Estados (5.7)|imagem clicável]] (`raised press`, borda verde no hover); formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Administração usa duas colunas no desktop: imagem + textos
+- Imagem compacta no celular (112 px, moldura 2px), até 256 px no desktop (moldura 3px); botão = [[desingn-system-index#Estados (5.7)|imagem clicável]] (`raised press`, borda verde no hover); formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Administração usa duas colunas no desktop: imagem + textos. `compact` (painel lateral do [[#BuildingManageDialog.tsx]]) força layout do celular em qualquer tela: miniatura + botão lado a lado, campos empilhados
 - Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
 - Só salva se mudou; trim, `""` → `null`
 - `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy, ready, error })` informa diálogo sobre alterações, processamento e resultado. Loading/salvamento têm feedback; Enter não envia durante carregamento/processamento
@@ -249,9 +251,10 @@ Pré-lançamento: perfil local tem prioridade (navegador → conta antiga → p�
 
 ### `BuildingCustomizer.tsx`
 
-`components/customization/`. Menu reutilizável de aparência: recebe `catalog`, `customization`, `textureSettings`, `onChange(patch)` e `onBusyChange` opcional. Não cria cobranças nem consulta/persiste dados por conta própria; o chamador mantém o estado.
+`components/customization/`. Menu reutilizável de aparência: recebe `catalog`, `customization`, `textureSettings`, `onChange(patch)`, `onBusyChange` opcional e `side` opcional. Não cria cobranças nem consulta/persiste dados por conta própria; o chamador mantém o estado.
 
 - Área limitada à altura da aba: no celular, prévia [[three-components#BuildingPreview.tsx|BuildingPreview]] fixa acima do inventário (`clamp(96px, 28cqh, 208px)`). A partir de `md`, duas colunas: prévia ocupa toda a coluna esquerda e inventário fica à direita. Apenas as opções rolam; edifício e categorias permanecem visíveis. Placeholder ocupa o mesmo espaço da prévia, sem salto de layout.
+- **`side`** (painel lateral, tela ≥ 1024 px): sem prévia — cena ao lado já mostra edifício. Categorias em coluna à esquerda (`w-28`, `orientation="vertical"`, setas ↑/↓), todas à vista; ativa = `bg-secondary` + ▸ + régua verde 4px à direita (aba do DS de pé). Opções à direita em 2 colunas.
 - Abas Radix com teclado e rolagem horizontal independente: **Formato, Cor, Fachada, Topo, LED, Letreiro, Holograma**. Categorias inativas/vazias somem. Título repetido da categoria fica apenas para leitores de tela.
 - Celular (< `md`): painéis lado a lado em `scroll-snap` (`snap-mandatory` + `snap-always`) — deslizar troca uma categoria por vez; `onScroll` sincroniza aba ativa, toque na aba rola até o painel (`scroll-smooth` só com `motion-safe`) e aba ativa entra na vista da lista. Painéis com `forceMount` + `inert` fora da tela; só atual e vizinhas montam itens (miniaturas 3D não renderizam todas de uma vez). Painel usa `overscroll-y-contain`: `overscroll-contain` nos dois eixos bloqueia o deslize horizontal. Desktop esconde inativos (`md:data-[state=inactive]:hidden`).
 - Cartões compactos em grade de 2–4 colunas, com `CustomizationImage` usado pelo [[passe-admin-ui|Passe do admin]] e nome. Miniaturas de 80/96 px com recorte no contêiner evitam sobreposição ao texto. Seleção = fundo verde + check e `aria-pressed`; sem repetir Disponível/Em uso em cada item. Bloqueados ficam desabilitados e mostram cadeado, **Bloqueado** e `formatUnlockCta` inteiro, inclusive regras AND/OR.
@@ -268,7 +271,7 @@ Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena seg
 
 Na visualização dedicada de **Meus edifícios**, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco, com a interface geral oculta. O card começa fechado; **Ver como visitante** no rodapé o abre. Fora desse modo, clique em edifício abre informações e fechar limpa o foco.
 
-Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]]. Edifício alheio ou sem login: sem administração. Regra em [[donation-api#Quem pode editar]].
+Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Só dono (`infoIsOwn` no editor) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]] e link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Edifício alheio ou sem login: card só visualiza — menos informação na tela. Teste de edição beta segue pelo lápis flutuante ([[index#2. Container Principal]]). Regra em [[donation-api#Quem pode editar]].
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -403,15 +406,16 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ### `BuildingManageDialog.tsx`
 
-Administração do edifício selecionado, independente da simulação de contribuição. Abre por **Meus edifícios → Personalizar** na aba Aparência, ou pelo card → **Administrar** na aba Informações. Beta: aberto a qualquer visitante, logado ou não, em qualquer edifício. Substitui painel lateral antigo.
+Administração do edifício selecionado, independente da simulação de contribuição. Abre por **Meus edifícios → Personalizar** na aba Aparência, pelo card → **Administrar** na aba Informações (só dono), ou pelo lápis flutuante na aba Aparência. Beta: lápis abre para qualquer visitante, logado ou não, em qualquer edifício.
 
 - **Informações** abre por padrão (`initialTab="information"`): [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. Acesso direto de Personalizar usa `initialTab="appearance"`. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
-- **Layout**: até **1152 px**, altura estável até **800 px**, limitada pela viewport visual (inclusive teclado). Barra superior única de 48 px no celular/56 px a partir de `sm`, com abas Aparência/Informações e X de 44 px. Título **Edifício** fica só para leitor de tela no mobile e aparece ao lado das abas no desktop. Informações tem rolagem própria; Aparência usa `container-type: size` e mantém prévia/categorias fora da rolagem das opções.
+- **Painel lateral (≥ 1024 px)**: `useSyncExternalStore` + `matchMedia("(min-width: 1024px)")` troca modal por painel de **416 px** logo à direita do centro (`left: 50% + 1rem`, altura `min(42rem, tela − 2rem)`, centrado na vertical), `modal={false}`: sem overlay, cena segue girável/zoomável ao lado. Sem prévia 3D ([[#BuildingCustomizer.tsx]] `side`); Informações com `compact`. Mudanças aparecem direto no edifício da cena. Painel mede `offsetLeft` (ignora zoom da entrada) e manda `onViewShiftChange(innerWidth/2 − offsetLeft + 192)` → `canvasRef.setViewShift` desloca projeção: centro do edifício fica 192 px antes da borda do painel, par edifício + painel no meio da tela ([[scene-runtime#Sistema de foco]]); sair/encolher tela → `0`. Ref via state: Portal monta conteúdo depois do 1º commit. Clique fora continua bloqueado; Esc fecha.
+- **Layout (modal, < 1024 px)**: até **1152 px**, altura estável até **800 px**, limitada pela viewport visual (inclusive teclado). Barra superior única de 48 px no celular/56 px a partir de `sm`, com abas Aparência/Informações e X de 44 px. Título **Edifício** fica só para leitor de tela no mobile e aparece ao lado das abas no desktop. Informações tem rolagem própria; Aparência usa `container-type: size` e mantém prévia/categorias fora da rolagem das opções.
 - **Rodapé compacto**: Aparência mostra **Salvamento automático** + **Concluir**, que retorna ao contexto de origem. **Salvar** só aparece em Informações ou quando o perfil tem alterações pendentes; envia `form={profileFormId}` mesmo após mudar para Aparência. Pendência e erro continuam visíveis. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída. Botões 44 px no celular/40 px no desktop.
 - **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
 - **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação da simulação.
-- **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, acesso aberto e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
+- **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, acesso aberto, foco após filtro/teto ou pagamento atrasado, HUD oculto e clique na cena ignorado durante edição. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -423,9 +427,10 @@ Administração do edifício selecionado, independente da simulação de contrib
 | `onCustomizationChange` | `(id, patch) => void` | `updateCustomization`: cena, estado e persistência |
 | `onSaved` | `(id, profile) => void` | Atualiza informações exibidas no card |
 | `onClose` | `() => void` | Fecha administração e retorna à navegação/card do edifício focado |
+| `onViewShiftChange` | `(px) => void` opcional | Quanto a cena desliza para a esquerda para edifício ficar ao lado do painel; `0` ao sair. Editor repassa a `canvasRef.setViewShift` |
 
 > [!note] Fluxo de administração
-> Visualização dedicada → **Personalizar** → `BuildingManageDialog` na Aparência; card → **Administrar** → Informações (só dono/admin). Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
+> Visualização dedicada → **Personalizar** → `BuildingManageDialog` na Aparência; card → **Administrar** → Informações (só dono); lápis flutuante → Aparência (qualquer edifício). Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
 
 > [!important] Personalização é permanente
 > O painel não mexe só no state: `updateCustomization` grava apenas no navegador no localStorage da conta. Recarregou a página, o prédio volta personalizado — a cópia local sobrepõe as personalizações públicas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].

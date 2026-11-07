@@ -303,7 +303,7 @@ tickAnimations(elapsedSeconds: number, deltaMs: number): boolean  // anima holog
 // Interação
 getHoveredValue(event, camera, domElement): number | null       // picking hover → valor da doação (AABB por quadra, ver seção Picking)
 getClickedDonationId(event, camera, domElement): number | null  // picking clique → donation ID (idem)
-getDonationWorldPosition(donationId: number): THREE.Vector3 | null  // posição do topo do edifício
+getDonationBox(donationId: number): THREE.Box3 | null  // caixa base do edifício: topo pro foco, largura pro botão de editar
 
 // Foco e personalização
 setFocusedDonation(donationId: number | null): void  // contexto e destaque visual

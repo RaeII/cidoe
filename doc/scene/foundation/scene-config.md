@@ -231,13 +231,14 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 
 | Campo | Padrão | Esconde |
 |---|---|---|
-| `cameraLog` | `true` | Log de posição da câmera (canto inferior esquerdo) |
+| `cameraLog` | `false` | Log de posição da câmera — placa **Camera default** (canto inferior esquerdo) |
 | `donationInput` | `true` | Input de doação individual |
 | `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
 | `blockLayoutInput` | `true` | Input de configuração de quadras |
+| `buildingLayoutCard` | `false` | Card **Organização dos edifícios** (layout + teto) |
 
 **Funções exportadas:**
-- `createDefaultUIVisibilitySettings()` — tudo visível
+- `createDefaultUIVisibilitySettings()` — inputs visíveis; log de câmera e card de organização desligados (menos informação na tela). Aba **Tela** liga
 - `loadUIVisibilitySettings()` — lê `localStorage`, mescla com defaults (campo ausente/inválido cai no default); seguro contra JSON corrompido e `localStorage` bloqueado
 - `saveUIVisibilitySettings(settings)` — grava no `localStorage`, falha silenciosa se bloqueado
 

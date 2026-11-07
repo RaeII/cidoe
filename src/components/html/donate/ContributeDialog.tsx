@@ -221,6 +221,7 @@ export function ContributeDialog({
   onRequestLogin,
   onPaid,
   onViewBuilding,
+  hideTrigger,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -231,6 +232,8 @@ export function ContributeDialog({
   /** Simulação salva no navegador: o edifício entra ou cresce na cidade local. */
   onPaid: (contribution: Contribution, donationId: number) => void;
   onViewBuilding: (donationId: number) => void;
+  /** Esconde o botão "Simular contribuição" (edifício de outra pessoa em foco). */
+  hideTrigger?: boolean;
 }) {
   const { user, isLoading } = useAuth();
   const userId = user?.id;
@@ -319,13 +322,13 @@ export function ContributeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+      {!hideTrigger && <DialogTrigger asChild>
         {/* Centrado sem translate: o `press` do botão usa a propriedade translate. Mobile: à esquerda, livra o chevron (right-20). */}
         <Button type="button" size="lg" className="absolute bottom-7 left-4 right-20 z-30 max-sm:text-sm max-sm:has-[>svg]:px-3 sm:inset-x-0 sm:mx-auto sm:w-fit">
           <PixelBuilding />
           Simular contribuição
         </Button>
-      </DialogTrigger>
+      </DialogTrigger>}
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
         className="block max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-0 overflow-y-auto overscroll-contain p-0 pb-1.5 text-foreground sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-4xl"

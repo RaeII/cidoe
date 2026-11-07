@@ -239,7 +239,7 @@ const originalMeshes = full.map(({ mesh, count, matrices }) => {
 });
 const idsByPosition = new Map(Array.from({ length: 200 }, (_, i) => {
   const id = i + 100;
-  const position = manager.getDonationWorldPosition(id);
+  const position = manager.getDonationBox(id).getCenter(new THREE.Vector3());
   return [`${Math.fround(position.x)},${Math.fround(position.z)}`, id];
 }));
 const raycaster = new THREE.Raycaster();

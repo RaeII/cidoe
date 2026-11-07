@@ -229,7 +229,7 @@ src/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
       ShareDialog.tsx             ← `SharePanel` (redes + copiar link, inline no menu) + `ShareDialog` (modal da home)
-      ReferralHud.tsx             ← placa da cena: logo + "Faltam apenas N indicações" + `ReferralBar` (≤3 blocos, 1 aceso de incentivo, também no menu); sem próxima faixa, só logo
+      ReferralHud.tsx             ← placa da cena: logo + "Faltam apenas N indicações" + `ReferralBar` (≤3 blocos, 1 aceso de incentivo, também no menu); sem próxima faixa, só logo; deslogado: "Faltam apenas 2 indicações" fixo, presente abre e solta "Surpresa! clique aqui" a cada 6s (motion), clique abre login
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -238,7 +238,7 @@ src/
       DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
-      BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
+      BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; Administrar/nome e imagem só p/ dono
       MyBuildingsNavigation.tsx     ← modo dedicado: dados no topo, setas laterais, personalizar/detalhes no rodapé e X
       donate/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
@@ -406,6 +406,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
+- `infoIsOwn` / `viewingOthers` — edifício em foco é do usuário? Alheio → só visualização: card sem Administrar e nome/imagem, sem **Simular contribuição**
 - `selectedBuildingId` — edifício em administração; beta: qualquer edifício, qualquer visitante (ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet/loft), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
 - Falha da gravação (armazenamento cheio/bloqueado) → toast por edifício, ver [[donation-api#Personalização persistida]]
@@ -414,7 +415,7 @@ E entrega para:
 
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
-- [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar; dono/admin.
+- [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar (só dono) ou pelo lápis flutuante.
 - [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e categorias permanecem visíveis enquanto apenas as opções rolam; empilhado no celular com deslize horizontal entre categorias (scroll-snap), duas colunas no desktop. Aparência salva automaticamente e conclui sem botão Salvar de perfil vazio. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
@@ -427,6 +428,8 @@ Também gerencia:
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
+- Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--edit-x`/`--edit-y` direto no estilo, sem re-render. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé. Wrapper sempre montado (`hidden`) guarda última posição. Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
+- Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay nem prévia; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
 ### 3. Canvas 3D
@@ -498,7 +501,8 @@ flowchart LR
     Nav --> |Personalizar, aba Aparência| Panel[BuildingManageDialog]
     Click[Clique no edifício] --> Focus
     Click --> Info
-    Info --> |Administrar, só dono/admin| Panel[BuildingManageDialog]
+    Focus --> |botão de editar na lateral, aba Aparência| Panel
+    Info --> |Administrar, só dono| Panel[BuildingManageDialog]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
     Panel --> |letreiro| UC
@@ -530,6 +534,8 @@ flowchart LR
 | Foto, avatar, logo (proporção, moldura, carregando/erro, direção de foto) | [[desingn-system-index#Imagem]] · `src/components/ui/photo.tsx` · `src/components/ui/avatar.tsx` |
 | App diverge do arquivo do DS (tamanho, mascote, dado faltando) | [[desingn-system-index#Desvios conscientes]] |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| O que some com edifício de outra pessoa em foco  | `infoIsOwn` / `viewingOthers` em [[index#2. Container Principal]] · [[html-components#BuildingInfoModal.tsx]] |
+| Botão de editar preso ao edifício em foco        | [[index#2. Container Principal]] (`CitySceneEditor`) · posição em [[scene-runtime#Sistema de foco]] |
 | Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |

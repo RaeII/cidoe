@@ -35,6 +35,7 @@ type UseCitySceneOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  onFocusScreenPosition?: (x: number, y: number) => void;
 };
 
 export function useCityScene({
@@ -54,6 +55,7 @@ export function useCityScene({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onFocusScreenPosition,
 }: UseCitySceneOptions) {
   const runtimeRef = useRef<CitySceneRuntime | null>(null);
   // Settings mais recentes. O runtime nasce assíncrono (em etapas): o que mudar durante a
@@ -103,6 +105,10 @@ export function useCityScene({
     },
   );
 
+  const handleFocusScreenPosition = useEffectEvent((x: number, y: number) => {
+    onFocusScreenPosition?.(x, y);
+  });
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) {
@@ -124,6 +130,7 @@ export function useCityScene({
           onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
           onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
           onBuildingClick: (donationId) => handleBuildingClick(donationId),
+          onFocusScreenPosition: (x, y) => handleFocusScreenPosition(x, y),
         });
       } catch (error) {
         console.warn("Cena 3D indisponível:", error);
@@ -237,5 +244,9 @@ export function useCityScene({
     callRuntime((runtime) => runtime.clearFocus());
   }, [callRuntime]);
 
-  return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus };
+  const setViewShift = useCallback((px: number) => {
+    callRuntime((runtime) => runtime.setViewShift(px));
+  }, [callRuntime]);
+
+  return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, setViewShift };
 }

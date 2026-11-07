@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState, useSyncExternalStore } from "react";
 import { AlertDialog, Tabs } from "radix-ui";
 import type { BuildingProfile } from "@/api/contributionApi";
 import type { CustomizationCatalog } from "@/api/customizationApi";
@@ -15,6 +15,20 @@ const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3
 const footerClass = "shrink-0 space-y-1 border-t bg-background px-3 py-1 sm:px-5 sm:py-2";
 // Abas (DS): texto bold 13px; ativa = régua verde de 4px embaixo + ▸.
 const tabClass = "tab menu-cursor text-[13px] min-h-11 pr-4 pl-6 hover:bg-accent disabled:opacity-50 sm:min-h-10";
+const modalClass = "h-[min(50rem,calc(var(--viewport-height,100dvh)-1rem))] max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] sm:h-[min(50rem,calc(var(--viewport-height,100dvh)-3rem))] sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-6xl";
+// Painel logo à direita do centro, sem overlay: edifício desliza para o lado dele e a cena segue girável.
+const sideClass = "left-[calc(50%+1rem)] h-[min(42rem,calc(var(--viewport-height,100dvh)-2rem))] w-[26rem] max-w-none translate-x-0";
+// Centro do edifício fica a esta distância (px) da borda esquerda do painel.
+const BUILDING_GAP = 192;
+
+// Tela larga: painel lateral sobre a cena. Abaixo disso, modal com prévia 3D.
+const WIDE = "(min-width: 1024px)";
+const subscribeWide = (onChange: () => void) => {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const isWide = () => window.matchMedia(WIDE).matches;
 
 export function BuildingManageDialog({
   donationId,
@@ -25,6 +39,7 @@ export function BuildingManageDialog({
   onCustomizationChange,
   onSaved,
   onClose,
+  onViewShiftChange,
 }: {
   donationId: number;
   initialTab?: "information" | "appearance";
@@ -34,13 +49,30 @@ export function BuildingManageDialog({
   onCustomizationChange: (donationId: number, patch: Partial<BuildingCustomization>) => void;
   onSaved: (donationId: number, profile: BuildingProfile) => void;
   onClose: () => void;
+  /** Quanto (px) a cena desliza para a esquerda para o edifício ficar ao lado do painel; 0 ao sair. */
+  onViewShiftChange?: (px: number) => void;
 }) {
   const profileFormId = useId();
+  const side = useSyncExternalStore(subscribeWide, isWide, () => false);
+  // State, não ref: o Portal monta o conteúdo depois do 1º commit.
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
   const [buildingTab, setBuildingTab] = useState<string>(initialTab);
   const [profileEdit, setProfileEdit] = useState({ dirty: false, busy: false, ready: false, error: null as string | null });
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const editBusy = profileEdit.busy || appearanceBusy;
+
+  // offsetLeft ignora o zoom da entrada; resize reposiciona o painel.
+  useEffect(() => {
+    if (!side || !content || !onViewShiftChange) return;
+    const update = () => onViewShiftChange(window.innerWidth / 2 - content.offsetLeft + BUILDING_GAP);
+    update();
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      onViewShiftChange(0);
+    };
+  }, [side, content, onViewShiftChange]);
 
   function leaveProfile() {
     if (editBusy) return;
@@ -49,9 +81,10 @@ export function BuildingManageDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && leaveProfile()}>
+    <Dialog open modal={!side} onOpenChange={(open) => !open && leaveProfile()}>
       <DialogContent
-        className="flex h-[min(50rem,calc(var(--viewport-height,100dvh)-1rem))] max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:h-[min(50rem,calc(var(--viewport-height,100dvh)-3rem))] sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-6xl"
+        ref={setContent}
+        className={cn("flex flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground", side ? sideClass : modalClass)}
         aria-describedby={undefined}
         showCloseButton={false}
         onEscapeKeyDown={(event) => { if (editBusy) event.preventDefault(); }}
@@ -73,6 +106,7 @@ export function BuildingManageDialog({
               donationId={donationId}
               showActions={false}
               disabled={appearanceBusy}
+              compact={side}
               submitLabel="Salvar"
               onDone={(profile) => {
                 onSaved(donationId, profile);
@@ -90,6 +124,7 @@ export function BuildingManageDialog({
                 textureSettings={textureSettings}
                 onChange={(patch) => onCustomizationChange(donationId, patch)}
                 onBusyChange={setAppearanceBusy}
+                side={side}
               />
             </Suspense>
           </Tabs.Content>
