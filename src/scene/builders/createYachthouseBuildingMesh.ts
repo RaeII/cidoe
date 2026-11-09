@@ -70,6 +70,8 @@ export const YACHTHOUSE_PREVIEW_HEIGHT = 4.5;
 export const YACHTHOUSE_TOWER_CENTERS = [-TOWER_X / (2 * HALF), TOWER_X / (2 * HALF)] as const;
 // Acessório de topo assenta na cobertura em balanço da torre esquerda.
 export const YACHTHOUSE_ROOFTOP_SCALE = PLATE / HALF;
+// Helicóptero 1,8× maior: esquis ~0,8 m dentro da borda da laje, rotor ~0,9 m livre do mastro.
+export const YACHTHOUSE_HELICOPTER_SCALE = 1.8 * YACHTHOUSE_ROOFTOP_SCALE;
 
 export type YachthouseTowerFootprint = { x: number; tiers: ResidentialTierFootprint[] };
 

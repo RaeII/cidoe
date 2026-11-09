@@ -641,7 +641,7 @@ Modelo `yachthouse`, nome **Yatchcasa** (ref. `Yatchcasa .png` na raiz). Segue p
 - `mergeGeometries` por slot → **5 grupos = 5 draw calls**: `0 dourado` (= `facadeMaterial`, recebe cor da customização), `1 topo` (laje em balanço, tampa dos recuos), `2 vidro`, `3 esquadria/mastro/tampa das sacadas`, `4 embasamento bege`
 - Faixa vira 2 partes: `band()` extruda e separa grupos do `ExtrudeGeometry` (0 = tampas → slot escuro/topo, 1 = laterais → dourado)
 - Dourado: `clearTextureSlots` (sem Concrete024 — metal liso), cor `0xa67c3e`, metalness 0,6, roughness 0,35; mais claro vira creme na luz da cena. Vidro `0x24405e` (metalness 0,9), esquadria `0x2f3438`, embasamento `0x76695a` fosco — `createSceneMaterial` reflete a cidade
-- `YACHTHOUSE_TOWER_CENTERS` (±0,244), `YACHTHOUSE_ROOFTOP_SCALE` (0,26): acessório na laje da torre esquerda, mastro fica atrás dela. `getYachthouseTowerFootprints` (por torre: corpo + coroamento → LED; corpo → letreiro nas duas torres) e `getYachthouseRoofOffset` (topo da laje)
+- `YACHTHOUSE_TOWER_CENTERS` (±0,244), `YACHTHOUSE_ROOFTOP_SCALE` (0,26): acessório na laje da torre esquerda, mastro fica atrás dela. `YACHTHOUSE_HELICOPTER_SCALE` (1,8× isso): helicóptero maior; esquis ~0,8 m dentro da borda, pás ~7,9 m do mastro. `getYachthouseTowerFootprints` (por torre: corpo + coroamento → LED; corpo → letreiro nas duas torres) e `getYachthouseRoofOffset` (topo da laje)
 - `check-building-shapes.mjs`: lote, 5 slots/grupos, vão entre torres (aberto, < 5 m) e rasgo por raycast, dourado sem tampa (< 1% da área olhando pra cima), andares por altura com cache, piso/teto, tiers e cobertura, vidros marcados p/ envMap, dispose
 - Catálogo: key `yachthouse` (contrato, não muda). Backend `0012_yachthouse_building.sql` cria; `0024_yatchcasa_label.sql` renomeia label para **Yatchcasa**. Ver [[customization-api]]
 
@@ -655,6 +655,7 @@ getYachthouseTowerFootprints(width?: number, depth?: number, height?: number): Y
 getYachthouseRoofOffset(height: number): number
 YACHTHOUSE_TOWER_CENTERS: readonly [number, number]
 YACHTHOUSE_ROOFTOP_SCALE: number
+YACHTHOUSE_HELICOPTER_SCALE: number
 YACHTHOUSE_PREVIEW_HEIGHT: number
 ```
 

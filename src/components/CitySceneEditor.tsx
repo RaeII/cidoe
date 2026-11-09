@@ -354,13 +354,8 @@ export function CitySceneEditor() {
     if (infoBuildingId === null) return null;
     const donation = donations.find((d) => d.id === infoBuildingId);
     if (!donation) return null;
-    const city = cities.find((c) => c.id === donation.cityId);
-    return {
-      value: donation.value,
-      ongName: ongs.filter((o) => donation.ongIds.includes(o.id)).map((o) => o.name).join(", "),
-      place: city ? `${city.name} · ${city.uf}` : undefined,
-    };
-  }, [infoBuildingId, donations, cities, ongs]);
+    return { value: donation.value };
+  }, [infoBuildingId, donations]);
 
   // Meus edifícios: todos os registros próprios, incluindo os ocultos pelo filtro/teto.
   const myDonations = useMemo(() => {
@@ -714,8 +709,6 @@ export function CitySceneEditor() {
       {!contributeOpen && showBuildingInfo && infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
           value={infoBuilding.value}
-          ongName={infoBuilding.ongName}
-          place={infoBuilding.place}
           isOwn={infoIsOwn}
           onManage={infoIsOwn ? () => handleManageFromInfo() : undefined}
           profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}

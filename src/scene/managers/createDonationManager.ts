@@ -45,6 +45,7 @@ import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh
 import {
   getYachthouseRoofOffset,
   setYachthouseBuildingHeight,
+  YACHTHOUSE_HELICOPTER_SCALE,
   YACHTHOUSE_ROOFTOP_SCALE,
   YACHTHOUSE_TOWER_CENTERS,
 } from "../builders/createYachthouseBuildingMesh";
@@ -2450,7 +2451,7 @@ export function createDonationManager({
     // Yatchcasa: sobre a cobertura em balanço da torre esquerda (abaixo do mastro).
     group.scale.setScalar(
       isYachthouse
-        ? YACHTHOUSE_ROOFTOP_SCALE
+        ? group.userData.rooftopType === "helicopter" ? YACHTHOUSE_HELICOPTER_SCALE : YACHTHOUSE_ROOFTOP_SCALE
         : shape === "residential"
           ? RESIDENTIAL_ROOFTOP_SCALE
           : shape === "apartment"

@@ -273,13 +273,11 @@ Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena seg
 
 Na visualização dedicada de **Meus edifícios**, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco, com a interface geral oculta. O card começa fechado; **Ver como visitante** no rodapé o abre. Fora desse modo, clique em edifício abre informações e fechar limpa o foco.
 
-Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Só dono (`infoIsOwn` no editor) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]] e link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Edifício alheio ou sem login: card só visualiza — menos informação na tela. Teste de edição beta segue pelo lápis flutuante ([[index#2. Container Principal]]). Regra em [[donation-api#Quem pode editar]].
+Mostra valor (BRL) do snapshot público; sem cidade nem ONG. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Só dono (`infoIsOwn` no editor) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]] e link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Edifício alheio ou sem login: card só visualiza — menos informação na tela. Teste de edição beta segue pelo lápis flutuante ([[index#2. Container Principal]]). Regra em [[donation-api#Quem pode editar]].
 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `value` | `number` | Valor da doação |
-| `ongName` | `string?` | Nome da ONG |
-| `place` | `string?` | `"Cidade · UF"` |
 | `isOwn` | `boolean` | Doação da sessão atual |
 | `onManage` | `() => void` opcional | Abre administração; ausente = só leitura |
 | `profile` | `BuildingProfile \| null` opcional | Imagem, nome, descrição |

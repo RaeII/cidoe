@@ -1,14 +1,10 @@
 import type { BuildingProfile } from "@/api/contributionApi";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PixelClose, PixelDog } from "@/components/ui/pixel-icon";
 import { Photo } from "@/components/ui/photo";
 
 export type BuildingInfoModalProps = {
   value: number;
-  ongName?: string;
-  /** "Cidade · UF". */
-  place?: string;
   isOwn: boolean;
   /** Ausente = só leitura: edifício de outra pessoa (ou sem sessão). */
   onManage?: () => void;
@@ -24,8 +20,6 @@ const formatCurrency = (value: number) =>
 
 export function BuildingInfoModal({
   value,
-  ongName,
-  place,
   isOwn,
   onManage,
   profile,
@@ -70,16 +64,8 @@ export function BuildingInfoModal({
           <div className="mt-3 text-xl font-semibold tracking-[-0.01em] break-words">{profile.name}</div>
         )}
 
-        {place && <div className="truncate text-sm text-muted-foreground">{place}</div>}
-
         {profile?.description && (
           <p className="mt-2 text-sm leading-relaxed whitespace-pre-line break-words">{profile.description}</p>
-        )}
-
-        {ongName && (
-          <Badge variant="muted" className="mt-3 max-w-full">
-            <span className="truncate">{ongName}</span>
-          </Badge>
         )}
 
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
