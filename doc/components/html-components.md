@@ -71,7 +71,7 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 Contribuição: modal inteiro rola, incluindo cabeçalho, etapas e rodapé. Corpo sem `overflow-y-auto`/`overscroll-contain`: contêiner interno sem espaço de rolagem bloquearia gestos antes do modal. Sem corpo comprimido entre áreas fixas quando teclado abre. Sugestões de ONG/cidade limitadas à altura visível menos `6rem`, reservando espaço para input e margens. Navegação automática da ONG altera apenas `scrollTop` da lista, nunca dos ancestrais; filtro novo revela opção ativa mesmo quando índice continua em zero.
 
-Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
+Só em toque (`pointer: coarse`) e só campo de digitação (`TEXT_ENTRY`: input de texto/número, `textarea`, `contenteditable`). Mouse, checkbox, radio, range, cor, file e botões nunca rolam — senão clique no painel da cena puxava `scrollRef` e painel até o campo. Foco ou clique no campo agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
@@ -117,7 +117,7 @@ Overlay fixo no centro superior da página — é o input de doação de depura�
 **Responsabilidades:**
 - Exibir input numérico para o valor da doação
 - Ao clicar em "Doar" (ou pressionar Enter), chamar `onSubmit(value)`
-- Suporte a `onBulkSubmit(values[])` para envio de múltiplas doações em lote
+- Suporte a `onBulkSubmit(values[])` para envio de múltiplas doações em lote. Editor sorteia formato uniforme entre `catalog.shapes` ativos por edifício (sem catálogo → `default`)
 - Exibir inputs de layout de quadra: `bloco` (blockSize) e `rua` (streetWidth)
 - Limpar o campo após cada envio bem-sucedido
 - Esconder cada sub-painel conforme `visibility`

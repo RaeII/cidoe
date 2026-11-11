@@ -1,5 +1,8 @@
 import { useEffect } from "react";
 
+const TEXT_ENTRY =
+  "input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=button], [type=submit], [type=reset], [type=file], [type=image]), textarea, [contenteditable='true']";
+
 export function useVisualViewport() {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -19,8 +22,11 @@ export function useVisualViewport() {
       update();
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        // Teclado virtual só existe em toque; com mouse o foco nunca rola a tela.
+        if (!window.matchMedia("(pointer: coarse)").matches) return;
         const input = document.activeElement;
-        if (!(input instanceof HTMLElement) || !input.matches("input, textarea, [contenteditable='true']")) return;
+        // Só campo de digitação abre teclado; checkbox, range, cor etc. ficam onde estão.
+        if (!(input instanceof HTMLElement) || !input.matches(TEXT_ENTRY)) return;
         if (event.type === "click" && event.target !== input) return;
         const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
         input.scrollIntoView({ block: "start", inline: "nearest", behavior });

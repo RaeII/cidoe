@@ -211,8 +211,8 @@ export function useCityScene({
     callRuntime((runtime) => runtime.addDonation(value));
   }, [callRuntime]);
 
-  const addDonations = useCallback((values: number[]) => {
-    callRuntime((runtime) => runtime.addDonations(values));
+  const addDonations = useCallback((entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => {
+    callRuntime((runtime) => runtime.addDonations(entries));
   }, [callRuntime]);
 
   const setDonations = useCallback(

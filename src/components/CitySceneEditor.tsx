@@ -48,6 +48,7 @@ import {
 } from "../scene/config/uiVisibilityConfig";
 import type {
   BuildingCustomization,
+  BuildingShape,
   CameraDebugInfo,
   SceneStats,
 } from "../scene/types";
@@ -259,8 +260,16 @@ export function CitySceneEditor() {
     canvasRef.current?.addDonation(value);
   };
 
+  // Lote sorteia, sem peso, um modelo entre os formatos ativos do catálogo.
   const handleBulkDonation = (values: number[]) => {
-    canvasRef.current?.addDonations(values);
+    const shapes = customizationCatalog?.shapes ?? [];
+    canvasRef.current?.addDonations(values.map((value) => ({
+      value,
+      customization: shapes.length ? {
+        ...getExistingCustomization(-1),
+        buildingShape: shapes[Math.floor(Math.random() * shapes.length)].key as BuildingShape,
+      } : undefined,
+    })));
   };
 
   const handleHoverChange = useCallback(

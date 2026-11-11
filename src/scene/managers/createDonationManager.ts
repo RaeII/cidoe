@@ -204,7 +204,7 @@ type DonationManagerOptions = {
 
 export type DonationManager = {
   addDonation: (value: number) => void;
-  addDonations: (values: number[]) => void;
+  addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   /** Replace-all com o dataset do backend (IDs preservados). Usado no load inicial e ao trocar filtro. */
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateBuildingSettings: (settings: BuildingSettings) => void;
@@ -2894,16 +2894,19 @@ export function createDonationManager({
       growIfNeeded(donations.length);
       rebuildInstances();
     },
-    addDonations(values) {
-      for (const value of values) {
-        const donation = { id: nextId++, value };
+    addDonations(entries) {
+      for (const entry of entries) {
+        const donation = { id: nextId++, ...entry };
         donations.push(donation);
         donationById.set(donation.id, donation);
       }
       // Ordena uma vez e reconstrói uma vez para todo o lote
       donations.sort((a, b) => b.value - a.value);
       growIfNeeded(donations.length);
+      // Malhas de formato do lote ficam para pumpCustomShapes (fatias), como no setRebuildDeferred.
+      shapeDeadline = -Infinity;
       rebuildInstances();
+      shapeDeadline = Infinity;
     },
     setDonations(entries) {
       // Replace-all do dataset do backend (load inicial e troca de filtro).

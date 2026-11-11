@@ -67,7 +67,7 @@ export type CitySceneRuntime = {
   /** 0 = sem granulado (resolução nativa travada). >0 libera o downscale por FPS. */
   setGrain: (grain: number) => void;
   addDonation: (value: number) => void;
-  addDonations: (values: number[]) => void;
+  addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
@@ -954,9 +954,11 @@ export async function createCitySceneRuntime({
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
-    addDonations(values) {
+    addDonations(entries) {
       donationsReceived = true;
-      donationManager.addDonations(values);
+      donationManager.addDonations(entries);
+      // Cria as malhas de formato do lote em fatias (drainCustomizations → pumpCustomShapes).
+      if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
