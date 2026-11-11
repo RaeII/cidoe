@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clearTextureSlots } from "./createEmpireBuildingMesh";
+import type { FloorKitSpec } from "./createBuildingFloorKit";
 
 // Torre residencial (ref. model1.png da branch video-1):
 // sacadas em 3 lados com guarda-corpo de vidro, pano de vidro recuado atrás das
@@ -215,8 +216,8 @@ function buildResidentialGeometry(floors: number): THREE.BufferGeometry {
   for (const part of perSlot) part.dispose();
 
   // Shader triplanar da fachada lê aProjPosition/aProjNormal (sem textura aqui).
-  geometry.setAttribute("aProjPosition", geometry.getAttribute("position").clone());
-  geometry.setAttribute("aProjNormal", geometry.getAttribute("normal").clone());
+  geometry.setAttribute("aProjPosition", geometry.getAttribute("position"));
+  geometry.setAttribute("aProjNormal", geometry.getAttribute("normal"));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
@@ -230,6 +231,16 @@ function getResidentialGeometry(floors: number): THREE.BufferGeometry {
   }
   return geometry;
 }
+
+
+// Módulos instanciados da cena (térreo, andar-tipo, cobertura) saem desta geometria.
+export const RESIDENTIAL_FLOOR_KIT: FloorKitSpec = {
+  groundH: GROUND_H,
+  floorH: FLOOR_H,
+  roofExtra: ROOF_EXTRA,
+  floorCount: getResidentialFloorCount,
+  geometry: getResidentialGeometry,
+};
 
 // Mantém o pé-direito real quando a altura do edifício muda (troca geometria
 // do cache só se o número de andares mudou).
@@ -272,6 +283,13 @@ export function createSceneMaterial(
 ): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ ...params, envMap });
   material.userData.authoredEnvMapIntensity = material.envMapIntensity;
+  // Lote instanciado da cena pinta o edifício via instanceColor, que vale pra todos os
+  // slots da geometria: só pedra/reboco (slot 0) segue a cor — vidro, esquadria e
+  // detalhe descartam, como a laje de cimento.
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", "");
+  };
+  material.customProgramCacheKey = () => "authored-no-instance-color";
   if (material.transparent) material.userData.baseOpacity = material.opacity;
   return material;
 }

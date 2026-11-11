@@ -1,19 +1,22 @@
 import type { ReflectionSettings } from "../types";
 
-// Padrões alinhados ao probe da branch video-2: cube de 256 preso à câmera,
-// recapturado a cada 4 frames, sem correção de céu/horizonte e sem atenuação
-// por altura ou distância. Os controles do painel continuam expondo tudo isso.
+// Probe ESTÁTICO por padrão: cube de 256 ancorado na cidade (probeX/Y/Z), recapturado só
+// quando a cena muda. Preso à câmera ele recapturava a cada 4 frames de órbita — 6 renders
+// da cidade + PMREM por captura, pausas de 180–350 ms com 10 mil edifícios (ver
+// doc/scene/engine/relatorio-desempenho-edificios.md). Sem correção de céu/horizonte e sem
+// atenuação por altura ou distância. Os controles do painel continuam expondo tudo isso.
 export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   enabled: true,
   // 256: a fachada é espelho (roughness 0) e amostra o mip 0 — em 128 o céu/skyline vira
   // mancha lisa e o prédio parece sem reflexo.
   resolution: 256,
-  // Probe na câmera: o reflexo acompanha o ponto de vista, então cada prédio devolve
-  // o que está à frente dele em vez do cube fixo do centro da cidade.
+  // Ancorado no centro da cidade: reflexo estável em qualquer ângulo (ver comentário do
+  // probe em createCitySceneRuntime). followCamera = true devolve o probe à câmera, com o
+  // custo de recapturar enquanto ela anda.
   probeX: 0,
   probeY: 18,
   probeZ: 0,
-  followCamera: true,
+  followCamera: false,
   // Sem deslocamento de céu na captura — o cube vê o mesmo horizonte do render normal.
   skyDrop: -0.015,
   // Vetor de reflexão cru, sem achatamento em direção ao horizonte.
@@ -27,7 +30,8 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   reflectionDistanceStart: 599,
   reflectionDistanceEnd: 600,
   updateInterval: 4,
-  continuous: true,
+  // false: câmera parada ou em órbita não recaptura; só mudança de cena (com debounce).
+  continuous: false,
   // Chão, relevo e piso urbano entram no cube para aparecerem nos reflexos dos edifícios.
   // Os controles permitem excluí-los quando a prioridade for destacar céu/skyline.
   includeGround: true,

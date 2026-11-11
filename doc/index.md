@@ -72,6 +72,15 @@ O projeto é dividido em 3 grandes partes:
 
 ## Estrutura de Arquivos
 
+> [!important] Script de teste importante mora em `scripts/`
+> Todo script de teste, checagem ou medição que valha repetir fica em `scripts/`, na raiz do projeto, versionado. Nunca em pasta temporária nem solto fora do repo. Motivo: reaproveitar na próxima mudança, comparar antes/depois.
+>
+> - Cabeçalho do arquivo: comando de uso + objetivo + o que precisa (servidor, navegador, GPU ou nada).
+> - Linha própria na árvore abaixo, com o objetivo.
+> - Prefixo: `check-*` afirma (falha com `assert`); `measure-*` mede e imprime, sem afirmar.
+> - Faltou opção num script existente → estender, não criar outro.
+> - Fora da regra: rascunho descartável de uma sessão. Some ao fim.
+
 ```text
 scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
@@ -102,6 +111,13 @@ scripts/
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
+  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
+  check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
+  check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
+  check-mobile-performance.mjs ← buffers, GIFs, preparo de shaders e cache incremental; sem navegador/GPU
+  measure-building-geometry.mjs ← custo por formato: draws, materiais, triângulos e MB do cache por andar; sem servidor/navegador/GPU → [[relatorio-desempenho-edificios]]
+  measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
@@ -326,6 +342,7 @@ doc/
       scene-managers.md
       scene-builders.md
       novo-edificio.md           ← guia: criar/editar modelo de edifício, render de avaliação, limpeza
+      relatorio-desempenho-edificios.md ← relatório: lote de 10 mil edifícios de formato, causas medidas, recomendações
       scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline WebP/KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
@@ -559,6 +576,7 @@ flowchart LR
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
+| Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
 | Alterar torre Varanda Gourmet (gourmet)          | [[scene-builders#createGourmetBuildingMesh.ts]] |

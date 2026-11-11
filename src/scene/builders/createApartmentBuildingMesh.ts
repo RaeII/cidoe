@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clearTextureSlots } from "./createEmpireBuildingMesh";
+import type { FloorKitSpec } from "./createBuildingFloorKit";
 import {
   createSceneMaterial,
   type ResidentialTierFootprint,
@@ -267,8 +268,8 @@ function buildApartmentGeometry(floors: number): THREE.BufferGeometry {
   geometry.translate(0, -0.5, 0);
 
   // Shader triplanar da fachada lê aProjPosition/aProjNormal.
-  geometry.setAttribute("aProjPosition", geometry.getAttribute("position").clone());
-  geometry.setAttribute("aProjNormal", geometry.getAttribute("normal").clone());
+  geometry.setAttribute("aProjPosition", geometry.getAttribute("position"));
+  geometry.setAttribute("aProjNormal", geometry.getAttribute("normal"));
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
@@ -282,6 +283,16 @@ function getApartmentGeometry(floors: number): THREE.BufferGeometry {
   }
   return geometry;
 }
+
+
+// Módulos instanciados da cena (térreo, andar-tipo, cobertura) saem desta geometria.
+export const APARTMENT_FLOOR_KIT: FloorKitSpec = {
+  groundH: GROUND_H,
+  floorH: FLOOR_H,
+  roofExtra: ROOF_EXTRA,
+  floorCount: getApartmentFloorCount,
+  geometry: getApartmentGeometry,
+};
 
 // Mantém o pé-direito real quando a altura do edifício muda.
 export function setApartmentBuildingHeight(mesh: THREE.Mesh, height: number): void {
