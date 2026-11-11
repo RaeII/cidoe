@@ -36,8 +36,7 @@ export function BuildingHeightInput({
     const qty = parseInt(quantity, 10);
     if (isNaN(min) || isNaN(max) || isNaN(qty) || min <= 0 || max <= min || qty <= 0) return;
 
-    console.log("Quantidade", qty);
-
+    // Valor uniforme em [mín, máx); largura e textura saem do hash do id no manager.
     const values = Array.from({ length: qty }, () => min + Math.random() * (max - min));
     onBulkSubmit(values);
   };
@@ -126,12 +125,12 @@ export function BuildingHeightInput({
         <label className="mono-label text-muted-foreground">rua</label>
         <input
           type="number"
-          min={0}
-          step={0.5}
+          min={3.2}
+          step={0.1}
           value={blockLayoutSettings.streetWidth}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v >= 0) {
+            if (!isNaN(v) && v >= 3.2) {
               onBlockLayoutChange({ ...blockLayoutSettings, streetWidth: v });
             }
           }}

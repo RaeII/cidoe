@@ -8,6 +8,7 @@ const bundle = await build({
   stdin: {
     contents: [
       "export * from './src/scene/managers/createDonationManager.ts';",
+      "export { BUILDING_SHAPES } from './src/scene/builders/createBuildingShapeMesh.ts';",
       ...["building", "texture", "blockLayout"].map(
         (name) => `export * from './src/scene/config/${name}Config.ts';`,
       ),
@@ -34,6 +35,7 @@ const bundle = await build({
           export const initFacadeTextureLoader = () => {};
           export const peekFacadeTextureSet = (value) => {
             const folder = value.replace(/^texture\\//, '');
+            if (folder.startsWith('missing-')) return null;
             if (!cache.has(folder)) {
               const color = new Texture();
               color.name = folder;
@@ -110,22 +112,28 @@ manager.setFocusedDonation(null);
 for (const id of [1, 2]) {
   manager.updateDonationCustomization(id, { ...customization, buildingShape: "empire" });
 }
-const first = scene.children.find((mesh) => mesh.userData.donationId === 1);
-const second = scene.children.find((mesh) => mesh.userData.donationId === 2);
-const batched = first.geometry;
-assert.equal(batched.groups.length, 8);
-assert.equal(second.geometry, batched, "Empire não reutilizou geometria agrupada");
+// Empires iguais dividem um InstancedMesh; o foco tira o selecionado do lote (Mesh próprio).
+const dedicated = (id) => scene.children.find((mesh) => mesh.userData.donationId === id);
+const empireBatch = () => scene.children.find((mesh) => mesh.isInstancedMesh && mesh.count > 0
+  && mesh.geometry.groups.length === 8);
+assert.equal(empireBatch().count, 2, "Empires iguais não dividiram o lote instanciado");
+assert.equal(dedicated(1), undefined, "Formato de lote ganhou Mesh próprio");
+const batched = empireBatch().geometry;
 manager.setFocusedDonation(1);
-assert.equal(first.geometry, batched, "Destaque opaco perdeu batching");
-assert.equal(second.geometry, batched, "Contexto esmaecido perdeu batching");
-assert.ok(second.material.every((material) => material.transparent && material.opacity === 0.15));
-assert.ok(second.material.every((material) => !material.depthWrite), "Contexto transparente oculta o selecionado");
+const faded = empireBatch();
+assert.equal(dedicated(1).geometry, batched, "Destaque opaco perdeu batching");
+assert.equal(faded.count, 1, "Destaque continuou desenhado no lote");
+assert.equal(faded.geometry, batched, "Contexto esmaecido perdeu batching");
+assert.ok(faded.material.every((material) => material.transparent && material.opacity === 0.15));
+assert.ok(faded.material.every((material) => !material.depthWrite), "Contexto transparente oculta o selecionado");
 manager.setFocusedDonation(2);
-assert.equal(first.geometry, batched, "Troca de foco multiplicou draws");
-assert.equal(second.geometry, batched);
+assert.equal(dedicated(1), undefined, "Mesh do foco anterior vazou");
+assert.equal(dedicated(2).geometry, batched, "Troca de foco multiplicou draws");
+assert.equal(empireBatch().geometry, batched);
 manager.setFocusedDonation(null);
+const first = empireBatch();
+assert.equal(first.count, 2, "Sair do foco não devolveu o prédio ao lote");
 assert.equal(first.geometry, batched);
-assert.equal(second.geometry, batched);
 assert.ok(first.material.every((material) => !material.transparent && material.opacity === 1));
 assert.ok(first.material.every((material) => material.depthWrite));
 const stableVersions = first.material.map((mat) => mat.version);
@@ -217,15 +225,18 @@ assert.equal(holograms[1].children[0].material.uniforms.uOpacity.value, 0.4);
 
 // Vidros dos formatos residenciais voltam à opacidade e depthWrite do builder.
 manager.updateDonationCustomization(1, { ...customization, buildingShape: "residential" });
-const residential = scene.children.find((mesh) => mesh.userData.donationId === 1);
-const glass = residential.material.find((material) => material.transparent);
+const glassOf = (mesh) => mesh?.material.find?.((material) => material.transparent && material.userData.baseOpacity !== undefined);
+const residentialBatch = () => scene.children.find((mesh) => mesh.isInstancedMesh && mesh.count > 0 && glassOf(mesh));
+const glass = glassOf(residentialBatch());
 const authoredGlass = { opacity: glass.opacity, depthWrite: glass.depthWrite };
 manager.setFocusedDonation(2);
 assert.equal(glass.opacity, authoredGlass.opacity * 0.15);
 manager.setFocusedDonation(1);
-assert.equal(glass.opacity, authoredGlass.opacity);
-assert.equal(glass.depthWrite, authoredGlass.depthWrite);
+assert.equal(glassOf(dedicated(1)).opacity, authoredGlass.opacity);
+assert.equal(glassOf(dedicated(1)).depthWrite, authoredGlass.depthWrite);
 manager.setFocusedDonation(null);
+assert.equal(glassOf(residentialBatch()).opacity, authoredGlass.opacity, "Lote não voltou à opacidade autoral");
+assert.equal(glassOf(residentialBatch()).depthWrite, authoredGlass.depthWrite);
 
 // Frustum por quadra preserva todos os prédios que cruzam a imagem; probe restaura tudo.
 manager.setDonations(Array.from({ length: 200 }, (_, i) => ({ id: 100 + i, value: 200 - i })));
@@ -318,7 +329,7 @@ const composite = api.createDonationManager({
 });
 composite.setDonations([{ id: 11, value: 100 }, { id: 12, value: 50 }]);
 for (const id of [11, 12]) composite.updateDonationCustomization(id, {
-  ...customization, buildingShape: "empire", rooftopType: "helicopter", edgeLightType: "led",
+  ...customization, buildingShape: "empire", tilingScale: 1.1, rooftopType: "helicopter", edgeLightType: "led",
 });
 const compositeBuildings = compositeScene.children.filter((mesh) => mesh.userData.donationId);
 const originalMaterials = compositeBuildings.map((mesh) => mesh.material);
@@ -361,3 +372,103 @@ assert(!composite.hasFocusedDonation());
 assert(!compositeScene.children.includes(compositeHighlight), "Dataset novo deixou destaque órfão");
 composite.dispose();
 console.log("ok composição — aparência autoral, grupos, acessórios, camadas, seleção e restauração");
+
+// Geração interrompida mantém um corpo visível e termina mesmo com orçamento esgotado.
+const generationScene = new THREE.Scene();
+const generation = api.createDonationManager({
+  scene: generationScene, renderer: { capabilities: { getMaxAnisotropy: () => 4 } },
+  buildingSettings: api.createDefaultBuildingSettings(),
+  textureSettings: { ...api.createDefaultTextureSettings(), textureKey: "texture/global" },
+  blockLayoutSettings: api.createDefaultBlockLayoutSettings(),
+});
+const bodies = () => generationScene.children.filter((mesh) => mesh.isMesh && Array.isArray(mesh.material)
+  && mesh.material[0].isMeshPhysicalMaterial && mesh.visible);
+const bodyCount = () => bodies().reduce((sum, mesh) => sum + (mesh.isInstancedMesh ? mesh.count : 1), 0);
+const generatedIds = generation.addDonations(Array.from({ length: 240 }, (_, i) => i + 1));
+generation.setRebuildDeferred(true);
+generatedIds.forEach((id, i) => generation.updateDonationCustomization(id, {
+  ...customization, buildingShape: api.BUILDING_SHAPES[1 + i % (api.BUILDING_SHAPES.length - 1)],
+}));
+generation.setRebuildDeferred(false);
+assert.equal(bodyCount(), generatedIds.length, "Prédios pendentes ficaram sem corpo visível");
+let pumps = 0;
+while (generation.pumpCustomShapes(0) && ++pumps < 600) {
+  assert.equal(bodyCount(), generatedIds.length, "Fatia perdeu/duplicou edifícios");
+}
+assert(pumps < 600, "Fila não progride quando a varredura consome o orçamento");
+assert.equal(bodyCount(), generatedIds.length);
+const farCamera = new THREE.Vector3(10000, 100, 10000);
+const forward = new THREE.Vector3(0, 0, 1);
+generation.setRenderDistance(0, 0, Infinity);
+assert.equal(generation.updateDistanceCulling(farCamera, forward), generatedIds.length, "Cull contou caixa e formato duas vezes");
+assert.equal(bodyCount(), 0);
+generation.setRenderDistance(Infinity, Infinity, Infinity);
+assert.equal(generation.updateDistanceCulling(farCamera, forward), 0);
+assert.equal(bodyCount(), generatedIds.length, "Formatos não voltaram após ampliar alcance");
+generation.beginEnvCapture(true);
+generation.endEnvCapture();
+assert.equal(bodyCount(), generatedIds.length, "Captura deixou edifício invisível/duplicado");
+
+// Falha de textura própria usa a global, sem conservar uma seleção antiga.
+const edit = { ...customization, buildingShape: "twisted", tilingScale: 1.1, textureKey: "texture/selected" };
+generation.updateDonationCustomization(generatedIds[0], edit);
+const edited = () => generationScene.children.find((mesh) => mesh.userData.donationId === generatedIds[0]);
+assert.equal(edited().material[0].map.name, "selected");
+generation.updateDonationCustomization(generatedIds[0], { ...edit, textureKey: "texture/missing-facade" });
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(edited().material[0].map.name, "global", "Textura que falhou não recebeu fallback");
+
+// Gerar/editar durante foco não transforma a opacidade reduzida em aparência permanente.
+generation.setFocusedDonation(generatedIds[1]);
+generation.updateDonationCustomization(generatedIds[2], { ...edit, textureKey: null });
+generation.setFacadeTexturePool(["texture/global", "texture/late"]);
+generation.setFocusedDonation(null);
+const newBody = generationScene.children.find((mesh) => mesh.userData.donationId === generatedIds[2]);
+assert.equal(newBody.material[0].opacity, 1, "Novo prédio herdou transparência do foco");
+assert.equal(newBody.material[1].opacity, 1, "Topo herdou transparência do foco");
+const lateGroup = bodies().find((mesh) => mesh.isInstancedMesh && mesh.material[0].map?.name === "late");
+assert.equal(lateGroup.material[0].opacity, 1, "Novo grupo de textura herdou transparência do foco");
+generation.updateTextureSettings({ ...api.createDefaultTextureSettings(), enabled: false });
+for (const material of newBody.material.slice(0, 2)) {
+  assert.equal(material.metalness, api.createDefaultBuildingSettings().metalness, "Sem mapa conservou metalness da textura");
+  assert.equal(material.roughness, api.createDefaultBuildingSettings().roughness, "Sem mapa conservou roughness da textura");
+}
+generation.dispose();
+console.log("ok geração — progresso sem orçamento, corpos pendentes, textura ausente e opacidade após foco");
+
+// Bounding boxes reais: torção e ruas estreitas não podem colocar um corpo dentro do outro.
+for (const layout of [
+  api.createDefaultBlockLayoutSettings(),
+  { ...api.createDefaultBlockLayoutSettings(), blockSize: 2, streetWidth: 0 },
+  { ...api.createDefaultBlockLayoutSettings(), centerTallest: true, streetWidth: 1 },
+]) {
+  const overlapScene = new THREE.Scene();
+  const overlap = api.createDonationManager({
+    scene: overlapScene, renderer: { capabilities: { getMaxAnisotropy: () => 4 } },
+    buildingSettings: api.createDefaultBuildingSettings(), textureSettings: api.createDefaultTextureSettings(),
+    blockLayoutSettings: layout,
+  });
+  const ids = overlap.addDonations(Array.from({ length: 700 }, (_, i) => i + 1));
+  overlap.setRebuildDeferred(true);
+  ids.forEach((id) => overlap.updateDonationCustomization(id, { ...customization, buildingShape: "twisted" }));
+  overlap.setRebuildDeferred(false);
+  assert.equal(overlap.pumpCustomShapes(Infinity), false);
+  const boxes = [];
+  const transform = new THREE.Matrix4();
+  for (const mesh of overlapScene.children) {
+    if (!mesh.isInstancedMesh || !Array.isArray(mesh.material) || !mesh.material[0].isMeshPhysicalMaterial) continue;
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, transform);
+      boxes.push(mesh.geometry.boundingBox.clone().applyMatrix4(transform));
+    }
+  }
+  assert.equal(boxes.length, ids.length);
+  boxes.sort((a, b) => a.min.x - b.min.x);
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length && boxes[j].min.x < boxes[i].max.x - 1e-5; j++) {
+    assert(boxes[j].min.z >= boxes[i].max.z - 1e-5 || boxes[j].max.z <= boxes[i].min.z + 1e-5,
+      `Edifícios sobrepostos: bloco ${layout.blockSize}, rua ${layout.streetWidth}, centro ${layout.centerTallest}`);
+  }
+  overlap.dispose();
+}
+console.log("ok lotes — torres torcidas sem sobreposição nos dois layouts e com rua estreita");

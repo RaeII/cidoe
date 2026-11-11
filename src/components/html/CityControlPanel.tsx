@@ -201,6 +201,10 @@ export function CityControlPanel({
               value={lightSettings}
               metrics={lightMetrics}
               onChange={onLightSettingsChange}
+              reflectionEnabled={reflectionSettings.enabled}
+              onReflectionEnabledChange={(enabled) =>
+                onReflectionSettingsChange({ ...reflectionSettings, enabled })
+              }
             />
           </div>
         )}
@@ -230,6 +234,34 @@ export function CityControlPanel({
             >
               <div className="space-y-2">
                 <CheckboxField
+                  label="Simular contribuição"
+                  checked={uiVisibility.contributionButton !== false}
+                  onChange={(contributionButton) =>
+                    onUIVisibilityChange({ ...uiVisibility, contributionButton })
+                  }
+                />
+                <CheckboxField
+                  label="Componente de indicação"
+                  checked={uiVisibility.referralHud !== false}
+                  onChange={(referralHud) =>
+                    onUIVisibilityChange({ ...uiVisibility, referralHud })
+                  }
+                />
+                <CheckboxField
+                  label="Meus edifícios"
+                  checked={uiVisibility.myBuildingsButton !== false}
+                  onChange={(myBuildingsButton) =>
+                    onUIVisibilityChange({ ...uiVisibility, myBuildingsButton })
+                  }
+                />
+                <CheckboxField
+                  label="Botão do menu"
+                  checked={uiVisibility.menuButton !== false}
+                  onChange={(menuButton) =>
+                    onUIVisibilityChange({ ...uiVisibility, menuButton })
+                  }
+                />
+                <CheckboxField
                   label="Log de posição da câmera"
                   checked={uiVisibility.cameraLog}
                   onChange={(cameraLog) => onUIVisibilityChange({ ...uiVisibility, cameraLog })}
@@ -258,6 +290,13 @@ export function CityControlPanel({
                   checked={uiVisibility.buildingLayoutCard}
                   onChange={(buildingLayoutCard) =>
                     onUIVisibilityChange({ ...uiVisibility, buildingLayoutCard })
+                  }
+                />
+                <CheckboxField
+                  label="Card de distância dos edifícios"
+                  checked={uiVisibility.renderDistanceCard}
+                  onChange={(renderDistanceCard) =>
+                    onUIVisibilityChange({ ...uiVisibility, renderDistanceCard })
                   }
                 />
               </div>

@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+const NO_KEYBOARD = new Set(["checkbox", "radio", "range", "color", "file", "button", "submit", "reset", "image"]);
+
 export function useVisualViewport() {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -17,10 +19,14 @@ export function useVisualViewport() {
     const revealInput = (event: Event) => {
       if (viewport.scale !== 1) return;
       update();
+      // Mouse/teclado físico: nenhum teclado virtual cobre o campo, alinhar ao topo só rolava a página.
+      if (!window.matchMedia("(pointer: coarse)").matches) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const input = document.activeElement;
         if (!(input instanceof HTMLElement) || !input.matches("input, textarea, [contenteditable='true']")) return;
+        // Checkbox, rádio, slider etc. não abrem teclado: alinhar ao topo rolava a página no clique.
+        if (NO_KEYBOARD.has((input as HTMLInputElement).type)) return;
         if (event.type === "click" && event.target !== input) return;
         const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
         input.scrollIntoView({ block: "start", inline: "nearest", behavior });

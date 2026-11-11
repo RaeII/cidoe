@@ -135,7 +135,8 @@ Valores padrão das luzes:
 
 - Ambient (cor, intensidade extra)
 - Hemisphere (cor do céu, cor do chão, intensidade)
-- Directional (distância, elevação, azimute, alvo)
+- `ledSpillEnabled` = true (luz do LED nos vizinhos)
+- Directional (cor, `directionalEnabled` = false, `directionalIntensity` = 6, distância, elevação 68°, azimute −242°, alvo). Só liga/desliga, cor, intensidade, elevação e azimute afetam a cena
 
 **Funções exportadas:**
 - `DEFAULT_LIGHT_SETTINGS`
@@ -231,14 +232,19 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 
 | Campo | Padrão | Esconde |
 |---|---|---|
+| `contributionButton` | `true` | Botão **Simular contribuição** (mantém o diálogo montado) |
+| `referralHud` | `true` | Placa de indicação com logo no topo da cena |
+| `myBuildingsButton` | `true` | Botão **Meus edifícios** no topo da cena |
+| `menuButton` | `true` | Botão de avatar/nome que abre o menu da conta |
 | `cameraLog` | `false` | Log de posição da câmera — placa **Camera default** (canto inferior esquerdo) |
-| `donationInput` | `true` | Input de doação individual |
-| `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
-| `blockLayoutInput` | `true` | Input de configuração de quadras |
+| `donationInput` | `false` | Input de doação individual (admin) |
+| `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd, admin) |
+| `blockLayoutInput` | `false` | Input de configuração de quadras (admin) |
 | `buildingLayoutCard` | `false` | Card **Organização dos edifícios** (layout + teto) |
+| `renderDistanceCard` | `true` | Card de distância dos edifícios (à frente + atrás, canto inferior esquerdo) |
 
 **Funções exportadas:**
-- `createDefaultUIVisibilitySettings()` — inputs visíveis; log de câmera e card de organização desligados (menos informação na tela). Aba **Tela** liga
+- `createDefaultUIVisibilitySettings()` — simulação, indicação, Meus edifícios, botão do menu, geração em lote e card de distância visíveis; doação individual, quadras, log de câmera e card de organização desligados. Aba **Tela** liga/desliga
 - `loadUIVisibilitySettings()` — lê `localStorage`, mescla com defaults (campo ausente/inválido cai no default); seguro contra JSON corrompido e `localStorage` bloqueado
 - `saveUIVisibilitySettings(settings)` — grava no `localStorage`, falha silenciosa se bloqueado
 

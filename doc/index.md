@@ -11,7 +11,7 @@ aliases:
 
 # Cidoe — Documentação
 
-Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
+Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável (ambient + IBL + luz do sol sem sombra) — tudo controlável via painel em tempo real.
 
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.
@@ -44,7 +44,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 
 **Pré-lançamento** no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). Metadados usam apresentação permanente da marca, igual à `main`. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
 
-Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. **Beta aberto**: qualquer visitante, logado ou não, administra e personaliza qualquer edifício (seed, próprio ou alheio) com todo o catálogo liberado (`editorCatalog`, sem passe). Alteração vale só no navegador. Passe/recompensas seguem com progresso real.
+Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout, log de câmera e gerador em lote (`BuildingHeightInput`, liga/desliga na aba **Tela**) também exclusivos de admin. Gerados só na cena, sem persistir; somem no próximo `setDonations`. Criação pública passa pelo fluxo local persistido. **Beta aberto**: qualquer visitante, logado ou não, administra e personaliza qualquer edifício (seed, próprio ou alheio) com todo o catálogo liberado (`editorCatalog`, sem passe). Alteração vale só no navegador. Passe/recompensas seguem com progresso real.
 
 ### Limites
 
@@ -213,7 +213,7 @@ src/
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
       toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
-    AuthMenu.tsx                  ← Entrar, Meus edifícios e menu do usuário na cena; fluxo de indicação; monta o onboarding
+    AuthMenu.tsx                  ← Entrar, Meus edifícios e menu do usuário na cena; botões Meus edifícios/avatar liga/desliga pela aba Tela; fluxo de indicação; monta o onboarding
     OnboardingDialog.tsx          ← 1º login: cidade + como conheceu, opcional, uma vez por conta, "Pular"
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
@@ -235,6 +235,7 @@ src/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
+      RenderDistanceCard.tsx       ← card flutuante: distância dos edifícios à frente + atrás
       DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
@@ -417,8 +418,9 @@ E entrega para:
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar (só dono) ou pelo lápis flutuante.
 - [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e barra de categorias permanecem visíveis enquanto apenas as opções rolam. Barra embaixo em anel infinito (ativa sempre no centro, vizinhas menores e esmaecidas); arrastar itens ou barra, rolar, clicar ou setas trocam categoria, com loop nos dois sentidos. Duas colunas no tablet. Aparência salva automaticamente; **Concluir** no cabeçalho. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
-- [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
+- [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — admin: gerador em lote (valores aleatórios), doação individual e quadras, cada um pela aba **Tela**
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
+- [[html-components#RenderDistanceCard.tsx|RenderDistanceCard]] — card flutuante: só os dois sliders de distância dos edifícios (à frente, atrás)
 
 Também gerencia:
 
@@ -426,7 +428,7 @@ Também gerencia:
 - Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e com margem no mobile), setas só com ícones nas laterais, Personalizar/Ver como visitante com fundo no rodapé e X para restaurar interface/câmera. Ver como visitante troca rodapé por Voltar (seta), que fecha card e volta à navegação. Clique na cena também encerra o modo e restaura os componentes; chão limpa foco, outro edifício abre informações. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
 - Contribuição no pré-lançamento: máximo 3 edifícios locais por conta/navegador, mínimo R$ 5; aumento mantém cidade e acumula ONGs. Confirmação grava somente localStorage; nunca cria cobrança ou edifício no banco. Ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
-- Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
+- Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(entries)` (lote do admin sorteia formato do catálogo)
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--edit-x`/`--edit-y` direto no estilo, sem re-render. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé. Wrapper sempre montado (`hidden`) guarda última posição. Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
 - Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay, prévia nem aviso âmbar; barra de categorias em anel embaixo, opções em 3 colunas; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
@@ -548,8 +550,10 @@ flowchart LR
 | Postes de luz nas ruas (quantidade, altura, luz) | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Ocultar Meus edifícios ou botão do menu da conta | aba **Tela** → `myBuildingsButton` / `menuButton` em [[scene-types#UIVisibilitySettings]] |
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
+| Distância dos edifícios direto na tela           | [[html-components#RenderDistanceCard.tsx]]        |
 | Visualizar/administrar edifícios próprios       | [[html-components#BuildingManageDialog.tsx]]    |
 | Botão Contribuir / fluxo de contribuição         | [[html-components#ContributeDialog.tsx]]          |
 | Busca de ONG / campo de valor / resumo da simulação     | [[html-components#ContributeDialog.tsx]] · `src/lib/moneyInput.ts` · `scripts/check-contribution.mjs` |

@@ -73,11 +73,11 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 Contribuição: modal inteiro rola, incluindo cabeçalho, etapas e rodapé. Corpo sem `overflow-y-auto`/`overscroll-contain`: contêiner interno sem espaço de rolagem bloquearia gestos antes do modal. Sem corpo comprimido entre áreas fixas quando teclado abre. Sugestões de ONG/cidade limitadas à altura visível menos `6rem`, reservando espaço para input e margens. Navegação automática da ONG altera apenas `scrollTop` da lista, nunca dos ancestrais; filtro novo revela opção ativa mesmo quando índice continua em zero.
 
-Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
+Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Checkbox, rádio, slider, cor, arquivo e botões (`NO_KEYBOARD`) ficam fora: não abrem teclado, e alinhar ao topo rolava a página para baixo no clique (painel de configurações, termos). Ponteiro fino (`pointer: coarse` falso = desktop, teclado físico) pula alinhamento: nada cobre campo, e rolar ao topo descia página no clique (geradores de edifício do admin). Variáveis de viewport seguem atualizando. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
-Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo. `aside aria-label="Cidoe"`, logo oficial `public/logo.webp` 32px (`alt=""`) e conteúdo inteiros em `referral/ReferralHud.tsx`; editor só passa `rewards` + `onLogin` (abre `AuthDialog`). Logo visível na 1ª tela pro visitante deslogado, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
+Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo. `aside aria-label="Cidoe"`, logo oficial `public/logo.webp` 32px (`alt=""`) e conteúdo inteiros em `referral/ReferralHud.tsx`; editor só passa `rewards` + `onLogin` (abre `AuthDialog`). Visível por padrão; admin pode ocultar a placa inteira (inclusive logo) em **Tela → Componente de indicação** (`referralHud`). Logo visível na 1ª tela pro visitante deslogado, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
 
 - **Logado com próxima faixa** — `referral/ReferralHud.tsx`. Linha 1: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, `truncate` só como último recurso). Linha 2: `ReferralBar size="sm"` + `PixelGift` âmbar no fim (= presente a chegar). Largura segue o texto.
   - `ReferralBar` (exportada de `ReferralHud.tsx`, mesma no menu): incentivo, não contagem real. Até 3 blocos (`min(3, meta + 1)`), sempre 1+ aceso. Vazios = indicações que faltam, até 2. Meta 2 sem indicação → ■□□; meta 3 faltando 1 → ■■□; meta 4 faltando 2 → ■□□. Vazios sem cor (`bg-muted`, `highlightNext={false}`). Meta = próxima faixa da campanha (`nextChoice.referralMin`).
@@ -116,7 +116,7 @@ Seção abaixo da cena pública = home do projeto. Composição do [[desingn-sys
 
 ### `BuildingHeightInput.tsx`
 
-Componente de depuração preservado no código, não montado na versão de pré-lançamento. Criação pública usa simulação persistida em `ContributeDialog`. Monta 3 sub-painéis empilhados, cada um liga/desliga independente via `visibility` (ver aba **tela** em [[#CityControlPanel.tsx]]):
+Gerador de teste do admin. Montado pelo `CitySceneEditor` só com `isAdmin`, cena carregada, fora de Meus edifícios e da edição. Criação pública segue na simulação persistida do `ContributeDialog`. Edifícios gerados só na cena: nada no `localStorage`/banco, somem no próximo `setDonations` (filtro, teto, contribuição). Monta 3 sub-painéis empilhados no topo central, cada um liga/desliga independente via `visibility` (aba **tela** em [[#CityControlPanel.tsx]]); padrão só lote ligado:
 
 1. **Doação individual** — `visibility.donationInput`
 2. **Geração em lote** (mín/máx/qtd) — `visibility.bulkInput`
@@ -125,8 +125,8 @@ Componente de depuração preservado no código, não montado na versão de pré
 **Responsabilidades:**
 - Exibir input numérico para o valor da doação
 - Ao clicar em "Doar" (ou pressionar Enter), chamar `onSubmit(value)`
-- Suporte a `onBulkSubmit(values[])` para envio de múltiplas doações em lote
-- Exibir inputs de layout de quadra: `bloco` (blockSize) e `rua` (streetWidth)
+- Lote: `qtd` valores uniformes em `[mín, máx)` → `onBulkSubmit` → `handleBulkGenerate` → `canvasRef.addDonations({ value, customization }[])`. Formatos ativos, sem Padrão, **mesma chance por formato**; sem peso extra pros residenciais. Catálogo pendente → caixa padrão. Lotes repetidos somam; sem teto de quantidade. Runtime gera em fatias, mantendo cena e câmera atualizadas; caixa provisória ocupa cada prédio pendente até o formato substituir seu corpo ([[scene-managers#Fila de customização]]). Formatos compatíveis usam instancing por material/geometria; andares diferentes ainda aumentam grupos e custo de render. Altura segue valor; largura/textura seguem hash do id. Personalização sorteada só na cena; painel do gerado ainda abre como Padrão. Validação: `mín > 0`, `máx > mín`, `qtd > 0`.
+- Layout: `bloco` (`blockSize`) e `rua` (`streetWidth`, mínimo 3,2). Manager aplica esse piso também em preferências antigas, impedindo lotes vizinhos de se sobrepor.
 - Limpar o campo após cada envio bem-sucedido
 - Esconder cada sub-painel conforme `visibility`
 - Não conhece Three.js nem estado global
@@ -170,6 +170,18 @@ Card flutuante no canto superior esquerdo. Tira do painel os dois controles que 
 
 > [!note] Corte é por valor, não por ordem do dataset
 > `CitySceneEditor` ordena por valor desc antes de cortar (`visibleDonations`), então o teto mantém as **maiores** doações. Lista completa passa direto, sem cópia nem sort.
+
+---
+
+### `RenderDistanceCard.tsx`
+
+Admin, canto inferior esquerdo (mesma pilha do [[#BuildingLayoutCard.tsx]]). Só os dois sliders de corte dos edifícios da aba **Horizonte** — **À frente** (`distance`) e **Atrás da câmera** (`backDistance`). Sem título, sem `×`: aba **Tela** liga/desliga (`renderDistanceCard: true` padrão). Mesmo estado do painel — mexer num reflete no outro.
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `settings` | `HorizonSettings` | Lê `distance`/`backDistance` |
+| `onChange` | `(s: HorizonSettings) => void` | Mesmo setter da aba Horizonte |
 
 ---
 
@@ -220,7 +232,7 @@ Barra temporariamente oculta na tela principal: `SHOW_DONATION_FILTERS = false` 
 
 Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não conclui simulação.
 
-Gatilho some com edifício de outra pessoa em foco (card ou personalização): `hideTrigger={viewingOthers}` no editor. Tela só de visualização.
+Gatilho some com edifício de outra pessoa em foco ou durante a personalização. Admin também pode ocultar só o botão em **Tela → Simular contribuição** (`contributionButton`); o diálogo continua montado para preservar o fluxo em andamento.
 
 Gatilho: `lg` centrado a 28px do rodapé (`bottom-7`, livra o [[#Aviso de pré-lançamento (CitySceneEditor.tsx)|aviso]] embaixo). Mobile: `left-4 right-20`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-7 right-4`; admin sobe para `bottom-[5.5rem]`, livra a engrenagem).
 
@@ -305,6 +317,8 @@ Visualização dedicada sobre a cidade, sem painel/modal de navegação. **Meus 
 ### `GameMenu.tsx`
 
 Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). **Meus edifícios** na cena leva direto à [[#MyBuildingsNavigation.tsx|navegação na cidade]]. Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
+
+Aba **Tela** controla os botões **Meus edifícios** (`myBuildingsButton`) e **Botão do menu** (`menuButton`, avatar/nome) separadamente. Editor passa `showMyBuildingsButton` e `showMenuButton` ao `AuthMenu`; ambos opcionais, padrão `true`. Ocultar os botões mantém `AuthMenu`, `GameMenu`, onboarding e diálogos montados.
 
 - **Fundo** — `DialogOverlay` padrão (`bg-tinta/72`, sem blur), fade 500 ms: cena escurece ao abrir.
 - **Visual** — placas de papel do HUD ([[desingn-system-index#Interface sobre a cidade]]): `pixel bevel-edge bg-background`, edifício em quadrado verde com `PixelBuilding`, progresso em `BlockBar`, âmbar só na recompensa de indicação.
@@ -472,14 +486,16 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Geral** | Intro, prédios, **organização dos edifícios** (por quadra ↔ mais alto no centro), **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Reflexo** | Probe do envMap: on/off, intensidade, resolução, posição, céu na captura, o que entra na captura, cadência — ver [[#ReflectionControls.tsx]] |
-| **Luz** | Ambient, hemisphere, directional |
+| **Luz** | Ambient, reflexo liga/desliga, luz do LED nos vizinhos, luz do sol (liga/desliga, intensidade, direção, altura) |
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto (Simular contribuição, componente de indicação, Meus edifícios, botão do menu, log de câmera, 3 inputs de geração/posição e cards de organização/distância). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]) e `grain: number` + `onGrainChange`.
+
+**Simular contribuição**, **Componente de indicação**, **Meus edifícios** e **Botão do menu** são independentes e ligados por padrão, inclusive em preferências antigas sem os campos novos. Preferências salvas pelo `useLocalSceneState("visibility", ...)` por conta/navegador.
 
 Aba **Tela** tem duas seções inline (não componentizadas):
 
@@ -664,7 +680,10 @@ Controles do relevo procedural ao redor da cidade na aba **terreno** (ver [[scen
 Luzes gerais da cena:
 
 - Ambient light
-- Directional light (posição por ângulos esféricos, alvo)
+- **Reflexo ativo** (`CheckboxField`) — mesmo `ReflectionSettings.enabled` da aba **Reflexo** ([[#ReflectionControls.tsx]]), repetido aqui pra desligar rápido e aliviar GPU. Props `reflectionEnabled`/`onReflectionEnabledChange`; `CityControlPanel` faz o merge em `reflectionSettings`
+- **Luz do LED nos vizinhos** (`CheckboxField`) → `ledSpillEnabled`. Desligar tira o pool de `PointLight` do LED ([[scene-managers#Fora do reflexo, dentro da luz]]) — maior ganho no celular quando há LED
+- **Luz do sol** (`CheckboxField`) → `directionalEnabled`. Lado virado pro sol clareia, oposto fica mais escuro; sem sombra ([[scene-builders#createLightingRig.ts]]). Desligar guarda a intensidade
+- Só com o sol ligado: **Intensidade do sol** (0,5–20), **Direção do sol** (azimute −360–360°) e **Altura do sol** (elevação 5–90°). Altura também move o ambient dinâmico (`getLightMetrics` deriva intensidade solar da elevação)
 - Métricas derivadas como intensidade solar
 
 ---

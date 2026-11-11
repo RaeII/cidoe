@@ -69,7 +69,7 @@ export type CitySceneRuntime = {
   /** 0 = sem granulado (resolução nativa travada). >0 libera o downscale por FPS. */
   setGrain: (grain: number) => void;
   addDonation: (value: number) => void;
-  addDonations: (values: number[]) => void;
+  addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
@@ -329,6 +329,8 @@ export async function createCitySceneRuntime({
     if (night) {
       lightingRig.ambient.color.set(NIGHT_PRESET.ambientColor);
       lightingRig.ambient.intensity = metrics.ambientTotal * NIGHT_PRESET.ambientScale;
+      lightingRig.directional.color.set(NIGHT_PRESET.ambientColor);
+      lightingRig.directional.intensity *= NIGHT_PRESET.ambientScale;
     }
     scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1;
     if (scene.fog instanceof THREE.FogExp2) {
@@ -387,6 +389,8 @@ export async function createCitySceneRuntime({
   );
   // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
   applyNightMode();
+  // Estado salvo antes do campo existir vem sem ledSpillEnabled → ligado.
+  donationManager.setLedSpill(lightSettings.ledSpillEnabled ?? true);
   terrainRig.setCityRadius(donationManager.getCityRadius());
 
   // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
@@ -585,6 +589,7 @@ export async function createCitySceneRuntime({
     } else {
       shapesPending = donationManager.pumpCustomShapes(SLICE_MS);
     }
+    if (pendingCustomizations.size === 0 && !shapesPending) requestCompile();
     markCubeDirty();
     if (pendingCustomizations.size > 0 || shapesPending) {
       customizationTimer = window.setTimeout(drainCustomizations, 0);
@@ -635,7 +640,7 @@ export async function createCitySceneRuntime({
     controls.update();
 
     // Interpolar câmera durante animação de foco
-    if (cameraAnim && !compileRequested && !compiling && pendingCustomizations.size === 0 && !shapesPending) {
+    if (cameraAnim && !compileRequested && !compiling) {
       renderNeeded = true;
       cullPending = true;
       cameraAnim.progress = Math.min(1, cameraAnim.progress + delta / cameraAnim.duration);
@@ -648,7 +653,7 @@ export async function createCitySceneRuntime({
         cameraAnim = null;
       }
     }
-    if (viewShift !== viewShiftTarget && !compileRequested && !compiling && pendingCustomizations.size === 0 && !shapesPending) {
+    if (viewShift !== viewShiftTarget && !compileRequested && !compiling) {
       viewShift += (viewShiftTarget - viewShift) * (1 - Math.exp(-delta * 8));
       if (Math.abs(viewShiftTarget - viewShift) < 0.5) viewShift = viewShiftTarget;
       applyViewShift();
@@ -675,12 +680,11 @@ export async function createCitySceneRuntime({
       }
     }
 
-    // Fila de customização drenando: objetos novos chegam a cada fatia. Compila e desenha
-    // uma vez no fim, não a cada fatia.
+    // Prepara os novos programas no fim da fila; corpos provisórios mantêm a cena visível.
     const draining = pendingCustomizations.size > 0 || shapesPending;
     if (compileRequested && !compiling && !draining) void runCompilePass();
     // Nada mudou, ou shader ainda compilando: o canvas segura o último frame.
-    if (!renderNeeded || compiling || draining) {
+    if (!renderNeeded || compiling) {
       renderedLastTick = false;
       return;
     }
@@ -757,6 +761,7 @@ export async function createCitySceneRuntime({
     const cameraMovedSinceCapture = () =>
       currentReflection.followCamera && camera.position.distanceToSquared(lastCapturePos) > 1e-6;
     if (
+      !draining &&
       cubeActive() &&
       cubeFrameCounter === 0 &&
       (
@@ -833,7 +838,7 @@ export async function createCitySceneRuntime({
     }
     // Sinal pro loading da página sair: frame com céu, shaders prontos, cidade recebida, fila
     // de customização vazia (gate acima) e nenhuma textura baixando. Volta a false no onStart.
-    if (envLoaded && donationsReceived && !assetsLoading) emitStatsPatch({ sceneReady: true });
+    if (envLoaded && donationsReceived && !assetsLoading && !draining && !compileRequested) emitStatsPatch({ sceneReady: true });
   };
 
   // 1º frame no próximo rAF, não dentro do effect de mount.
@@ -903,8 +908,13 @@ export async function createCitySceneRuntime({
       markCubeDirty();
     },
     updateLightSettings(settings) {
+      const spillChanged = (settings.ledSpillEnabled ?? true) !== (currentLight.ledSpillEnabled ?? true);
       currentLight = settings;
+      const hadDirectional = lightingRig.directional.visible;
       applyNightMode();
+      donationManager.setLedSpill(settings.ledSpillEnabled ?? true);
+      // Ligar/desligar direcional ou luz do LED muda a contagem de luzes → programas recompilam.
+      if (spillChanged || lightingRig.directional.visible !== hadDirectional) requestCompile();
       markCubeDirty();
     },
     updateHorizonSettings(settings) {
@@ -993,9 +1003,16 @@ export async function createCitySceneRuntime({
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
-    addDonations(values) {
+    addDonations(entries) {
       donationsReceived = true;
-      donationManager.addDonations(values);
+      const ids = donationManager.addDonations(entries.map((entry) => entry.value));
+      // Formato/acessórios entram pela fila fatiada, igual à rajada pós-setDonations.
+      entries.forEach(({ customization }, i) => {
+        if (customization) pendingCustomizations.set(ids[i], customization);
+      });
+      // Manager adiou malhas de formato e troca de andares dos existentes: sempre bombear.
+      shapesPending = true;
+      if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();

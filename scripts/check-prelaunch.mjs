@@ -206,5 +206,8 @@ for (const isAdmin of [false, true]) {
 assert.match(editorSource, /isAdmin && showControlPanel &&/);
 assert.match(editorSource, /isAdmin && !showControlPanel &&/);
 assert.match(editorSource, /window.addEventListener\("pagehide", flushPending\)/);
-assert.doesNotMatch(editorSource, /upsertDonations|refreshOwned|<BuildingHeightInput/);
+assert.doesNotMatch(editorSource, /upsertDonations|refreshOwned/);
+// Gerador de teste (lote/individual) só para admin; público cria pela simulação persistida.
+assert.match(editorSource, /isAdmin && !myBuildingsOpen && selectedBuildingId === null && \(\s*<BuildingHeightInput/);
+assert.equal(editorSource.match(/<BuildingHeightInput/g).length, 1, "Gerador montado num ponto só");
 console.log("Pré-lançamento: isolamento, reload, centavos, limites, perfil/aparência, falhas locais, zero mutações HTTP e acesso admin OK.");

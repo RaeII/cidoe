@@ -84,6 +84,7 @@ const bundle = await build({
   stdin: {
     contents: [
       "export * from './src/scene/runtime/createCitySceneRuntime.ts';",
+      "export { setApartmentBuildingHeight } from './src/scene/builders/createApartmentBuildingMesh.ts';",
       ...["cityScene", "building", "texture", "ground", "terrain", "light", "horizon", "environment", "reflection", "blockLayout"]
         .map((name) => `export * from './src/scene/config/${name}Config.ts';`),
     ].join("\n"),
@@ -103,7 +104,7 @@ const bundle = await build({
     },
   }],
 });
-globalThis.window = { devicePixelRatio: 2.75, matchMedia: () => ({ matches: true }), addEventListener() {}, removeEventListener() {} };
+globalThis.window = { devicePixelRatio: 2.75, matchMedia: () => ({ matches: true }), addEventListener() {}, removeEventListener() {}, setTimeout };
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 globalThis.horizonCheck = { renders: 0, pointerListeners: new Map() };
 const documentListeners = new Map();
@@ -151,7 +152,7 @@ autoFrames = false;
 await delay(0);
 await advance();
 const { scene, camera } = globalThis.horizonCheck.frame;
-runtime.addDonations(Array.from({ length: 500 }, (_, i) => i + 1));
+runtime.addDonations(Array.from({ length: 500 }, (_, i) => ({ value: i + 1 })));
 const ground = scene.children.find((mesh) => mesh.isMesh && mesh.position.y === -0.05);
 const terrain = scene.children.find((mesh) => mesh.isMesh && !mesh.isInstancedMesh && mesh.geometry.attributes.color);
 const terrainPositions = terrain.geometry.attributes.position.array.slice();
@@ -467,6 +468,34 @@ globalThis.horizonCheck.passMasks = [];
 compositeRuntime.clearFocus(); await advance();
 assert(globalThis.horizonCheck.passMasks.length > 0);
 assert(globalThis.horizonCheck.passMasks.every((mask) => mask === 7), "Fechar foco não retomou render normal");
+// Lote do admin: formato sorteado entra pela fila fatiada e vira lote instanciado (sem Mesh por prédio).
+const sceneChildren = () => globalThis.horizonCheck.frame.scene.children;
+const dedicatedCount = () => sceneChildren().filter((object) => object.userData.donationId !== undefined).length;
+const instanceHeight = (mesh) => new THREE.Vector3()
+  .setFromMatrixScale(new THREE.Matrix4().fromArray(mesh.instanceMatrix.array, 0)).y;
+const floorsMatch = (mesh) => { const probe = {}; api.setApartmentBuildingHeight(probe, instanceHeight(mesh)); return probe.geometry === mesh.geometry; };
+const apartmentBatch = () => sceneChildren().find((object) => object.isInstancedMesh && object.count === 1
+  && Array.isArray(object.material) && floorsMatch(object));
+const dedicatedBefore = dedicatedCount();
+compositeRuntime.addDonations([
+  { value: 80, customization: { color: "#d4d4d4", buildingShape: "apartment", textureKey: null, tilingScale: 1,
+    textureTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }, rooftopType: "none", signText: "", signSides: 1,
+    edgeLightType: "none", hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78 } },
+  { value: 60 },
+]);
+const rendersBeforeGeneration = globalThis.horizonCheck.renders;
+globalThis.horizonCheck.nextFrame(time += 50);
+assert(globalThis.horizonCheck.renders > rendersBeforeGeneration, "Fila de geração congelou o desenho da cena");
+for (let i = 0; i < 5; i++) await advance();
+assert(apartmentBatch(), "Lote não criou o formato sorteado com os andares da altura");
+assert.equal(dedicatedCount(), dedicatedBefore, "Formato de lote ganhou Mesh próprio (ou entrada sem personalização ganhou formato)");
+// Lote muda altura relativa dos existentes: troca de andares sai do clique e termina nas fatias.
+const floorsBefore = apartmentBatch().geometry;
+compositeRuntime.addDonations(Array.from({ length: 30 }, () => ({ value: 5000 })));
+const pendingBatch = sceneChildren().find((object) => object.isInstancedMesh && object.geometry === floorsBefore);
+assert(pendingBatch?.count === 1 && !floorsMatch(pendingBatch), "Troca de andares voltou a rodar síncrona no clique");
+for (let i = 0; i < 5; i++) await advance();
+assert.notEqual(apartmentBatch()?.geometry ?? floorsBefore, floorsBefore, "Troca de andares adiada não terminou");
 compositeRuntime.dispose();
 assert.equal(documentListeners.size, 0);
 assert.equal(globalThis.horizonCheck.pointerListeners.size, 0);

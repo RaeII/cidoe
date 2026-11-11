@@ -28,7 +28,7 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 
 **Responsabilidades:**
 - Manter a lista de doações (`DonationEntry[]`) ordenada por valor decrescente
-- Criar e atualizar um único `InstancedMesh` com capacidade para até 500 prédios
+- Agrupar caixas por textura e formatos por material/geometria em `InstancedMesh`, com capacidade sob demanda
 - Posicionar prédios em **espiral quadrada** a partir do centro
 - Calcular altura proporcional ao valor máximo
 - Aplicar texturas PBR de fachada (cor, normal, roughness, metalness, displacement, emissive) — fachada **e** topo vêm do loader lazy + assíncrono + cache ([[scene-textures]]). Nenhuma textura é descartada no `dispose` (cache compartilhado)
@@ -38,6 +38,9 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 #### Layout dos Prédios — 2 Modos
 
 `blockLayoutSettings.centerTallest` escolhe como as doações ocupam os slots. Quadras, ruas, calçadas e lotes vazios são **idênticos** nos dois modos — só a posição e a altura dos edifícios mudam.
+
+- Rua efetiva ≥ `DONATION_LAYOUT.slotSize` (3,2), inclusive configuração antiga com rua menor. Quadras vizinhas não compartilham slots.
+- `recordTransform` divide largura/profundidade da torre torcida por `√2`: planta girada 45° cabe no mesmo lote. Acessórios recebem o mesmo transform; altura preservada.
 
 | Modo | `centerTallest` | Posição | Altura |
 |---|---|---|---|
@@ -276,7 +279,7 @@ Lotes, calçadas, postes e asfalto somem pelo **alcance do horizonte** (`setRend
 ```typescript
 // Doações
 addDonation(value: number): void
-addDonations(values: number[]): void
+addDonations(values: number[]): number[]  // ids criados, na ordem de values (runtime enfileira a customização por id). Rebuild com shapeDeadline = -Infinity: malhas de formato e troca de andares (FLOOR_SHAPES: residential/apartment/gourmet/loft/yachthouse) saem por pumpCustomShapes. Antes: lote mudava altura de todos os seeds → ~220 ms de geometria de andar no clique
 setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend — ver seção abaixo
 getDonationCount(): number
 getCityRadius(): number   // meia-extensão world do loteamento (piso r=1, nunca 0); consumido pelo relevo
@@ -393,7 +396,8 @@ Um `InstancedMesh` **por textura de fachada em uso** — `facadeGroups`. Draw ca
 | `logicalCount` / `renderCount` | Instâncias atribuídas / efetivamente escritas (pós-culling) |
 
 - **Índices lógicos não mudam.** `instanceGroup[i]` (`Uint8Array`, teto de 256 texturas) diz em qual grupo a instância lógica `i` vive. Picking, culling, `donationTransforms` e acessórios continuam indexados por instância lógica — nada disso sabe que existem N meshes.
-- `compactVisibleInstances` distribui as instâncias visíveis pelos grupos numa passada só (matriz + cor), e fecha cada mesh com `count = renderCount`.
+- Slots lógicos incluem todos os prédios. `instanceHasShape` marca os já representados por formato: compactação/picking/cull das caixas pulam esses slots, evitando duplicação. Pendentes mantêm caixa provisória texturizada.
+- `compactVisibleInstances` distribui caixas visíveis pelos grupos numa passada só (matriz + cor), e fecha cada mesh com `count = renderCount`. `refreshShapeFallbacks` retira a caixa no mesmo passe em que a malha definitiva entra.
 - **Capacidade por grupo** vem de `ensureGroupCapacity(group, group.logicalCount)` no fim do `rebuildInstances`, com a contagem real daquela textura. Grupo nasce com 64 — nascer com a capacidade global daria N × total de instâncias alocadas.
 - `rebuildFacadeGroups()` refaz a lista a partir do pool + textura global; roda em `setFacadeTexturePool` e na troca da textura global (a pasta global é sempre o grupo 0), sempre seguido de `rebuildInstances()`.
 - Trocar a textura de **um** prédio instanciado não refaz o layout: remapeia `instanceGroup[i]`, ajusta a capacidade do grupo destino e recompacta.
@@ -402,7 +406,7 @@ Um `InstancedMesh` **por textura de fachada em uso** — `facadeGroups`. Draw ca
 
 #### Customizações que exigem Mesh próprio (`needsCustomMesh`)
 
-Algumas personalizações precisam de **estado de material próprio** por edifício e não cabem no `InstancedMesh` (que compartilha um único material). O helper `needsCustomMesh(customization)` define quando uma doação sai do InstancedMesh e passa a ser desenhada como `Mesh` dedicado em `customShapeMeshes`:
+`needsCustomMesh(customization)` identifica estado que exige formato/material próprio. Formatos sem ajuste fino entram em `shapeBatches`: `InstancedMesh` por formato/cor/textura/geometria; andares diferentes separam geometria. Foco retira apenas o selecionado desse lote. Tiling/transform/textura fora do pool usam `Mesh` dedicado em `customShapeMeshes`. Condições candidatas:
 
 - `buildingShape !== "default"` (ex: torre torcida, octogonal, setback, tapered, Chrysler, Hearst, Empire, Taipei ou One Trade)
 - `Math.abs(tilingScale - 1) > 0.001` (tiling de textura customizado por edifício)
@@ -440,6 +444,7 @@ Pontos de integração:
 
 - Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap` e `beginEnvCapture`/`endEnvCapture` propaguem mudanças globais para eles.
 - **Material autoral** (`userData.textureless`, Empire/Residencial): `applyFacadeMaterial`/`applyTextureToTop` pulam o material inteiro → mapas e intensidades do builder ficam intactos. `applyTextureToTop` também reaplica a textura da pedra dos residenciais (set do topo chega async; liga/desliga junto). `updateBuildingSettings` não sobrescreve roughness/metalness autorais.
+- Textura própria ausente/pendente → textura global; sem mapas → `roughness`/`metalness` atuais de `BuildingSettings`. Não conserva multiplicadores PBR da textura sem os mapas. Clones criados durante foco recuperam opacidade/`transparent`/`depthWrite` autorais antes de aplicar o foco, evitando transparência permanente.
 - Materiais com `userData.authoredEnvMapIntensity` (`getAuthoredEnvMaterials()`): `setEnvMap` troca o envMap deles também (probe recriado ou reflexo desligado não deixa vidro com cube descartado); `beginEnvCapture` zera; `endEnvCapture` restaura valor autoral **depois** do loop global.
 - Fallback: `setMatOpacity` guarda estado autoral em `WeakMap` (incluindo `userData.baseOpacity`), multiplica opacidade no foco e restaura `transparent`/`depthWrite` ao sair. Contexto esmaecido não escreve profundidade; composição HDR mantém os materiais originais.
 - No fallback, `setCustomShapeOpacity` mantém agrupamento por material no contexto esmaecido. O edifício selecionado preserva a política original do builder, incluindo vidros autorais. A ordem interna de blending do contexto passa a seguir os grupos agrupados; posições, triângulos, mapas e materiais são preservados. Ver [[scene-builders#Agrupamento por material (mobile)]].
@@ -460,8 +465,10 @@ Pontos de integração:
 Runtime drena a rajada de customizações do editor em fatias ([[scene-runtime#Desempenho (TBT e celular)]]). Manager dá duas peças:
 
 - `setRebuildDeferred(true)` → transição de formato não chama `rebuildInstances`, marca `rebuildPending`. Acessórios seguem aplicados na hora. `setRebuildDeferred(false)` → **um** rebuild pra rajada inteira (antes: um por transição, 3–7 ms cada, e cada um recriava todos os letreiros/LEDs via `syncSigns`/`syncEdgeLights`) + `applyFocus`.
-- `shapeDeadline` em `syncCustomShapes`: fora do prazo a doação fica sem malha nova (mantém a antiga, se houver) e `shapesPending = true`. Padrão `Infinity` = cria tudo (todo rebuild comum). O rebuild do `setRebuildDeferred(false)` roda com prazo `-Infinity` (não cria nenhuma). `pumpCustomShapes(budgetMs)` cria até o prazo — sempre ao menos uma — e refaz `syncRooftops` (topo do yachthouse/residencial depende da malha) e foco. 1º build de geometria complexa custa 10–25 ms (Empire, One Trade, Taipei): uma por tarefa.
-- Pendente = sem malha e fora do instancing → invisível até a fatia dela. Runtime não desenha enquanto drena.
+- `shapeDeadline`: `Infinity` monta tudo; rebuild adiado usa `-Infinity` e conserva formatos existentes. `pumpCustomShapes(budgetMs)` zera `shapeWorkDone` e garante ao menos uma criação/troca de andar mesmo se a varredura já consumiu o orçamento. Sem essa garantia, lotes grandes repetiam varredura sem progresso.
+- Pendente sem malha anterior → caixa provisória pelos grupos de fachada. `refreshShapeFallbacks` alterna representação sem duplicar o edifício. Runtime desenha durante a fila. Malha dedicada só solicita troca de andar quando `entry.floors` mudou; cache estável não mantém fila pendente.
+- `ShapeBatch.layoutVersion` acompanha rebuild do layout. IDs e versão iguais → preserva matrizes e snapshot de culling, sem realocar bounds/reenviar buffers em cada fatia. Mapeamento id → lote continua atualizado. `syncRooftops` e foco acompanham malhas criadas.
+- Regressão: `node scripts/check-building-textures.mjs` testa cobertura de cada fatia, orçamento zero, textura ausente, opacidade após foco e AABBs reais sem sobreposição nos dois layouts/rua estreita; `node scripts/check-horizon.mjs` verifica desenho durante fila. Sem servidor/navegador/GPU.
 
 #### Platibandas automáticas
 
@@ -513,7 +520,8 @@ LED some **por completo** da captura do envMap — nem a fita espelhada, nem o c
 - **Atribuição:** no mesmo passe de `updateDistanceCulling`, os LEDs visíveis mais próximos da câmera assumem as luzes por ordem de distância; sobra fica com `intensity = 0`. LED nº 9+ não acende vizinho — subir `EDGE_LIGHT_SPILL_POOL_SIZE` se a cidade ficar densa de LED.
 - **Ordem é contrato:** acesas sempre nos primeiros índices, apagadas no fim. Shader para na 1ª apagada ([[scene-runtime#Visibilidade e preparo incremental (mobile)|createScenePreparer]]) — luz acesa depois de uma apagada some. Cada luz no shader custa ~3–4 ms/frame no Adreno 618: subir o pool tem preço no celular.
 - **Posição:** centro do edifício. Sem sistema de sombras a luz vaza pros vizinhos, e a própria fachada não acende porque a normal aponta pro lado oposto ao vetor da luz.
-- **Clareia, não reflete:** `applyTriplanarShader` remove a linha do `reflectedLight.directSpecular` (lobo GGX da luz direta) do chunk `lights_physical_pars_fragment`. Sem isso a `PointLight` desenha o próprio "bulbo" espelhado na fachada do vizinho — ponto brilhante, não iluminação. Sobra `directDiffuse` = o clareado. **Reflexo do ambiente intacto:** ele vem de `indirectSpecular` (`getIBLRadiance`/envMap), outro caminho do shader. Só é seguro porque as únicas luzes **diretas** da cena são estas — o resto é `AmbientLight` + IBL (ver [[scene-builders#createLightingRig.ts]]).
+- **Clareia, não reflete:** `applyTriplanarShader` remove a linha do `reflectedLight.directSpecular` (lobo GGX da luz direta) do chunk `lights_physical_pars_fragment`. Sem isso a `PointLight` desenha o próprio "bulbo" espelhado na fachada do vizinho — ponto brilhante, não iluminação. Sobra `directDiffuse` = o clareado. **Reflexo do ambiente intacto:** ele vem de `indirectSpecular` (`getIBLRadiance`/envMap), outro caminho do shader. Vale pra toda luz **direta**: estas e a direcional "Luz do sol" ([[scene-builders#createLightingRig.ts]]) — sol só clareia a face virada pra ele, sem brilho.
+- **Desligável:** `setLedSpill(false)` (checkbox **Luz do LED nos vizinhos**, aba Luz → `LightSettings.ledSpillEnabled`) descarta o pool e bloqueia `ensureSpillPool`; LED segue aceso, só não clareia vizinho. Ganho no celular = até 8 × ~3–4 ms/frame. `setLedSpill(true)` recria o pool se houver LED; posição/intensidade entram no próximo passe de cull. Runtime pede `requestCompile()` na troca (contagem de luzes muda).
 - **Cleanup:** retirada do último LED e `dispose()` removem e descartam as luzes do pool.
 
 ---

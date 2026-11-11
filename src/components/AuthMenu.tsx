@@ -48,6 +48,8 @@ type AuthMenuProps = {
   onRefreshRewards: () => void;
   onOpenDonation: (donationId: number) => void;
   onBrowseMyBuildings: () => void;
+  showMyBuildingsButton?: boolean;
+  showMenuButton?: boolean;
   /** Login controlado pelo editor: o modal de contribuição também pede login. */
   authOpen: boolean;
   onAuthOpenChange: (open: boolean) => void;
@@ -65,6 +67,8 @@ export function AuthMenu({
   onRefreshRewards,
   onOpenDonation,
   onBrowseMyBuildings,
+  showMyBuildingsButton = true,
+  showMenuButton = true,
   authOpen,
   onAuthOpenChange,
   onboardingBlocked,
@@ -243,16 +247,18 @@ export function AuthMenu({
     return (
       <>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            title="Meus edifícios"
-            aria-label="Meus edifícios"
-            onClick={onBrowseMyBuildings}
-          >
-            <PixelBuilding />
-            <span className="hidden sm:inline">Meus edifícios</span>
-          </Button>
+          {showMyBuildingsButton && (
+            <Button
+              type="button"
+              variant="outline"
+              title="Meus edifícios"
+              aria-label="Meus edifícios"
+              onClick={onBrowseMyBuildings}
+            >
+              <PixelBuilding />
+              <span className="hidden sm:inline">Meus edifícios</span>
+            </Button>
+          )}
           {summary && (
             <Button
               type="button"
@@ -265,26 +271,28 @@ export function AuthMenu({
               <Share2 />
             </Button>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            className="max-w-[14rem] pl-1.25 pr-1.25 sm:pr-3"
-            title={firstName}
-            aria-haspopup="dialog"
-            onClick={() => {
-              changeMenuOpen(true);
-              void refreshSummary();
-            }}
-          >
-            {/* 26px + moldura 2px = 30 na área de 36 do botão (h-10 menos bisel pb-1): 3px de respiro. Sobrescreve o data-[size=sm]:size-8 do Avatar, que vence um size-* solto. */}
-            <Avatar size="sm" className="data-[size=sm]:size-6.5">
-              {user.profile_image && <AvatarImage src={user.profile_image} alt="" />}
-              <AvatarFallback>
-                {firstName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="truncate max-sm:sr-only">{visibleName}</span>
-          </Button>
+          {showMenuButton && (
+            <Button
+              type="button"
+              variant="outline"
+              className="max-w-[14rem] pl-1.25 pr-1.25 sm:pr-3"
+              title={firstName}
+              aria-haspopup="dialog"
+              onClick={() => {
+                changeMenuOpen(true);
+                void refreshSummary();
+              }}
+            >
+              {/* 26px + moldura 2px = 30 na área de 36 do botão (h-10 menos bisel pb-1): 3px de respiro. Sobrescreve o data-[size=sm]:size-8 do Avatar, que vence um size-* solto. */}
+              <Avatar size="sm" className="data-[size=sm]:size-6.5">
+                {user.profile_image && <AvatarImage src={user.profile_image} alt="" />}
+                <AvatarFallback>
+                  {firstName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate max-sm:sr-only">{visibleName}</span>
+            </Button>
+          )}
         </div>
         <GameMenu
           open={menuOpen}

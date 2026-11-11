@@ -17,7 +17,7 @@ import type {
 
 export type CitySceneCanvasHandle = {
   addDonation: (value: number) => void;
-  addDonations: (values: number[]) => void;
+  addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;

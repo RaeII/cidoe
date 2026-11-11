@@ -384,7 +384,7 @@ assert.equal(vm.runInNewContext(cardManage.getText(editorAst), { ...manage, info
 const hideTrigger = scenePanels.get('ContributeDialog').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'hideTrigger').initializer.expression;
 const viewingOthers = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.getText(editorAst).includes('const viewingOthers'));
 const focusedIdDecl = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.getText(editorAst).includes('const focusedId'));
-const triggerHidden = (scope) => vm.runInNewContext(`${focusedIdDecl.getText(editorAst)}\n${viewingOthers.getText(editorAst)}\n${hideTrigger.getText(editorAst)}`, { ownedDonationIds: new Set([42]), infoBuildingId: null, selectedBuildingId: null, ...scope });
+const triggerHidden = (scope) => vm.runInNewContext(`${focusedIdDecl.getText(editorAst)}\n${viewingOthers.getText(editorAst)}\n${hideTrigger.getText(editorAst)}`, { uiVisibility: {}, ownedDonationIds: new Set([42]), infoBuildingId: null, selectedBuildingId: null, ...scope });
 assert.equal(triggerHidden({}), false, 'Sem foco: Simular contribuição visível');
 assert.equal(triggerHidden({ infoBuildingId: 42 }), false, 'Edifício próprio: Simular contribuição visível');
 assert.equal(triggerHidden({ infoBuildingId: 7 }), true, 'Edifício alheio: sem Simular contribuição');

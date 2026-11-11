@@ -102,13 +102,15 @@ Cria e atualiza a luz da cena.
 
 **Responsabilidades:**
 - Criar `AmbientLight` (cor + intensidade via [[scene-utils#lighting.ts|getLightMetrics]])
-- Atualizar cor e intensidade no `update(lightSettings)`
-- Remover a luz no `dispose`
+- Criar `DirectionalLight` "Luz do sol" **sem sombra**: face virada pro sol clareia, face oposta fica só com ambient + IBL (N·L, não shadow map)
+- Atualizar cor, intensidade e direção no `update(lightSettings)` — posição = `getDirectionalPositionFromAngles(1, elevation, azimuth)`, alvo na origem
+- Intensidade efetiva = `directionalEnabled ? directionalIntensity : 0`; `directional.visible = intensidade > 0` → desligada (padrão) materiais compilam sem a luz, custo zero
+- Remover as luzes no `dispose`
 
-**Retorna:** objeto `LightingRig` com `ambient`, `update` e `dispose`.
+**Retorna:** objeto `LightingRig` com `ambient`, `directional`, `update` e `dispose`.
 
-> [!note] Só ambient + IBL
-> Iluminação da cena = `AmbientLight` + `scene.environment` (PMREM do HDRI). **Não há DirectionalLight nem sombras** — campos `directional*`/`hemisphere*` de [[scene-types#LightSettings]] alimentam apenas as métricas exibidas no painel (`getLightMetrics`).
+> [!note] Ambient + IBL + direcional opcional, sem sombras
+> Iluminação = `AmbientLight` + `scene.environment` (PMREM do HDRI) + `DirectionalLight` quando `directionalEnabled`. **Sem `castShadow`.** `directionalDistance`/`directionalTarget*`/`hemisphere*` de [[scene-types#LightSettings]] seguem sem uso. Fachada triplanar remove `directSpecular` de toda luz direta ([[scene-managers#Fora do reflexo, dentro da luz]]) → sol só clareia, sem brilho espelhado. Estado salvo antes dos campos existirem vem sem `directionalEnabled` → desligada.
 
 **Quando mexer aqui:**
 - Adicionar novo tipo de luz (pré-requisito pra reintroduzir sombras)

@@ -23,7 +23,7 @@ const viewport = target({ height: 800, offsetTop: 0, scale: 1 });
 const properties = new Map();
 const frames = new Map();
 let frameId = 0, cleanup, scrolls = 0;
-let reducedMotion = false;
+let reducedMotion = false, coarse = true;
 class Element {
   editable = true;
   rect = { top: 500, bottom: 544 };
@@ -43,7 +43,7 @@ const document = target({
     removeProperty: (key) => properties.delete(key),
   } },
 });
-const window = { visualViewport: viewport, innerHeight: 800, matchMedia: () => ({ matches: reducedMotion }) };
+const window = { visualViewport: viewport, innerHeight: 800, matchMedia: (query) => ({ matches: query.includes("coarse") ? coarse : reducedMotion }) };
 const context = {
   exports: {}, window, document, HTMLElement: Element,
   requestAnimationFrame(callback) { frames.set(++frameId, callback); return frameId; },
@@ -89,6 +89,20 @@ assert.equal(scrolls, 6, "Clicar novamente no campo focado também alinha ao top
 document.listeners.get("click")({ type: "click", target: {} });
 flush();
 assert.equal(scrolls, 6, "Clique fora do campo preserva a rolagem manual");
+for (const type of ["checkbox", "radio", "range"]) {
+  input.type = type;
+  document.listeners.get("focusin")({ type: "focusin", target: input });
+  document.listeners.get("click")({ type: "click", target: input });
+  flush();
+  assert.equal(scrolls, 6, `Clicar em ${type} não rola a página`);
+}
+delete input.type;
+coarse = false;
+document.listeners.get("focusin")({ type: "focusin", target: input });
+document.listeners.get("click")({ type: "click", target: input });
+flush();
+assert.equal(scrolls, 6, "Desktop (ponteiro fino) não rola a página ao clicar no campo");
+coarse = true;
 reducedMotion = true;
 document.listeners.get("focusin")({ type: "focusin", target: input });
 flush();

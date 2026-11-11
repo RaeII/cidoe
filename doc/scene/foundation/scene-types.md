@@ -179,6 +179,9 @@ type LightSettings = {
   hemisphereGroundColor: string;
   hemisphereIntensity: number;
   directionalColor: string;
+  directionalEnabled: boolean;   // luz do sol sem sombra liga/desliga
+  ledSpillEnabled: boolean;      // luz do LED nos vizinhos (pool de PointLight)
+  directionalIntensity: number;  // guardada ao desligar
   directionalDistance: number;
   directionalElevation: number;  // ângulo esférico
   directionalAzimuth: number;    // ângulo esférico
@@ -290,11 +293,16 @@ Liga/desliga componentes HTML sobrepostos na tela. Persistido em `localStorage`.
 
 ```typescript
 type UIVisibilitySettings = {
+  contributionButton: boolean; // botão Simular contribuição
+  referralHud: boolean;      // placa de indicação com logo
+  myBuildingsButton: boolean; // botão Meus edifícios
+  menuButton: boolean;       // botão de abrir o menu da conta
   cameraLog: boolean;        // log de posição da câmera (canto inferior esquerdo)
   donationInput: boolean;    // input de doação individual
   bulkInput: boolean;        // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
   buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
+  renderDistanceCard: boolean; // card flutuante de distância de renderização dos edifícios
 }
 ```
 

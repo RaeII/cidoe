@@ -177,6 +177,11 @@ export type LightSettings = {
   hemisphereGroundColor: string;
   hemisphereIntensity: number;
   directionalColor: string;
+  /** Luz direcional sem sombra: lado virado pro sol clareia, oposto fica só com ambient/IBL. */
+  directionalEnabled: boolean;
+  /** Luz que o LED joga nos edifícios vizinhos. */
+  ledSpillEnabled: boolean;
+  directionalIntensity: number;
   directionalDistance: number;
   directionalElevation: number;
   directionalAzimuth: number;
@@ -302,11 +307,16 @@ export type CameraVisibilityState = {
 
 // Visibilidade dos componentes HTML sobrepostos na tela. Persistido em localStorage.
 export type UIVisibilitySettings = {
+  contributionButton: boolean; // botão Simular contribuição
+  referralHud: boolean;     // placa de indicação com logo
+  myBuildingsButton: boolean; // botão Meus edifícios
+  menuButton: boolean;      // botão de abrir o menu da conta
   cameraLog: boolean;       // log de posição da câmera (canto inferior esquerdo)
   donationInput: boolean;   // input de doação individual
   bulkInput: boolean;       // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
   buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
+  renderDistanceCard: boolean; // card flutuante de distância de renderização dos edifícios
 };
 
 export type CitySceneConfig = {

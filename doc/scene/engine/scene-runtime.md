@@ -104,7 +104,7 @@ Medido com CPU profile + trace (Lighthouse mobile simula CPU 4x: tarefa > 12,5 m
 - **Criação em etapas** (`async` + `yieldToMain`): contexto | céu/luz/chão/relevo | doações | resto. `afterNextFrame` evita reflow forçado no `mount.clientWidth`.
 - **Compilação assíncrona** (`runCompilePass`): delega a `createScenePreparer`, que prepara variantes alteradas e texturas ainda não enviadas. Ver [[#Visibilidade e preparo incremental (mobile)]]. O canvas mantém o último frame durante a preparação; o limite de espera continua em 5 s.
 
-- **Fila de customização**: `updateDonationCustomization` enfileira por id (última vence) e drena em fatias: com `setRebuildDeferred(true)` aplica sem rebuild; fila vazia → `setRebuildDeferred(false)` = **um** rebuild pra rajada inteira; depois `pumpCustomShapes(SLICE_MS)` cria malhas de formato em fatias. Ver [[scene-managers#Fila de customização]].
+- **Fila de customização**: `updateDonationCustomization` enfileira por id (última vence) e drena em fatias: `setRebuildDeferred(true)` adia rebuild; fila vazia → `setRebuildDeferred(false)` faz **um** rebuild; `pumpCustomShapes(SLICE_MS)` monta formatos restantes. Cena/câmera continuam atualizando durante a fila; corpos provisórios evitam buracos. Captura do cubemap espera fim da fila. Fim da fila pede `requestCompile()`; `sceneReady` aguarda fila vazia, preparo concluído e assets resolvidos. Meta de 4 ms cooperativa: uma geometria isolada pode excedê-la. Ver [[scene-managers#Fila de customização]].
 - `renderer.debug.checkShaderErrors = import.meta.env.DEV` (logs síncronos de shader só em dev).
 - **Opacos de frente pra trás** (`renderer.setOpaqueSort`): `z` antes de `material.id`. Padrão do three ordena por material primeiro; com clone de material por prédio custom, profundidade virava sorteio e fachada PBR era pintada pra depois ser coberta. Empate em `z` (mesmo objeto) mantém ordem por material de antes. Adreno 618, visão inicial: 106 → 92 ms/frame; diff de pixels: 1 em 649 mil.
 - Sinal `sceneReady` ([[scene-types#SceneStats]]): frame com HDRI resolvido (carregou ou falhou: `onFailed` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]), doações recebidas, fila vazia e `assetsLoading` false. `assetsLoading` vem do `DefaultLoadingManager`: `onStart` liga e emite `sceneReady: false` **síncrono**; `onProgress` = `loaded < total`; `onLoad` desliga. Libera a página de loading do `CitySceneEditor` ([[html-components#Carregamento inicial (casca)]]).
@@ -130,7 +130,7 @@ type CitySceneRuntime = {
 
   // Doações
   addDonation(value: number): void
-  addDonations(values: number[]): void
+  addDonations(entries: { value: number; customization?: BuildingCustomization }[]): void // customização → fila fatiada (drainCustomizations); sempre agenda pumpCustomShapes
   setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend
 
   // Personalização individual
@@ -189,7 +189,8 @@ Em 29/10/2026, Chrome no M2101K6G/Adreno 618, via USB, na aplicação local `bet
 Medição curta na versão de desenvolvimento; aquecimento prolongado, outros aparelhos e desempenho da build publicada não foram revalidados nesta rodada.
 
 > [!note] Sem sombras
-> Cena não tem luz direcional — iluminação é ambiente + IBL do HDRI. Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: criar `DirectionalLight` com shadow camera antes de qualquer flag.
+> Iluminação = ambiente + IBL do HDRI + `DirectionalLight` opcional **sem shadow map** ("Luz do sol", [[scene-builders#createLightingRig.ts]]). Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: dar shadow camera à direcional antes de qualquer flag.
+> `updateLightSettings` repassa `ledSpillEnabled` a `donationManager.setLedSpill` e chama `requestCompile()` quando a direcional ou a luz do LED liga/desliga (contagem de luzes muda → programas recompilam). Estado salvo sem `ledSpillEnabled` → ligado.
 
 > [!note] Relevo (terrainRig)
 > O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
@@ -228,6 +229,8 @@ const metrics = lightingRig.update(currentLight)      // volta ao valor do paine
 if (night) {
   lightingRig.ambient.color.set(NIGHT_PRESET.ambientColor)
   lightingRig.ambient.intensity = metrics.ambientTotal * NIGHT_PRESET.ambientScale
+  lightingRig.directional.color.set(NIGHT_PRESET.ambientColor)   // sol vira luar
+  lightingRig.directional.intensity *= NIGHT_PRESET.ambientScale
 }
 scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1
 scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor)

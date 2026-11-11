@@ -6,7 +6,9 @@ import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { MyBuildingsNavigation } from "./html/MyBuildingsNavigation";
+import { RenderDistanceCard } from "./html/RenderDistanceCard";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
+import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
 import {
@@ -44,6 +46,7 @@ import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
 import { createDefaultUIVisibilitySettings } from "../scene/config/uiVisibilityConfig";
 import type {
   BuildingCustomization,
+  BuildingShape,
   CameraDebugInfo,
   SceneStats,
 } from "../scene/types";
@@ -61,6 +64,23 @@ const formatCameraValue = (value: number) => value.toFixed(2);
 const SAVE_DEBOUNCE_MS = 500;
 const createDefaultGrain = () => 0;
 const createDefaultVisibleLimit = (): number | null => null;
+
+function withCustomizationDefaults(color: string, existing?: Partial<BuildingCustomization>): BuildingCustomization {
+  return {
+    color: existing?.color ?? color,
+    buildingShape: existing?.buildingShape ?? "default",
+    textureKey: existing?.textureKey ?? null,
+    tilingScale: existing?.tilingScale ?? 1,
+    textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
+    rooftopType: existing?.rooftopType ?? "none",
+    signText: existing?.signText ?? "",
+    signSides: existing?.signSides ?? 1,
+    edgeLightType: existing?.edgeLightType ?? "none",
+    hologramImage: existing?.hologramImage ?? null,
+    hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
+    hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
+  };
+}
 
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
@@ -383,25 +403,20 @@ export function CitySceneEditor() {
   };
 
   const getExistingCustomization = useCallback(
-    (donationId: number): BuildingCustomization => {
-      const existing = buildingCustomizations.get(donationId);
-      return {
-        color: existing?.color ?? buildingSettings.color,
-        buildingShape: existing?.buildingShape ?? "default" as const,
-        textureKey: existing?.textureKey ?? null,
-        tilingScale: existing?.tilingScale ?? 1,
-        textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
-        rooftopType: existing?.rooftopType ?? "none" as const,
-        signText: existing?.signText ?? "",
-        signSides: existing?.signSides ?? 1,
-        edgeLightType: existing?.edgeLightType ?? "none" as const,
-        hologramImage: existing?.hologramImage ?? null,
-        hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
-        hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
-      };
-    },
+    (donationId: number) => withCustomizationDefaults(buildingSettings.color, buildingCustomizations.get(donationId)),
     [buildingCustomizations, buildingSettings.color],
   );
+
+  // Lote do admin: formatos cadastrados com a mesma chance (sem Padrão).
+  const handleBulkGenerate = (values: number[]) => {
+    const shapes = (customizationCatalog?.shapes ?? [])
+      .map((option) => option.key as BuildingShape)
+      .filter((shape) => shape !== "default");
+    canvasRef.current?.addDonations(values.map((value) => {
+      const buildingShape = shapes.length > 0 ? shapes[Math.floor(Math.random() * shapes.length)] : undefined;
+      return { value, customization: buildingShape && withCustomizationDefaults(buildingSettings.color, { buildingShape }) };
+    }));
+  };
 
   const selectedCustomization = useMemo(
     () => selectedBuildingId === null ? null : getExistingCustomization(selectedBuildingId),
@@ -461,22 +476,7 @@ export function CitySceneEditor() {
     (donationId: number, patch: Partial<BuildingCustomization>) => {
       setBuildingCustomizations((prev) => {
         const next = new Map(prev);
-        const existing = next.get(donationId);
-        const updated: BuildingCustomization = {
-          color: existing?.color ?? buildingSettings.color,
-          buildingShape: existing?.buildingShape ?? "default",
-          textureKey: existing?.textureKey ?? null,
-          tilingScale: existing?.tilingScale ?? 1,
-          textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
-          rooftopType: existing?.rooftopType ?? "none",
-          signText: existing?.signText ?? "",
-          signSides: existing?.signSides ?? 1,
-          edgeLightType: existing?.edgeLightType ?? "none",
-          hologramImage: existing?.hologramImage ?? null,
-          hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
-          hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
-          ...patch,
-        };
+        const updated = { ...withCustomizationDefaults(buildingSettings.color, next.get(donationId)), ...patch };
         next.set(donationId, updated);
         canvasRef.current?.updateDonationCustomization(donationId, updated);
         queueSave(donationId, updated);
@@ -596,7 +596,9 @@ export function CitySceneEditor() {
       {booted && (
       <div hidden={myBuildingsOpen || selectedBuildingId !== null} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
-        <ReferralHud rewards={rewards} onLogin={() => setAuthOpen(true)} />
+        {uiVisibility.referralHud !== false && (
+          <ReferralHud rewards={rewards} onLogin={() => setAuthOpen(true)} />
+        )}
         <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
             night={environmentSettings.night}
@@ -607,6 +609,8 @@ export function CitySceneEditor() {
             onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
             onOpenDonation={handleOpenDonation}
             onBrowseMyBuildings={handleBrowseMyBuildings}
+            showMyBuildingsButton={uiVisibility.myBuildingsButton !== false}
+            showMenuButton={uiVisibility.menuButton !== false}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
             onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
@@ -624,7 +628,7 @@ export function CitySceneEditor() {
           onRequestLogin={() => setAuthOpen(true)}
           onPaid={() => setCustomizationRevision((revision) => revision + 1)}
           onViewBuilding={(donationId) => handleOpenDonation(donationId, false)}
-          hideTrigger={viewingOthers || selectedBuildingId !== null}
+          hideTrigger={uiVisibility.contributionButton === false || viewingOthers || selectedBuildingId !== null}
         />
         </div>
       )}
@@ -637,19 +641,39 @@ export function CitySceneEditor() {
           <strong className="font-semibold">Pré-lançamento:</strong> ONGs e contribuições são de teste
         </p>
       )}
-      {!myBuildingsOpen && isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
-        <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
-          <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
-          <div>
-            initialCameraPosition: {"{"} x: {formatCameraValue(cameraDebugInfo.position.x)}, y:{" "}
-            {formatCameraValue(cameraDebugInfo.position.y)}, z:{" "}
-            {formatCameraValue(cameraDebugInfo.position.z)} {"}"}
+      {/* Cards de admin no canto inferior esquerdo; abaixo de lg sobem acima do "Simular contribuição". */}
+      {booted && !myBuildingsOpen && isAdmin && selectedBuildingId === null && (
+        <div className="absolute bottom-24 left-4 z-30 flex flex-col items-start gap-3 lg:bottom-7">
+        {loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+          <BuildingLayoutCard
+            settings={blockLayoutSettings}
+            onChange={setBlockLayoutSettings}
+            visibleLimit={visibleLimit}
+            onVisibleLimitChange={setVisibleLimit}
+            total={donations.length}
+            onClose={() =>
+              setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
+            }
+          />
+        )}
+        {uiVisibility.renderDistanceCard && (
+          <RenderDistanceCard settings={horizonSettings} onChange={setHorizonSettings} />
+        )}
+        {uiVisibility.cameraLog && cameraDebugInfo && (
+          <div className="pixel bevel-edge w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
+            <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
+            <div>
+              initialCameraPosition: {"{"} x: {formatCameraValue(cameraDebugInfo.position.x)}, y:{" "}
+              {formatCameraValue(cameraDebugInfo.position.y)}, z:{" "}
+              {formatCameraValue(cameraDebugInfo.position.z)} {"}"}
+            </div>
+            <div>
+              controlTarget: {"{"} x: {formatCameraValue(cameraDebugInfo.target.x)}, y:{" "}
+              {formatCameraValue(cameraDebugInfo.target.y)}, z:{" "}
+              {formatCameraValue(cameraDebugInfo.target.z)} {"}"}
+            </div>
           </div>
-          <div>
-            controlTarget: {"{"} x: {formatCameraValue(cameraDebugInfo.target.x)}, y:{" "}
-            {formatCameraValue(cameraDebugInfo.target.y)}, z:{" "}
-            {formatCameraValue(cameraDebugInfo.target.z)} {"}"}
-          </div>
+        )}
         </div>
       )}
       {!myBuildingsOpen && selectedBuildingId === null && hoverInfo && (
@@ -663,16 +687,14 @@ export function CitySceneEditor() {
           })}
         </div>
       )}
-      {!myBuildingsOpen && isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
-        <BuildingLayoutCard
-          settings={blockLayoutSettings}
-          onChange={setBlockLayoutSettings}
-          visibleLimit={visibleLimit}
-          onVisibleLimitChange={setVisibleLimit}
-          total={donations.length}
-          onClose={() =>
-            setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
-          }
+      {/* Geradores de teste do admin: só na cena, somem no próximo setDonations (filtro/contribuição). */}
+      {booted && isAdmin && !myBuildingsOpen && selectedBuildingId === null && (
+        <BuildingHeightInput
+          onSubmit={(value) => canvasRef.current?.addDonation(value)}
+          onBulkSubmit={handleBulkGenerate}
+          blockLayoutSettings={blockLayoutSettings}
+          onBlockLayoutChange={setBlockLayoutSettings}
+          visibility={uiVisibility}
         />
       )}
       {booted && myBuildingsOpen && !contributeOpen && !showBuildingInfo && selectedBuildingId === null && (

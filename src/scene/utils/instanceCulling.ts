@@ -46,7 +46,8 @@ export function snapshotInstances(
     if (!mesh) continue;
     mesh.updateMatrix();
     mesh.matrixAutoUpdate = false;
-    mesh.geometry.computeBoundingBox();
+    // Geometrias da cidade são estáticas (e compartilhadas entre lotes de formato).
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
     mesh.computeBoundingSphere(); // Inclui as instâncias temporariamente ocultas.
   }
   for (let i = 0; i < count; i++) {
