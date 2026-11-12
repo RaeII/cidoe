@@ -1,4 +1,4 @@
-// Inicialização e abertura do vídeo: sem servidor, navegador ou chamadas à API.
+// node scripts/check-public-startup.mjs — inicialização, vídeo e visibilidade; sem servidor/navegador/API.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import * as React from "react";
@@ -35,6 +35,7 @@ const bundle = await build({
   define: { "import.meta.env": '{"PROD":false,"VITE_API_URL":"/api"}' },
 });
 let state = [], cursor = 0, mobile = false;
+let auth = { isAuthenticated: false, isLoading: false, user: null };
 const mockedReact = {
   ...React,
   useEffect() {},
@@ -50,9 +51,9 @@ const module = { exports: {} };
 new Function("require", "module", "exports", "window", bundle.outputFiles[0].text)(
   (name) => {
     if (name === "react") return mockedReact;
-    if (name === "@/hooks/useAuth") return { useAuth: () => ({ isAuthenticated: false, isLoading: false, user: null }) };
+    if (name === "@/hooks/useAuth") return { useAuth: () => auth };
     if (name === "@/hooks/use-mobile") return { useIsMobile: () => mobile };
-    if (name === "@/components/GameMenu") return {};
+    if (name === "@/components/GameMenu") return { GameMenu: function GameMenu() {} };
     return require(name);
   }, module, module.exports, browser,
 );
@@ -66,7 +67,7 @@ const props = {
   rewards: { pending: [] }, onRefreshRewards() {}, onOpenDonation() {}, onBrowseMyBuildings() {},
   authOpen: false, onAuthOpenChange() {}, onboardingBlocked: false,
 };
-const render = (authOpen = false) => { cursor = 0; return module.exports.AuthMenu({ ...props, authOpen }); };
+const render = (authOpen = false, visibility = {}) => { cursor = 0; return module.exports.AuthMenu({ ...props, authOpen, ...visibility }); };
 const intro = (tree) => find(tree, (node) => node.type.name === "IntroVideoDialog")[0];
 const login = (tree) => find(tree, (node) => node.type.name === "AuthDialog")[0];
 for (mobile of [false, true]) for (const search of ["", "?ref=ABC123"]) {
@@ -85,6 +86,41 @@ for (mobile of [false, true]) for (const search of ["", "?ref=ABC123"]) {
   assert.equal(login(tree).open, mobile, "Login solicitado abre diálogo no celular");
   if (search) assert.equal(login(tree).referralCode, "ABC123", "Código de indicação é preservado até o login");
 }
+
+const hiddenMenu = render(true, { showMenuButton: false });
+assert.equal(find(hiddenMenu, (node) => node.type === "div" && node.props.hidden === true).length, 1);
+assert.equal(login(hiddenMenu).open, mobile, "Ocultar menu preserva login solicitado pela contribuição");
+auth = { isAuthenticated: true, isLoading: false, user: { id: 1, name: "Maria Silva", username: "maria", onboarding_completed_at: null } };
+for (const showMenuButton of [true, false]) for (const showMyBuildingsButton of [true, false]) {
+  state = [];
+  const tree = render(false, { showMenuButton, showMyBuildingsButton });
+  assert.equal(find(tree, (node) => node.props.title === "Maria").length, Number(showMenuButton));
+  assert.equal(find(tree, (node) => node.props["aria-label"] === "Meus edifícios").length, Number(showMyBuildingsButton));
+  assert.equal(find(tree, (node) => node.type.name === "GameMenu").length, 1, "Menu continua montado ao esconder botão");
+}
+
+const visibilityBundle = await build({
+  entryPoints: ["src/scene/config/uiVisibilityConfig.ts"], bundle: true, format: "cjs", platform: "node", write: false,
+});
+const storage = new Map([["cidoe:ui-visibility", JSON.stringify({ cameraLog: false, donationInput: false })]]);
+const visibilityModule = { exports: {} };
+new Function("module", "exports", "window", visibilityBundle.outputFiles[0].text)(visibilityModule, visibilityModule.exports, {
+  localStorage: {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  },
+});
+const { loadUIVisibilitySettings, saveUIVisibilitySettings } = visibilityModule.exports;
+const visibility = loadUIVisibilitySettings();
+assert.equal(visibility.cameraLog, false, "Preferências antigas são preservadas");
+assert.equal(visibility.donationInput, false);
+for (const key of ["contributeButton", "referralHud", "myBuildingsButton", "menuButton"]) {
+  assert.equal(visibility[key], true, `${key} visível quando preferência antiga não inclui campo`);
+  visibility[key] = false;
+}
+saveUIVisibilitySettings(visibility);
+assert.deepEqual(loadUIVisibilitySettings(), visibility, "Novas opções persistem após recarregar");
 
 const photoBundle = await build({
   entryPoints: ["src/components/ui/photo.tsx"], bundle: true, format: "cjs", platform: "node",
@@ -106,4 +142,4 @@ const changed = photo("/outra.jpg");
 assert.match(image(changed).className, /opacity-0/, "Trocar src reinicia a espera");
 image(changed).ref({ complete: true, naturalWidth: 0 });
 assert.ok(find(photo("/outra.jpg"), (node) => node.props.children === "Foto indisponível").length);
-console.log("Inicialização: hidratação do HTML, entrada sem modal, vídeo sob demanda, login/indicação e foto em cache OK.");
+console.log("Inicialização: hidratação, vídeo/login, visibilidade independente, preferências antigas e foto em cache OK.");

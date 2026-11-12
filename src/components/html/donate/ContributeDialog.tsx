@@ -384,6 +384,7 @@ function PixPayment({
  */
 export function ContributeDialog({
   open,
+  showTrigger = true,
   onOpenChange,
   ongs,
   buildings,
@@ -392,6 +393,7 @@ export function ContributeDialog({
   onViewBuilding,
 }: {
   open: boolean;
+  showTrigger?: boolean;
   onOpenChange: (open: boolean) => void;
   ongs: readonly Ong[];
   /** Edifícios do usuário; sem nenhum, a escolha novo/aumentar some. */
@@ -577,13 +579,15 @@ export function ContributeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {/* Centrado sem translate: o `press` do botão usa a propriedade translate. Mobile: à esquerda, livra o chevron (right-20). */}
-        <Button type="button" size="lg" className="absolute bottom-4 left-4 right-20 z-30 max-sm:text-sm max-sm:has-[>svg]:px-3 sm:inset-x-0 sm:bottom-6 sm:mx-auto sm:w-fit">
-          {pendingChargeId ? <Clock aria-hidden="true" /> : <PixelBuilding />}
-          Contribuir
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          {/* Centrado sem translate: o `press` do botão usa a propriedade translate. Mobile: à esquerda, livra o chevron (right-20). */}
+          <Button type="button" size="lg" className="absolute bottom-4 left-4 right-20 z-30 max-sm:text-sm max-sm:has-[>svg]:px-3 sm:inset-x-0 sm:bottom-6 sm:mx-auto sm:w-fit">
+            {pendingChargeId ? <Clock aria-hidden="true" /> : <PixelBuilding />}
+            Contribuir
+          </Button>
+        </DialogTrigger>
+      )}
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
         className="block max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-0 overflow-y-auto overscroll-contain p-0 pb-1.5 text-foreground sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-4xl"

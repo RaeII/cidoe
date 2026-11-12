@@ -236,6 +236,13 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 | `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
 | `blockLayoutInput` | `true` | Input de configuração de quadras |
 | `donationFilter` | `true` | Barra de filtros das doações (região/UF/cidade/ONG) |
+| `buildingLayoutCard` | `true` | Card de organização/quantidade dos edifícios |
+| `contributeButton` | `true` | Botão Contribuir; diálogo/Pix continuam montados |
+| `referralHud` | `true` | Placa da marca/indicação |
+| `myBuildingsButton` | `true` | Botão Meus edifícios |
+| `menuButton` | `true` | Menu da conta e compartilhar; deslogado, noite/apresentação/Entrar |
+
+Campos novos ausentes em preferências antigas ficam visíveis; demais escolhas preservadas. Engrenagem admin permanece acessível. `node scripts/check-public-startup.mjs` verifica persistência e visibilidade independente dos botões.
 
 **Funções exportadas:**
 - `createDefaultUIVisibilitySettings()` — tudo visível

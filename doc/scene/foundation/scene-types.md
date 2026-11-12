@@ -296,6 +296,10 @@ type UIVisibilitySettings = {
   blockLayoutInput: boolean; // input de configuração de quadras
   donationFilter: boolean;   // barra de filtros das doações (região/UF/cidade/ONG)
   buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
+  contributeButton: boolean; // botão Contribuir
+  referralHud: boolean;      // placa da marca/indicação
+  myBuildingsButton: boolean; // botão Meus edifícios
+  menuButton: boolean;      // menu da conta/compartilhar ou controles deslogados
 }
 ```
 

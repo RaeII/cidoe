@@ -308,6 +308,10 @@ export type UIVisibilitySettings = {
   blockLayoutInput: boolean; // input de configuração de quadras
   donationFilter: boolean;  // barra de filtros das doações (região/UF/cidade/ONG)
   buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
+  contributeButton: boolean;
+  referralHud: boolean;
+  myBuildingsButton: boolean;
+  menuButton: boolean;
 };
 
 export type CitySceneConfig = {

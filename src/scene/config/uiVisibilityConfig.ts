@@ -11,6 +11,10 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     blockLayoutInput: true,
     donationFilter: true,
     buildingLayoutCard: true,
+    contributeButton: true,
+    referralHud: true,
+    myBuildingsButton: true,
+    menuButton: true,
   };
 }
 

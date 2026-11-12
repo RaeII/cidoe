@@ -8,6 +8,7 @@ import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { MyBuildingsNavigation } from "./html/MyBuildingsNavigation";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
+import { RangeField } from "./html/controls/RangeField";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
 import {
   useKeyboardShortcuts,
@@ -640,9 +641,11 @@ export function CitySceneEditor() {
       {booted && (
       <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
-        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
-          <ReferralHud rewards={rewards} />
-        </aside>
+        {uiVisibility.referralHud && (
+          <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
+            <ReferralHud rewards={rewards} />
+          </aside>
+        )}
         <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
             night={environmentSettings.night}
@@ -653,6 +656,8 @@ export function CitySceneEditor() {
             onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
             onOpenDonation={handleOpenDonation}
             onBrowseMyBuildings={handleBrowseMyBuildings}
+            showMyBuildingsButton={uiVisibility.myBuildingsButton}
+            showMenuButton={uiVisibility.menuButton}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
             onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
@@ -672,6 +677,7 @@ export function CitySceneEditor() {
         <div hidden={myBuildingsOpen}>
         <ContributeDialog
           open={contributeOpen}
+          showTrigger={uiVisibility.contributeButton}
           onOpenChange={setContributeOpen}
           ongs={ongs}
           buildings={myDonations}
@@ -684,8 +690,22 @@ export function CitySceneEditor() {
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
+      <div className={cn("pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 flex max-h-[calc(100%_-_12rem)] w-[min(21rem,calc(100vw-6rem))] flex-col items-start gap-4", uiVisibility.contributeButton && "max-sm:bottom-20")}>
+      <div className="flex min-h-0 w-full flex-col items-start gap-4 overflow-y-auto">
+      {!myBuildingsOpen && isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+        <BuildingLayoutCard
+          settings={blockLayoutSettings}
+          onChange={setBlockLayoutSettings}
+          visibleLimit={visibleLimit}
+          onVisibleLimitChange={setVisibleLimit}
+          total={donations.length}
+          onClose={() =>
+            setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
+          }
+        />
+      )}
       {!myBuildingsOpen && isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
-        <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
+        <div className="pointer-events-auto pixel bevel-edge w-full select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
           <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
             initialCameraPosition: {"{"} x: {formatCameraValue(cameraDebugInfo.position.x)}, y:{" "}
@@ -699,6 +719,28 @@ export function CitySceneEditor() {
           </div>
         </div>
       )}
+      </div>
+      {!myBuildingsOpen && booted && isAdmin && (
+        <div className="pointer-events-auto w-64 max-w-full shrink-0 space-y-2 [&_span]:text-white">
+          <RangeField
+            label="Edifícios à frente"
+            value={horizonSettings.distance}
+            min={100}
+            max={600}
+            step={0.1}
+            onChange={(distance) => setHorizonSettings((prev) => ({ ...prev, distance }))}
+          />
+          <RangeField
+            label="Edifícios atrás"
+            value={horizonSettings.backDistance}
+            min={10}
+            max={600}
+            step={0.1}
+            onChange={(backDistance) => setHorizonSettings((prev) => ({ ...prev, backDistance }))}
+          />
+        </div>
+      )}
+      </div>
       {!myBuildingsOpen && hoverInfo && (
         <div
           className="pointer-events-none fixed z-50 bg-tinta px-3 py-1.5 text-sm font-semibold text-papel"
@@ -709,18 +751,6 @@ export function CitySceneEditor() {
             maximumFractionDigits: 2,
           })}
         </div>
-      )}
-      {!myBuildingsOpen && isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
-        <BuildingLayoutCard
-          settings={blockLayoutSettings}
-          onChange={setBlockLayoutSettings}
-          visibleLimit={visibleLimit}
-          onVisibleLimitChange={setVisibleLimit}
-          total={donations.length}
-          onClose={() =>
-            setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
-          }
-        />
       )}
       {!myBuildingsOpen && booted && isAdmin && (
         <BuildingHeightInput

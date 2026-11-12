@@ -97,7 +97,7 @@ scripts/
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
-  check-public-startup.mjs     ← hidratação, vídeo sob demanda, login/indicação e fotos carregadas antes da hidratação
+  check-public-startup.mjs     ← hidratação, vídeo/login, visibilidade independente, preferências antigas e fotos em cache
   prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
   submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
@@ -105,7 +105,7 @@ scripts/
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
-  check-scene-stats.mjs        ← feedback público sem renders por FPS/culling, loading síncrono e diagnóstico admin; sem navegador
+  check-scene-stats.mjs        ← feedback público, loading síncrono, diagnóstico admin e controles de distância frente/trás; sem navegador
   check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-draw-calls.mjs ← grupos por material, triângulos, picking, cache, transparência e dispose; sem navegador/GPU → [[scene-builders#Agrupamento por material (mobile)]]
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
@@ -522,7 +522,8 @@ flowchart LR
 | Modo noite: brilho das janelas (slider)          | seção **Ambiente** → [[html-components#EnvironmentControls.tsx]] |
 | Postes de luz nas ruas (quantidade, altura, luz) | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
-| Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Mostrar/esconder componentes HTML, Contribuir, indicação, Meus edifícios e menu | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Ajustar distância dos edifícios à frente/atrás sem abrir painel | dois controles sem fundo no canto inferior esquerdo (admin) → [[html-components#HorizonControls.tsx]] |
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Visualizar/administrar edifícios próprios       | [[html-components#BuildingManageDialog.tsx]]    |

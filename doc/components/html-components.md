@@ -85,6 +85,8 @@ Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esque
 
 Placa e `AuthMenu` na mesma linha (`inset-x-4 top-4 z-30`, `justify-between`, gap 8px). Linha `pointer-events-none`: espaços vazios deixam passar gestos pra cena e pros filtros no centro.
 
+Aba **Tela → Componente de indicação** controla `uiVisibility.referralHud`: oculta placa inteira, inclusive logo. Preferência local; padrão visível.
+
 > [!note] Mobile (< `sm`)
 > Altura 40px = botões. Com contador ou **Cidoe**, logo some; placa só com logo mantém logo. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda. Menu logado: avatar sem nome (`sr-only`), gap 8px.
 
@@ -139,7 +141,7 @@ Overlay fixo no centro superior da página — é o input de doação de depura�
 
 ### `BuildingLayoutCard.tsx`
 
-Card flutuante no canto inferior esquerdo (`bottom-24`; topo fica com a placa da marca), só admin (`isAdmin`): público não vê, e o texto dele chegando tarde virava LCP de ~7 s no mobile. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
+Card flutuante no canto inferior esquerdo, só admin (`isAdmin`): público não vê, e o texto dele chegando tarde virava LCP de ~7 s no mobile. `CitySceneEditor` empilha card acima do log da câmera e dos controles de distância, sem sobreposição; card/log rolam em telas baixas, controles de distância ficam fixos no rodapé da coluna. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
 
 **Responsabilidades:**
 - Par de botões que alterna `centerTallest` — **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra, menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas idênticas nos dois — ver [[scene-managers#Layout dos Prédios — 2 Modos]]
@@ -209,6 +211,8 @@ Barra temporariamente oculta na tela principal: `SHOW_DONATION_FILTERS = false` 
 ### `ContributeDialog.tsx`
 
 `html/donate/`. Botão **Contribuir** (`Button size="lg"` verde, ícone `PixelBuilding`, rodapé central a 24px; mobile `left-4 right-20 bottom-4`, texto 14px — livra seta/engrenagem à direita) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
+
+`showTrigger` (opcional, padrão `true`) recebe `uiVisibility.contributeButton`. Aba **Tela → Botão Contribuir** oculta só botão; diálogo e acompanhamento de Pix continuam montados.
 
 **Layout** — largura até **896 px**; rolagem única do modal inteiro (cabeçalho, etapas, campos e rodapé), altura limitada à área acima do teclado, margens responsivas e tokens claro/escuro.
 
@@ -328,6 +332,8 @@ Visualização dedicada sobre a cidade, sem painel/modal de navegação. **Meus 
 ### `GameMenu.tsx`
 
 Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). **Meus edifícios** na cena leva direto à [[#MyBuildingsNavigation.tsx|navegação na cidade]]. Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
+
+`AuthMenu.showMyBuildingsButton` e `showMenuButton` (opcionais, padrão `true`) recebem preferências independentes da aba **Tela**: **Botão Meus edifícios** e **Menu da conta**. Menu controla avatar + compartilhar; deslogado, controla grupo noite/apresentação/Entrar. Diálogos de conta, login, indicação e onboarding continuam montados; contribuição ainda pode solicitar login com menu oculto. Engrenagem admin continua acessível para restaurar opções.
 
 - **Fundo** — `DialogOverlay` padrão (`bg-tinta/72`, sem blur), fade 500 ms: cena escurece ao abrir.
 - **Visual** — placas de papel do HUD ([[desingn-system-index#Interface sobre a cidade]]): `pixel bevel-edge bg-background`, edifício em quadrado verde com `PixelBuilding`, progresso em `BlockBar`, âmbar só na recompensa de indicação.
@@ -487,7 +493,7 @@ Componente que monta o painel completo de configuração da cena. Só admin (`is
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + filtros + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto: Contribuir, indicação, Meus edifícios, menu da conta, log de câmera, 3 inputs de geração/posição, filtros e card de organização. Preferências independentes em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
@@ -705,6 +711,8 @@ Controles da aba **Horizonte**. Três seções:
 - `distance` — alcance dos edifícios à frente (100–600)
 - `backDistance` — alcance dos edifícios atrás da câmera (10–600)
 - prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
+
+`CitySceneEditor` também expõe **Edifícios à frente** e **Edifícios atrás** no canto inferior esquerdo, após loading e só admin. Apenas dois `RangeField`, rótulos e valores brancos, sem fundo, moldura, título de seção ou descrição; mesmos limites e passo `0.1` do painel. Cor branca restrita aos dois controles sobre a cena. Alteram `horizonSettings` compartilhado: tela e aba Horizonte sincronizadas. Ficam abaixo do log da câmera e do card de organização; no mobile, sobem acima de Contribuir enquanto botão estiver visível. Navegação dedicada dos próprios edifícios oculta controles.
 
 > [!note] Distância só dos edifícios
 > Sliders usam cull do manager: compactam buffer, reduzem `mesh.count` e ocultam formatos customizados/acessórios. Não alteram `camera.far`, chão ou montanhas. Probe fixo recompõe cidade durante captura; culling da câmera principal não muda conteúdo compartilhado do reflexo.
