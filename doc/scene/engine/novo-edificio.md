@@ -75,6 +75,7 @@ Todo ponto que trata formato autoral. Achar todos: `grep -rn '"residential"' src
 
 ```bash
 node scripts/check-building-shapes.mjs   # todo formato de BUILDING_SHAPES entra sozinho
+node scripts/measure-building-geometry.mjs   # custo do formato: draws, materiais, triângulos, MB do cache por andar
 npx tsc -b
 npx eslint src/scene scripts
 ```

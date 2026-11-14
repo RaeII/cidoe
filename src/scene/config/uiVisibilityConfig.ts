@@ -10,6 +10,10 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     bulkInput: true,
     blockLayoutInput: true,
     buildingLayoutCard: false,
+    contributeButton: true,
+    referralHud: true,
+    myBuildingsButton: true,
+    menuButton: true,
   };
 }
 

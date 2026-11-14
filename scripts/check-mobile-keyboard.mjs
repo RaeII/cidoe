@@ -43,7 +43,8 @@ const document = target({
     removeProperty: (key) => properties.delete(key),
   } },
 });
-const window = { visualViewport: viewport, innerHeight: 800, matchMedia: () => ({ matches: reducedMotion }) };
+let coarse = true;
+const window = { visualViewport: viewport, innerHeight: 800, matchMedia: (query) => ({ matches: query.includes("coarse") ? coarse : reducedMotion }) };
 const context = {
   exports: {}, window, document, HTMLElement: Element,
   requestAnimationFrame(callback) { frames.set(++frameId, callback); return frameId; },
@@ -94,6 +95,12 @@ document.listeners.get("focusin")({ type: "focusin", target: input });
 flush();
 assert.equal(scrolls, 7, "Movimento reduzido preserva alinhamento sem animação");
 reducedMotion = false;
+coarse = false;
+document.listeners.get("focusin")({ type: "focusin", target: input });
+document.listeners.get("click")({ type: "click", target: input });
+flush();
+assert.equal(scrolls, 7, "Mouse (sem teclado virtual) não rola painel nem página");
+coarse = true;
 input.editable = false;
 resize();
 assert.equal(scrolls, 7, "Foco fora de campo não rola página");

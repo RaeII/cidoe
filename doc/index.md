@@ -107,6 +107,15 @@ O projeto é dividido em 3 grandes partes:
 
 ## Estrutura de Arquivos
 
+> [!important] Script de teste importante mora em `scripts/`
+> Todo script de teste, checagem ou medição que valha repetir fica em `scripts/`, na raiz do projeto, versionado. Nunca em pasta temporária nem solto fora do repo. Motivo: reaproveitar na próxima mudança, comparar antes/depois.
+>
+> - Cabeçalho do arquivo: comando de uso + objetivo + o que precisa (servidor, navegador, GPU ou nada).
+> - Linha própria na árvore abaixo, com o objetivo.
+> - Prefixo: `check-*` afirma (falha com `assert`); `measure-*` mede e imprime, sem afirmar.
+> - Faltou opção num script existente → estender, não criar outro.
+> - Fora da regra: rascunho descartável de uma sessão. Some ao fim.
+
 ```text
 scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
@@ -120,7 +129,7 @@ scripts/
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
-  check-public-startup.mjs     ← hidratação, vídeo sob demanda, login/indicação e fotos carregadas antes da hidratação
+  check-public-startup.mjs     ← hidratação, vídeo/login, visibilidade independente, preferências antigas e fotos em cache
   prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
   submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
@@ -129,12 +138,19 @@ scripts/
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
-  check-scene-stats.mjs        ← feedback público sem renders por FPS/culling, loading síncrono e diagnóstico admin; sem navegador
+  check-scene-stats.mjs        ← feedback público, loading síncrono, diagnóstico admin e controles de distância frente/trás; sem navegador
   check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-draw-calls.mjs ← grupos por material, triângulos, picking, cache, transparência e dispose; sem navegador/GPU → [[scene-builders#Agrupamento por material (mobile)]]
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
+  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
+  check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
+  check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
+  check-mobile-performance.mjs ← buffers, GIFs, preparo de shaders e cache incremental; sem navegador/GPU
+  measure-building-geometry.mjs ← custo por formato: draws, materiais, triângulos e MB do cache por andar; sem servidor/navegador/GPU → [[relatorio-desempenho-edificios]]
+  measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
@@ -154,7 +170,7 @@ src/
   main.tsx                      ← entry; restaura consentimento do Analytics; reload em `vite:preloadError` (chunk de deploy antigo)
   index.css                     ← tokens do DS + utilitários (`pixel`, `bevel-*`, `field`, `menu-cursor`…) + controles nativos → [[desingn-system-index]]
   hooks/
-    useVisualViewport.ts        ← altura/deslocamento visíveis + foco acima do teclado; montado pelo App
+    useVisualViewport.ts        ← altura/deslocamento visíveis + foco acima do teclado (só toque + campo de texto); montado pelo App
   api/
     http.ts
     admin/
@@ -362,6 +378,7 @@ doc/
       scene-managers.md
       scene-builders.md
       novo-edificio.md           ← guia: criar/editar modelo de edifício, render de avaliação, limpeza
+      relatorio-desempenho-edificios.md ← relatório: lote de 10 mil edifícios de formato, causas medidas, recomendações
       scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline WebP/KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
@@ -426,7 +443,7 @@ Também gerencia:
 - Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e com margem no mobile), setas só com ícones nas laterais, Personalizar/Ver como visitante com fundo no rodapé e X para restaurar interface/câmera. Ver como visitante troca rodapé por Voltar (seta), que fecha card e volta à navegação. Clique na cena também encerra o modo e restaura os componentes; chão limpa foco, outro edifício abre informações. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
 - Contribuição no pré-lançamento: máximo 3 edifícios locais por conta/navegador, mínimo R$ 5; aumento mantém cidade e acumula ONGs. Confirmação grava somente localStorage; nunca cria cobrança ou edifício no banco. Ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
-- Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
+- Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(entries)` (lote com formato sorteado)
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--edit-x`/`--edit-y` direto no estilo, sem re-render. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé. Wrapper sempre montado (`hidden`) guarda última posição. Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
 - Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay, prévia nem aviso âmbar; barra de categorias em anel embaixo, opções em 3 colunas; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
@@ -547,7 +564,8 @@ flowchart LR
 | Modo noite: brilho das janelas (slider)          | seção **Ambiente** → [[html-components#EnvironmentControls.tsx]] |
 | Postes de luz nas ruas (quantidade, altura, luz) | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
-| Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Mostrar/esconder componentes HTML, Contribuir, indicação, Meus edifícios e menu | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Ajustar distância dos edifícios à frente/atrás sem abrir painel | dois controles sem fundo no canto inferior esquerdo (admin) → [[html-components#HorizonControls.tsx]] |
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Visualizar/administrar edifícios próprios       | [[html-components#BuildingManageDialog.tsx]]    |
@@ -601,6 +619,7 @@ flowchart LR
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
+| Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
 | Alterar torre Varanda Gourmet (gourmet)          | [[scene-builders#createGourmetBuildingMesh.ts]] |

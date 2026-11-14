@@ -64,7 +64,7 @@ O componente expõe uma ref com métodos imperativos:
 
 ```typescript
 canvasRef.current?.addDonation(value)
-canvasRef.current?.addDonations(values)
+canvasRef.current?.addDonations(entries) // [{ value, customization? }]; formatos criados em fatias
 canvasRef.current?.setDonations(entries)  // replace-all do backend
 canvasRef.current?.focusOnDonation(id)
 canvasRef.current?.clearFocus()

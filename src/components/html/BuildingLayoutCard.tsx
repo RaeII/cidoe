@@ -52,7 +52,7 @@ export function BuildingLayoutCard({
   const shown = visibleLimit === null ? total : Math.min(visibleLimit, total);
 
   return (
-    <div className="pixel bevel-edge absolute left-4 bottom-24 z-30 w-64 bg-background p-3 pb-4">
+    <div className="pointer-events-auto pixel bevel-edge w-64 max-w-full bg-background p-3 pb-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="mono-label text-foreground">
           Organização dos edifícios

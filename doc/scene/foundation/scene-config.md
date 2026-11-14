@@ -236,6 +236,12 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 | `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
 | `blockLayoutInput` | `true` | Input de configuração de quadras |
 | `buildingLayoutCard` | `false` | Card **Organização dos edifícios** (layout + teto) |
+| `contributeButton` | `true` | Botão Simular contribuição; diálogo continua montado |
+| `referralHud` | `true` | Placa da marca/indicação |
+| `myBuildingsButton` | `true` | Botão Meus edifícios |
+| `menuButton` | `true` | Menu da conta e compartilhar; deslogado, noite/apresentação/Entrar |
+
+Persistência via `useLocalSceneState("visibility")`: campos novos ausentes em preferência antiga caem no default (visíveis); demais escolhas preservadas. Engrenagem admin permanece acessível.
 
 **Funções exportadas:**
 - `createDefaultUIVisibilitySettings()` — inputs visíveis; log de câmera e card de organização desligados (menos informação na tela). Aba **Tela** liga

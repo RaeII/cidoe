@@ -34,15 +34,22 @@ export function useLocalCityValue<T>(area: string, fallback: T, shared = false):
   return loaded.value;
 }
 
+/** Preferência salva antes de um campo existir: o campo novo cai no default. */
+function withDefaults<T>(value: T, fallback: T): T {
+  const isObject = (v: unknown): v is object => typeof v === "object" && v !== null && !Array.isArray(v);
+  return isObject(value) && isObject(fallback) ? { ...fallback, ...value } : value;
+}
+
 export function useLocalSceneState<T>(key: string, createDefault: () => T): [T, (action: SetStateAction<T>) => void] {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const area = `scene:${key}`;
   const fallback = useMemo(() => createDefault(), [createDefault]);
-  const value = useLocalCityValue(area, fallback);
+  const stored = useLocalCityValue(area, fallback);
+  const value = useMemo(() => withDefaults(stored, fallback), [stored, fallback]);
   const setValue = useCallback((action: SetStateAction<T>) => {
     try {
-      const current = readLocalValue(userId, area, fallback);
+      const current = withDefaults(readLocalValue(userId, area, fallback), fallback);
       const next = typeof action === "function" ? (action as (prev: T) => T)(current) : action;
       writeLocalValue(userId, area, next);
     } catch (error) {

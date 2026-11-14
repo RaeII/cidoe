@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { mergeGroups } from "three/addons/utils/BufferGeometryUtils.js";
+import { mergeGeometries, mergeGroups } from "three/addons/utils/BufferGeometryUtils.js";
 import type { BuildingShape } from "../types";
 import {
   createTwistedBuildingMesh,
@@ -28,36 +28,45 @@ import {
 import {
   createEmpireBuildingMesh,
   disposeEmpireBuildingSharedResources,
+  getEmpireTierFootprints,
 } from "./createEmpireBuildingMesh";
 import {
   createTaipeiBuildingMesh,
   disposeTaipeiBuildingSharedResources,
+  getTaipeiTierFootprints,
 } from "./createTaipeiBuildingMesh";
 import {
   createOneTradeBuildingMesh,
   disposeOneTradeBuildingSharedResources,
+  getOneTradeTierFootprints,
 } from "./createOneTradeBuildingMesh";
 
 import {
   createYachthouseBuildingMesh,
   disposeYachthouseBuildingSharedResources,
+  YACHTHOUSE_FLOOR_KIT,
 } from "./createYachthouseBuildingMesh";
 import {
   createResidentialBuildingMesh,
   disposeResidentialBuildingSharedResources,
+  RESIDENTIAL_FLOOR_KIT,
 } from "./createResidentialBuildingMesh";
 import {
   createApartmentBuildingMesh,
   disposeApartmentBuildingSharedResources,
+  APARTMENT_FLOOR_KIT,
 } from "./createApartmentBuildingMesh";
 import {
   createGourmetBuildingMesh,
   disposeGourmetBuildingSharedResources,
+  GOURMET_FLOOR_KIT,
 } from "./createGourmetBuildingMesh";
 import {
   createLoftBuildingMesh,
   disposeLoftBuildingSharedResources,
+  LOFT_FLOOR_KIT,
 } from "./createLoftBuildingMesh";
+import { disposeFloorKits, getFloorKit, type FloorKit, type FloorKitSpec } from "./createBuildingFloorKit";
 
 type ShapeMeshBuilder = (
   facadeMaterial: THREE.Material,
@@ -85,6 +94,21 @@ const SHAPE_BUILDERS: Record<Exclude<BuildingShape, "default">, ShapeMeshBuilder
   gourmet: createGourmetBuildingMesh,
   loft: createLoftBuildingMesh,
 };
+
+// Formatos com andares: a cena instancia módulos em vez da geometria por altura.
+const FLOOR_KIT_SPECS: Partial<Record<BuildingShape, FloorKitSpec>> = {
+  yachthouse: YACHTHOUSE_FLOOR_KIT,
+  residential: RESIDENTIAL_FLOOR_KIT,
+  apartment: APARTMENT_FLOOR_KIT,
+  gourmet: GOURMET_FLOOR_KIT,
+  loft: LOFT_FLOOR_KIT,
+};
+
+/** Kit modular do formato com andares; null = formato de geometria única. */
+export function getBuildingShapeFloorKit(shape: BuildingShape): FloorKit | null {
+  const spec = FLOOR_KIT_SPECS[shape];
+  return spec ? getFloorKit(spec) : null;
+}
 
 const geometryBatches = new WeakMap<THREE.BufferGeometry, {
   original: THREE.BufferGeometry;
@@ -153,6 +177,58 @@ export function createUnitBuildingGeometry(): THREE.BoxGeometry {
   return geometry;
 }
 
+// Formatos pesados (7–28 mil triângulos): patamares que o LED/letreiro já usam viram a
+// silhueta do edifício distante. Os demais formatos são leves — sem LOD.
+const LOD_TIERS: Partial<Record<BuildingShape, () => Array<{
+  bottomY: number; topY: number; width: number; depth: number;
+}>>> = {
+  empire: getEmpireTierFootprints,
+  taipei: getTaipeiTierFootprints,
+  "one-trade": getOneTradeTierFootprints,
+};
+const lodGeometries = new Map<BuildingShape, THREE.BufferGeometry>();
+
+/**
+ * Silhueta barata do formato (uma caixa por patamar, grupos fachada = 0 e topo = 1) para o
+ * edifício distante; null = formato leve. Hearst é uma caixa chanfrada: usa `defaultGeometry`.
+ */
+export function getBuildingShapeLodGeometry(
+  shape: BuildingShape,
+  defaultGeometry: THREE.BufferGeometry,
+): THREE.BufferGeometry | null {
+  if (shape === "hearst") return defaultGeometry;
+  const tiers = LOD_TIERS[shape];
+  if (!tiers) return null;
+  let geometry = lodGeometries.get(shape);
+  if (!geometry) {
+    const boxes = tiers().map(({ bottomY, topY, width, depth }) => {
+      const box = new THREE.BoxGeometry(width, topY - bottomY, depth);
+      box.translate(0, (bottomY + topY) / 2 - 0.5, 0);
+      return box;
+    });
+    geometry = mergeGeometries(boxes, false);
+    for (const box of boxes) box.dispose();
+    // Face voltada pra cima = topo; o resto é fachada. Dois grupos = dois draw calls.
+    const index = geometry.index!;
+    const normal = geometry.getAttribute("normal");
+    const side: number[] = [];
+    const top: number[] = [];
+    for (let i = 0; i < index.count; i += 3) {
+      const target = normal.getY(index.getX(i)) > 0.5 ? top : side;
+      target.push(index.getX(i), index.getX(i + 1), index.getX(i + 2));
+    }
+    geometry.setIndex([...side, ...top]);
+    geometry.addGroup(0, side.length, 0);
+    geometry.addGroup(side.length, top.length, 1);
+    geometry.setAttribute("aProjPosition", geometry.getAttribute("position"));
+    geometry.setAttribute("aProjNormal", geometry.getAttribute("normal"));
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    lodGeometries.set(shape, geometry);
+  }
+  return geometry;
+}
+
 /**
  * Mesh do formato pedido. `defaultGeometry` só é usada quando shape = `default`
  * (o chamador reaproveita a geometria que já tem em mãos).
@@ -196,6 +272,9 @@ export function createBuildingShapeMesh(
 
 /** Descarta as geometrias compartilhadas (cache module-level) de todos os formatos. */
 export function disposeBuildingShapeSharedResources(): void {
+  disposeFloorKits();
+  for (const geometry of lodGeometries.values()) geometry.dispose();
+  lodGeometries.clear();
   disposeTwistedBuildingSharedResources();
   disposeOctagonalBuildingSharedResources();
   disposeSetbackBuildingSharedResources();

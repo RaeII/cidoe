@@ -307,6 +307,10 @@ export type UIVisibilitySettings = {
   bulkInput: boolean;       // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
   buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
+  contributeButton: boolean;
+  referralHud: boolean;
+  myBuildingsButton: boolean;
+  menuButton: boolean;
 };
 
 export type CitySceneConfig = {

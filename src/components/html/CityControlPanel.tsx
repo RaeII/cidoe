@@ -230,6 +230,30 @@ export function CityControlPanel({
             >
               <div className="space-y-2">
                 <CheckboxField
+                  label="Botão Contribuir"
+                  checked={uiVisibility.contributeButton}
+                  onChange={(contributeButton) =>
+                    onUIVisibilityChange({ ...uiVisibility, contributeButton })
+                  }
+                />
+                <CheckboxField
+                  label="Componente de indicação"
+                  checked={uiVisibility.referralHud}
+                  onChange={(referralHud) => onUIVisibilityChange({ ...uiVisibility, referralHud })}
+                />
+                <CheckboxField
+                  label="Botão Meus edifícios"
+                  checked={uiVisibility.myBuildingsButton}
+                  onChange={(myBuildingsButton) =>
+                    onUIVisibilityChange({ ...uiVisibility, myBuildingsButton })
+                  }
+                />
+                <CheckboxField
+                  label="Menu da conta"
+                  checked={uiVisibility.menuButton}
+                  onChange={(menuButton) => onUIVisibilityChange({ ...uiVisibility, menuButton })}
+                />
+                <CheckboxField
                   label="Log de posição da câmera"
                   checked={uiVisibility.cameraLog}
                   onChange={(cameraLog) => onUIVisibilityChange({ ...uiVisibility, cameraLog })}

@@ -69,7 +69,7 @@ export type CitySceneRuntime = {
   /** 0 = sem granulado (resolução nativa travada). >0 libera o downscale por FPS. */
   setGrain: (grain: number) => void;
   addDonation: (value: number) => void;
-  addDonations: (values: number[]) => void;
+  addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
@@ -420,6 +420,12 @@ export async function createCitySceneRuntime({
   let hoverRafId: number | null = null;
   const handleMouseMove = onHoverChange
     ? (event: MouseEvent) => {
+        // Botão apertado = arrasto da câmera: sem raycast nem tooltip no meio da órbita.
+        if (event.buttons !== 0) {
+          pendingHoverEvent = null;
+          onHoverChange(null, 0, 0);
+          return;
+        }
         pendingHoverEvent = event;
         if (hoverRafId === null) {
           hoverRafId = requestAnimationFrame(() => {
@@ -669,7 +675,7 @@ export async function createCitySceneRuntime({
         camera.getWorldDirection(cullForward),
         viewFrustum,
       );
-      // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
+      // Captura do cube refaz o próprio cull a partir do probe; este vale pro render principal.
       if (culled !== currentStats.culled) {
         emitStatsPatch({ culled });
       }
@@ -788,7 +794,7 @@ export async function createCitySceneRuntime({
         ...currentEnvironment,
         offsetY: currentEnvironment.offsetY + currentReflection.skyDrop,
       });
-      donationManager.beginEnvCapture(currentReflection.includeCityFloor);
+      donationManager.beginEnvCapture(currentReflection.includeCityFloor, envProbePosition);
       // Quando excluídos pelo controle de reflexo, relevo e plano cinza deixam o hemisfério
       // de baixo do cube livre para o céu (ver skyDrop).
       const terrainWasVisible = terrainRig.mesh.visible;
@@ -993,9 +999,11 @@ export async function createCitySceneRuntime({
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
-    addDonations(values) {
+    addDonations(entries) {
       donationsReceived = true;
-      donationManager.addDonations(values);
+      donationManager.addDonations(entries);
+      // Cria as malhas de formato do lote em fatias (drainCustomizations → pumpCustomShapes).
+      if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();

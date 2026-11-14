@@ -1,4 +1,4 @@
-// Callback real do editor, sem servidor, navegador ou GPU.
+// node scripts/check-scene-stats.mjs — estatísticas e controles de distância reais; sem servidor/navegador/GPU.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
@@ -52,4 +52,20 @@ admin.publish(diagnostic);
 assert.equal(admin.state, diagnostic, "Painel admin perdeu métricas de desempenho");
 assert.equal(admin.renders, 1);
 admin.publish(loading); assert.equal(admin.state, loading);
-console.log("ok stats — público sem renders por métricas, sceneReady síncrono, carga/retomada e diagnóstico admin");
+
+const distances = [];
+function findDistances(node) {
+  if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === "RangeField") distances.push(node);
+  ts.forEachChild(node, findDistances);
+}
+findDistances(ast);
+assert.equal(distances.length, 2, "Cena expõe somente os dois controles de distância");
+let horizon = { distance: 150, backDistance: 46.2, renderDistance: 190, groundDistance: 209, fogDensity: 0.007 };
+for (const [index, distance] of [260, 70].entries()) {
+  const onChange = distances[index].attributes.properties.find((attribute) => attribute.name?.getText(ast) === "onChange").initializer.expression;
+  vm.runInNewContext(ts.transpileModule(`(${onChange.getText(ast)})(${distance})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
+    setHorizonSettings(update) { horizon = update(horizon); },
+  });
+}
+assert.deepEqual({ ...horizon }, { distance: 260, backDistance: 70, renderDistance: 190, groundDistance: 209, fogDensity: 0.007 }, "Ajustes frente/trás preservam horizonte, chão e névoa");
+console.log("ok stats — métricas públicas, loading síncrono, diagnóstico admin e controles frente/trás independentes");

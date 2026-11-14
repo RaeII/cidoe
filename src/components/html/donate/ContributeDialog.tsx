@@ -232,7 +232,7 @@ export function ContributeDialog({
   /** Simulação salva no navegador: o edifício entra ou cresce na cidade local. */
   onPaid: (contribution: Contribution, donationId: number) => void;
   onViewBuilding: (donationId: number) => void;
-  /** Esconde o botão "Simular contribuição" (edifício de outra pessoa em foco). */
+  /** Esconde o botão "Simular contribuição" (edifício de outra pessoa em foco ou desligado no painel). */
   hideTrigger?: boolean;
 }) {
   const { user, isLoading } = useAuth();
