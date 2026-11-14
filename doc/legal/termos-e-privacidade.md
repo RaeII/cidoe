@@ -151,7 +151,6 @@ Definidos em `.claude/agents/` (carregam em sessão nova do Claude Code):
 | `revisor-termos` | Confere textos contra pedidos do dono, lei, Google e código; veredito + correções |
 | `pesquisa-idade` | Idade mínima: lei (CC, LGPD art. 14, ECA Digital) + prática de Vakinha e afins; diz se vai na caixa de aceite |
 | `benchmark-termos` | Lê termos de Vakinha, Apoia.se, Catarse, Benfeitoria, Kickante, Abrace uma Causa, GoFundMe; lista o que adotar/melhorar, sem copiar e sem promessa por e-mail |
-
 Rodar de novo quando: feature nova coleta dado, entra terceiro (PSP, analytics), muda retenção, ou antes de sair do pré-lançamento.
 
 ---
