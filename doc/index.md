@@ -72,7 +72,7 @@ Domínio oficial: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google 
 - Apresentação em vídeo sob demanda: **Conheça o Cidoe** ou login solicitado no desktop. Visita inicial e `?ref=` não abrem modal; indicação permanece preenchida no próximo login. Sem uso de `cidoe:intro-video-seen`. Favicon declarado: `favicon-96.png`, derivado do logo verde existente.
 - Vocabulário: **doação para ONGs de proteção animal**, **cidade 3D**, **ajudar animais**, **cães e gatos**, **personalizar meu prédio** e perguntas de funcionamento. Metadados das quatro páginas públicas, H1/H2, apresentação, Sobre e `noscript` usam palavras simples. Sobre mantém **Israel Zeferino**; títulos legais, cláusulas e comandos da interface preservados. Sem `meta keywords`, repetição artificial ou métricas de volume inventadas. H1 descritivo da home; subtítulos H2. [[seo#Palavras e intenção]].
 - `public/robots.txt`: Google, Gemini, Bing, ChatGPT, Claude e Perplexity permitidos num único grupo; API/healthz restritos. Admin rastreável para receber `noindex` no HTML e cabeçalho. Fallback SPA só em `/dale`; demais URLs inexistentes recebem 404. Sitemap: quatro páginas públicas; sem datas falsas de atualização.
-- IndexNow: chave pública em `public/indexnow-key.txt`; `npm run seo:submit -- --dry-run` valida sem rede. Envio real somente após publicar: `npm run seo:submit`. Google Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
+- IndexNow: chave pública em `public/{chave}.txt` (raiz); `npm run seo:submit -- --dry-run` valida sem rede. Envio real roda no `deploy.sh` do back ou manual: `npm run seo:submit`. Bing: `public/BingSiteAuth.xml`. Google Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê a chave atual; se ausente, copia a chave legada `cidoa:*`, removendo-a apenas depois de salvar. Quota cheia mantém o original legível. Preserva JSON, isolamento por conta, preferências e aceite/recusa do Analytics; valores atuais prevalecem.
 - A limpeza de `cidoa.admin.session`, o suporte a consentimento de abas antigas e a remoção de caches legados mantêm nomes antigos apenas para compatibilidade. `cidoe-env-v2` baixa novamente os arquivos de ambiente; cidades não ficam nesse cache.
 - GitHub renomeado para [RaeII/cidoe](https://github.com/RaeII/cidoe) (front) e [RaeII/cidoe-back](https://github.com/RaeII/cidoe-back) (API), com remotes e labels atualizados. Caminhos físicos dos repositórios e nome do banco existente permanecem os atuais. Deploy e transição coordenada de imagens/rede: [produção](../prod/README.md#transição-para-os-nomes-cidoe).
@@ -162,7 +162,8 @@ public/
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
   robots.txt                   ← bots de busca/IA permitidos; API/healthz restritos; admin recebe noindex
   sitemap.xml                  ← URLs canônicas públicas: home, sobre, termos e privacidade
-  indexnow-key.txt              ← prova pública IndexNow; não é segredo
+  acbc00eed07ed2d01d8f60b670973076.txt ← chave IndexNow (nome = conteúdo); não é segredo
+  BingSiteAuth.xml              ← verificação Bing Webmaster; não remover
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
   video-cidoe-poster.jpg       ← miniatura pública 720×1280 do vídeo, usada em poster → [[seo#Vídeo de apresentação e miniatura]]
 src/
