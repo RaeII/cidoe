@@ -101,6 +101,7 @@ scripts/
   check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
   check-public-startup.mjs     ← hidratação, vídeo/login, visibilidade independente, preferências antigas e fotos em cache
+  check-initial-loading.mjs    ← loading inicial no Chrome headless: entrada não recomeça nas 3 montagens, barra só avança até 100%, sai e desmonta, console limpo; precisa `vite preview` + API (MOBILE/REDUCE/SHOTS)
   prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
   submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
@@ -191,7 +192,7 @@ src/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
       RewardExamples.tsx        ← exemplos locais dos dois modais reais, no Passe e nas recompensas por indicação
     ui/
-      pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`, `PixelPhoto`
+      pixel-icon.tsx                ← ícones em pixel do DS, logo (+ `LOGO_PATHS` em partes p/ animar), gato/cachorro, `BlockLoader`, `PixelPhoto`
       social-icons.tsx              ← LinkedIn compartilhado com indicações e Instagram do criador
       photo.tsx                     ← `<Photo ratio>`: foto na moldura do DS, espera em blocos, "Foto indisponível"
       avatar.tsx                    ← avatar quadrado do DS: 32/48/72, iniciais mono
@@ -223,7 +224,8 @@ src/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
-      DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
+      InitialLoading.tsx           ← página de loading da cena (design LoadingInicial): entrada em CSS, barra ligada ao boot, sai em blocos → [[html-components#InitialLoading.tsx]]
+      DonationLoadOverlay.tsx      ← card de carregamento dos rebuilds por filtro → [[html-components#DonationLoadOverlay.tsx]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin

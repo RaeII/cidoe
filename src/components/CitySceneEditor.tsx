@@ -21,6 +21,7 @@ import { ApiError } from "../api/http";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
+import { InitialLoading } from "./html/InitialLoading";
 import { DonationFilterBar } from "./html/DonationFilterBar";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
@@ -635,8 +636,15 @@ export function CitySceneEditor() {
         onHoverChange={myBuildingsOpen ? undefined : handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
-      <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
+      {/* Página de loading (a mesma do HTML pré-renderizado) cobre a cena até tudo carregar.
+          Barra: 70% = download do snapshot; 75% aplicando na cena; 90% esperando catálogo/texturas/shaders. */}
+      <InitialLoading
+        progress={booted ? 100
+          : loadState.status === "loading" ? (loadState.totalBytes ? (70 * loadState.loadedBytes) / loadState.totalBytes : 20)
+          : loadState.status === "ready" ? (donationsApplied ? 90 : 75) : 0}
+        error={loadState.status === "error" ? loadState.message : undefined}
+        onRetry={retry}
+      />
       {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
       {booted && (
       <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">

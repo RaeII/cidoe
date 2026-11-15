@@ -3,8 +3,8 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import { CookieNotice } from "./components/CookieNotice";
-import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
 import { DonationInfoSection } from "./components/html/DonationInfoSection";
+import { InitialLoading } from "./components/html/InitialLoading";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
@@ -64,7 +64,7 @@ function SceneFallback() {
   return (
     <div className="h-svh w-full overflow-y-auto bg-background">
       <div id="scene-loading" className="relative h-svh w-full overflow-hidden bg-background">
-        <DonationLoadOverlay cover state={SCENE_LOADING} onRetry={() => {}} />
+        <InitialLoading progress={0} />
       </div>
       <DonationInfoSection donations={[]} ongs={[]} filter={{}} loadState={SCENE_LOADING}
         onFilterChange={() => {}} onViewOng={() => {}} onRetry={() => {}} />

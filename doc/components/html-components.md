@@ -34,17 +34,17 @@ Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse 
 
 Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, apresentação e imagens informativas disponíveis na seção HTML abaixo da cena, sem esperar API/WebGL; imagens usam lazy loading nativo. A primeira renderização do React hidrata o HTML do build; [[seo]]. Sem pôster da cidade.
 
-1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
+1. **`index.html`** — `#root` traz só `#scene-loading` vazio (papel `pattern-paws`): casca do dev até o React montar. Build troca o miolo pelo HTML pré-renderizado ([[#InitialLoading.tsx|InitialLoading]] + apresentação), então produção pinta a entrada já no 1º paint. Script inline remove fora de `/`.
 2. **`AppContent` (`App.tsx`)** — compartilhado com o build (`renderToString` + `StaticRouter`), incluindo limites de `Suspense` e IDs. `SceneFallback` mantém loading + `DonationInfoSection` completos durante o download do editor. Documentos públicos usam imports diretos para corresponder ao HTML inicial. `main.tsx` usa `hydrateRoot` em produção com HTML; dev e casca vazia do admin usam `createRoot`.
 3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). Após a hidratação, `clientReady` monta sessão da cena, `CookieNotice` e `Toaster`; só então o editor lazy começa a baixar. Store do toast preserva notificações anteriores ao mount.
-4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
+4. **`CitySceneEditor`** — `<InitialLoading progress error onRetry />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. `progress`: download do snapshot 0–70% (20% sem total), aplicando 75%, esperando catálogo/cena 90%, `booted` 100% → fim (~1 s) → papel em blocos (~0,8 s) → desmonta.
 5. **Até `booted`** não montam: placa da marca, `AuthMenu`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` mantém texto, links, logo e foto desde o início; sem prop `mediaReady`. Fotos e avatares usam `loading="lazy"`. Sem onboarding sobre o loading.
 
 > [!note] Custo
 > Medição anterior, com 6 fachadas adicionais (~11 MB; headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s. A política atual usa lazy loading nativo nas imagens públicas; tempo de download e métricas de campo precisam de nova medição. Sem WebGL: hook marca `sceneReady`, loading sai normal.
 
 > [!warning] LCP
-> LCP mobile = texto do card de loading (já no HTML). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
+> LCP mobile = nome/frase do loading (já no HTML; nome entra em 0,42 s por CSS, sem esperar JS). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
 
 - **Fontes** self-hosted — [[desingn-system-index#Tipografia]].
 - **GIS** sob demanda — [[area-admin]] (`AuthDialog`).
@@ -179,17 +179,36 @@ Card flutuante no canto inferior esquerdo, só admin (`isAdmin`): público não 
 
 ---
 
+### `InitialLoading.tsx`
+
+Página de loading da cena, design `LoadingInicial` (canvas "Sistema de design para doação"). Cobre `#scene-loading`/`#city-scene` (`absolute inset-0 z-40`, papel `pattern-paws`); seção HTML abaixo segue rolável.
+
+- **Entrada (CSS, `ld-*` em `src/index.css`)** — metades da logo sobem do chão (clip), cachorro encaixa com mola, gato chega por baixo e pula pro telhado (agacha/amortece), nome letra a letra, frase, barra; 3 edifícios do centro sobem em 8 degraus, janelas acendem e piscam. CSS e não `motion`: roda no HTML pré-renderizado antes do JS, sobrevive à hidratação e não põe `motion` no bundle inicial. Estilo base = estado final; keyframe só diz de onde parte.
+- **3 montagens, uma entrada** — HTML → `SceneFallback` (casca) → editor. 1ª marca `introStart` (relógio do documento); seguintes alinham `startTime` de todas as animações CSS (`getAnimations({ subtree: true })`) — entrada continua de onde estava.
+- **Barra** — 10 blocos (`pixel`, 14px): verde cheio, próximo âmbar piscando (0,9 s), resto `muted`; `%` mono conta. Anda ≤ 40 %/s, só depois de 1,1 s de entrada, nunca volta. Cada bloco cheio sobe 2 edifícios do skyline. Mensagem troca em 3/6/8/10 blocos ("Erguendo os edifícios…", "Acendendo as janelas…", "Chamando os bichos…", "Tudo pronto!").
+- **Fim (100%)** — onda âmbar na barra, faíscas no telhado, gato comemora; 1 s depois conteúdo some e papel se desfaz em blocos (56–96px) a partir da logo, revelando a cena; `animationend` do último bloco desmonta.
+- **Erro** — no lugar da mensagem: `ErrorMark` + "Falha ao carregar as doações" + motivo + **Tentar novamente** (`onRetry`).
+- **Movimento reduzido** — sem entrada nem piscar (tudo no lugar), barra direta, fim 0,5 s, saída por fade 300 ms.
+- Skyline gerado de tabela (`SKYLINE`: x, largura, topo, caixa/antena, janelas acesas) — mesmo desenho do design, verificado path a path. Logo de `LOGO_PATHS` (`ui/pixel-icon.tsx`). Hex só nos tons do skyline (`#C9D5C0`/`#BBC8B2`, sem token — arte de cena, como pelagem). Nome em `<p>`, não `h1` (h1 da home é da [[#DonationInfoSection.tsx|apresentação]]).
+- Verificação: `node scripts/check-initial-loading.mjs` (Chrome headless + `vite preview`).
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `progress` | `number` | 0–100; 100 → fim e saída. Casca passa 0 |
+| `error` | `string?` | Motivo; mostra erro + retry no lugar da mensagem |
+| `onRetry` | `() => void`? | Refaz o fetch |
+
+---
+
 ### `DonationLoadOverlay.tsx`
 
-Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Duas instâncias no editor:
-- **`cover`** = página de loading inicial: fundo opaco `bg-background`, sem imagem, `pointer-events-auto` (bloqueia a cena). `hidden` → fade 500 ms e desmonta de vez. Ver [[#Carregamento inicial (casca)]].
-- **sem `cover`** = rebuild por filtro após o boot: card sobre a cena visível.
+Card de carregamento dos **rebuilds por filtro**, depois do boot (loading inicial = [[#InitialLoading.tsx]]). Card sobre a cena visível ([[donation-api]]).
 
 **Responsabilidades:**
 - Placa central: `BlockLoader` (ou `BlockBar` quando há total) + progresso por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
 - Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
-- Sem `cover`: fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
-- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Vale pro load inicial **e pra troca de filtro** — o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
+- Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
+- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Na troca de filtro o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
 
 **Props:**
 | Prop | Tipo | Descrição |

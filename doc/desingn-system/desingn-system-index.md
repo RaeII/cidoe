@@ -146,6 +146,8 @@ Todo progresso contado em blocos. Cheio = verde, **próximo bloco a conquistar a
 
 Carregando sem progresso conhecido: `<BlockLoader />` (três blocos acendem em sequência). **Nada de spinner girando** (`animate-spin`).
 
+Loading inicial da cena (design `LoadingInicial`): barra própria de 10 blocos com próximo âmbar piscando, coreografia em keyframes `ld-*` (`src/index.css`) — ver [[html-components#InitialLoading.tsx]].
+
 ### 5 · Ícones em pixel
 
 Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo` (exceção: logo oficial em `<img>`, verde-oliva no claro / branca no `.dark`), `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).

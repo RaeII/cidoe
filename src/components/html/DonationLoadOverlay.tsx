@@ -1,40 +1,17 @@
-import { useState } from "react";
 import type { DonationsLoadState } from "../hooks/useDonations";
 import { BlockBar } from "@/components/ui/block-bar";
 import { Button } from "@/components/ui/button";
 import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
-import { cn } from "@/lib/utils";
 
 const formatMB = (bytes: number) => (bytes / 1_048_576).toFixed(1);
 
 /**
- * Card de carregamento das doações. Rebuild (filtro): fundo pointer-events-none, cena
- * orbitável atrás; só o card captura clique (retry).
- * `cover` = página de loading: fundo opaco, sem imagem, bloqueia a cena até o editor
- * passar `hidden`; aí some com fade e desmonta de vez (rebuilds usam outra instância).
+ * Card de carregamento dos rebuilds (filtro), depois do boot: fundo pointer-events-none, cena
+ * orbitável atrás; só o card captura clique (retry). Loading inicial: `InitialLoading`.
  */
-export function DonationLoadOverlay({
-  state,
-  onRetry,
-  cover = false,
-  hidden = false,
-}: {
-  state: DonationsLoadState;
-  onRetry: () => void;
-  cover?: boolean;
-  hidden?: boolean;
-}) {
-  const [gone, setGone] = useState(false);
-  if (gone) return null;
+export function DonationLoadOverlay({ state, onRetry }: { state: DonationsLoadState; onRetry: () => void }) {
   return (
-    <div
-      onTransitionEnd={(event) => event.target === event.currentTarget && setGone(true)}
-      className={cn(
-        "pointer-events-none absolute inset-0 z-40 flex items-center justify-center",
-        cover && "pointer-events-auto bg-background transition-opacity duration-500",
-        hidden && "pointer-events-none opacity-0",
-      )}
-    >
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
       <div className="pixel bevel-edge pointer-events-auto w-[min(22rem,calc(100vw-2rem))] bg-background px-6 pt-5 pb-6 text-foreground">
         {state.status === "error" ? (
           <div className="flex flex-col items-center gap-3 text-center">
