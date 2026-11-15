@@ -54,6 +54,14 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 ## Componentes Principais
 
+### Página Sobre (`About.tsx`)
+
+`/sobre`: H1 **Sobre o Cidoe: apoio a ONGs de animais**. Apresentação explica projeto independente, autoria e representação visual das doações. Texto distingue plataforma das ONGs, responsáveis pelos próprios projetos e uso dos valores.
+
+Edição `launch`: Pix pela Woovi direto à ONG, passos do botão **Contribuir**, conferência de valor/recebedor, comprovante bancário e link `/termos#contribuicoes`. Orienta conhecer canais oficiais da ONG; valores/prédios registrados não comprovam resgate, tratamento ou adoção. Sem prometer parceria, certificação ou resultado de impacto. Mesmo `About.tsx` nas duas branches. `IS_PRELAUNCH` preserva na `beta` os avisos de simulação local, personalização de qualquer edifício sem conta e catálogo liberado; passos de Pix aparecem só na `main`. Layout, autoria, contato e redes preservados. [[seo#Conteúdo da página Sobre]].
+
+Mesmo componente no HTML pré-renderizado e no cliente. `npm run check:seo` valida paridade e destino do link de condições. Sem servidor/navegador.
+
 ### Menu público (`PublicPageNav.tsx`)
 
 **Sobre**, **Termos**, **Privacidade**: palavras com links reais, alinhadas à direita no início da `DonationInfoSection`, abaixo da cena. `<a href>` simples; sem fundo, borda, sombra ou formato de botão. Só a seção HTML da home monta esse menu, inclusive no HTML pré-renderizado; canvas, loading e cabeçalhos de Sobre/Termos/Privacidade não montam. Sem dependência de Router, API ou WebGL.
@@ -339,6 +347,12 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 ---
 
+### Página de vídeo (`Video.tsx`)
+
+`/video`: página pública de exibição; player é conteúdo principal. Mesmo componente em `AppContent` e no HTML pré-renderizado, sem esperar cena, API, sessão ou interação. H1/descrição de `SEO_PAGES`; vídeo 1080×1920, `controls`, `playsInline`, `preload="metadata"`, altura máxima `65svh`, `aria-labelledby`/`aria-describedby` e link de reserva para o MP4. `poster` igual ao modal e ao sitemap. Aviso de simulação da beta preservado.
+
+Home: link **Assistir à apresentação do Cidoe** no hero, disponível durante loading/erro. Menu Sobre/Termos/Privacidade preservado. Modal e login existentes seguem sob demanda. `/video` tem links para cidade, Sobre, Termos e Privacidade. Nginx/sitemap: [[seo#Vídeo de apresentação e miniatura]]. `npm run check:seo` valida player no HTML e miniatura/MP4 públicos; sem servidor/navegador.
+
 ### `IntroVideoDialog.tsx`
 
 Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) sob demanda em **Conheça o Cidoe** e, no desktop, junto ao login solicitado. Visitar a home ou entrar por indicação não abre vídeo/login automaticamente. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado), depois de `booted`.
@@ -350,6 +364,33 @@ Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) sob demanda em
 - **Quando abre** (`AuthMenu`) — `introOpen` começa em `false`; só o botão de apresentação altera para `true`. Código `?ref=` é preservado para quando o visitante abrir o login.
 - **Armazenamento** — não lê nem grava `cidoe:intro-video-seen`; preferência obsoleta retirada da tabela da Política de Privacidade, sem apagar dados existentes do navegador.
 - `AuthDialog` só no mobile, nunca junto do vídeo: `open={isMobile && authOpen && !showIntro}`.
+
+---
+
+### `ExitIntentDialog.tsx`
+
+Visitante **sem conta** saindo da cena → modal **Tem certeza que vai sair?** com só **Criar conta** (abre login: `setAuthOpen(true)`). Recusar = X, Esc ou clique fora. Montado no `CitySceneEditor` depois de `booted`. Eventos em `src/lib/exitIntent.ts` (`watchExitIntent`), ativos só com `!isLoading && !isAuthenticated`; login no meio desliga tudo.
+
+| Saída | Evento | O que aparece |
+|---|---|---|
+| Desktop: ponteiro sai pelo topo (abas, X, endereço) | `mouseout` sem `relatedTarget`, `clientY <= 0` | Modal, **antes** de sair |
+| Trocar aba/app, minimizar, home, bloquear tela (desktop e mobile) | `visibilitychange` hidden → visible | Modal **na volta**. Sair não dá pra impedir |
+| Fechar aba/janela, recarregar, outra URL, Ctrl/Cmd+W | `beforeunload` | Diálogo **nativo** do navegador. Texto próprio proibido desde Chrome 51; exige clique/toque prévio; mobile quase nunca mostra, iOS ignora |
+
+- **Toda tentativa** — fechou no X e tentou sair de novo → modal volta. Para só com conta criada (ou login).
+- **Dispositivo com conta** — qualquer sessão (cadastro, login ou cookie restaurado) grava `localStorage["cidoe:has-account"] = "1"` (`rememberAccount`). Com a chave, `watchExitIntent` não liga nada, nem `beforeunload`: logout não traz o modal de volta. Só some limpando os dados do site. Storage bloqueado → modal segue aparecendo após logout. Sem migração legada (`cidoa:*` nunca existiu).
+- **Não empilha** — `[role="dialog"][data-state="open"]` presente (login, contribuição, menu, o próprio modal) → espera próxima saída. Card de edifício (`BuildingInfoModal`, sem `data-state`) não bloqueia.
+- **Link interno** — Sobre/Termos/Privacidade são `<a href>` que recarregam. Clique em link do mesmo domínio → `beforeunload` ignorado por 1 s. Links virando navegação SPA → apagar janela.
+- **Aba aberta em 2º plano** — 1º `visible` sem `hidden` antes não conta.
+- **Flag no cadastro** — modal apareceu → `exitPromptShown = true` (memória, só este carregamento; recarregar zera). `AuthProvider.completeRegistration` (e-mail e Google) envia `exitPrompt: true` → back grava `user.signup_after_exit_prompt`. Login de conta existente não marca. Relatório SQL: doc do back, `usuarios#Cadastro após modal de saída`.
+
+> [!warning] Fora de propósito
+> - **Botão voltar** (`pushState` + `popstate`, `CloseWatcher`): Google pune como spam ("back button hijacking", vigente desde 15/06/2026) e Chrome pula entrada criada sem gesto. Risco de SEO → [[seo]].
+> - **`blur`**: dispara no iframe do login Google e no DevTools.
+> - **`unload`**: obsoleto, desligado por padrão no Chrome.
+> - **Rolagem rápida pra cima** (heurística mobile): cena 3D rola pra seção HTML; ruído alto.
+
+Verificação: `node scripts/check-exit-intent.mjs` (sem servidor/navegador).
 
 ---
 

@@ -35,6 +35,8 @@ export interface CompleteRegistrationInput {
   referralCode?: string;
   /** Versão dos Termos + Política aceita na caixa do cadastro (`LEGAL_VERSION`). */
   termsVersion: string;
+  /** Modal "Tem certeza que vai sair?" apareceu antes do cadastro (relatório). */
+  exitPrompt?: boolean;
 }
 
 /** Desafio criado pelo request-code — código de 6 dígitos enviado por e-mail. */

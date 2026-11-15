@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url><loc>https://cidoe.com.br/</loc></url>
   <url><loc>https://cidoe.com.br/sobre</loc></url>
   <url><loc>https://cidoe.com.br/termos</loc></url>
   <url><loc>https://cidoe.com.br/privacidade</loc></url>
+  <url>
+    <loc>https://cidoe.com.br/video</loc>
+    <video:video>
+      <video:thumbnail_loc>https://cidoe.com.br/video-cidoe-poster.jpg</video:thumbnail_loc>
+      <video:title>Conheça o Cidoe em vídeo</video:title>
+      <video:description>Vídeo de apresentação do Cidoe: uma cidade 3D que representa doações para ONGs de animais em prédios e incentiva indicações de amigos.</video:description>
+      <video:content_loc>https://cidoe.com.br/video-cidoe.mp4</video:content_loc>
+    </video:video>
+  </url>
 </urlset>

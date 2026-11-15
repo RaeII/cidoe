@@ -68,10 +68,11 @@ Domínio oficial: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google 
 - `src/lib/seo.ts`: fonte única de título, descrição, canonical, Open Graph/Twitter e grafo JSON-LD. Home mantém **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D** e descrição permanente, iguais em `beta` e `main`. Sem fase nos metadados; avisos de simulação preservados no corpo público.
 - `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. `AppContent` compartilhado gera HTML com `renderToString`; `main.tsx` hidrata a mesma primeira renderização. Home e documentos preservam texto, links e imagens enquanto a cena lazy carrega; logo/foto usam lazy loading nativo. `RouteMetadata` sincroniza navegação SPA e volta à home. Sem conteúdo específico por bot.
 - `PublicPageNav`: **Sobre**, **Termos** e **Privacidade** como links de texto, alinhados à direita no início da seção HTML abaixo da cena. Sem fundo, borda ou formato de botão; hover/clique/toque com resposta visual e alvo mínimo 44px. Fora do canvas, loading e cabeçalho das outras páginas; HTML estático preservado. [[html-components#Menu público (PublicPageNav.tsx)]].
-- `/sobre`: funcionamento, passos reais de simulação/personalização, armazenamento local e limite de teste, autoria de **Israel Zeferino**, LinkedIn, Instagram e contato. Links fornecidos pelo criador, com ícones compartilhados e `Person.sameAs`; `Person` ligado ao projeto só com informações visíveis. `Organization` identifica projeto, sem afirmar que Cidoe é ONG. `WebSite` e páginas com IDs estáveis.
+- `/sobre`: projeto de apoio a ONGs de animais, autoria de **Israel Zeferino**, contato, LinkedIn e Instagram fornecidos pelo criador. Mesmo `About.tsx` nas duas branches. Na `main`, explica Pix pela Woovi direto à ONG, passos de **Contribuir**, consulta aos canais oficiais e diferença entre pagamento e impacto; link `/termos#contribuicoes`. Ícones compartilhados; URLs em `CREATOR_SOCIAL_PROFILES` e `Person.sameAs`. Sem credenciais inventadas; `Organization` identifica projeto sem afirmar que Cidoe é ONG. [[seo#Conteúdo da página Sobre]]. `beta` mantém simulação local e personalização sem conta.
 - Apresentação em vídeo sob demanda: **Conheça o Cidoe** ou login solicitado no desktop. Visita inicial e `?ref=` não abrem modal; indicação permanece preenchida no próximo login. Sem uso de `cidoe:intro-video-seen`. Favicon declarado: `favicon-96.png`, derivado do logo verde existente.
-- Vocabulário: **doação para ONGs de proteção animal**, **cidade 3D**, **ajudar animais**, **cães e gatos**, **personalizar meu prédio** e perguntas de funcionamento. Metadados das quatro páginas públicas, H1/H2, apresentação, Sobre e `noscript` usam palavras simples. Sobre mantém **Israel Zeferino**; títulos legais, cláusulas e comandos da interface preservados. Sem `meta keywords`, repetição artificial ou métricas de volume inventadas. H1 descritivo da home; subtítulos H2. [[seo#Palavras e intenção]].
-- `public/robots.txt`: Google, Gemini, Bing, ChatGPT, Claude e Perplexity permitidos num único grupo; API/healthz restritos. Admin rastreável para receber `noindex` no HTML e cabeçalho. Fallback SPA só em `/dale`; demais URLs inexistentes recebem 404. Sitemap: quatro páginas públicas; sem datas falsas de atualização.
+- Página pública `/video`: player como conteúdo principal no HTML inicial, controles e miniatura; link **Assistir à apresentação do Cidoe** na home. Extensão de vídeo no sitemap; rota exata e redirects Nginx. Modal de login preservado. [[seo#Vídeo de apresentação e miniatura]].
+- Vocabulário: **doação para ONGs de proteção animal**, **cidade 3D**, **ajudar animais**, **cães e gatos**, **personalizar meu prédio** e perguntas de funcionamento. Metadados das páginas públicas, H1/H2, apresentação, Sobre e `noscript` usam palavras simples. Sobre mantém **Israel Zeferino**; títulos legais, cláusulas e comandos da interface preservados. Sem `meta keywords`, repetição artificial ou métricas de volume inventadas. H1 descritivo da home; subtítulos H2. [[seo#Palavras e intenção]].
+- `public/robots.txt`: Google, Gemini, Bing, ChatGPT, Claude e Perplexity permitidos num único grupo; API/healthz restritos. Admin rastreável para receber `noindex` no HTML e cabeçalho. Fallback SPA só em `/dale`; demais URLs inexistentes recebem 404. Sitemap: cinco páginas públicas, com `/video` e metadados do vídeo; sem datas falsas de atualização.
 - IndexNow: chave pública em `public/{chave}.txt` (raiz); `npm run seo:submit -- --dry-run` valida sem rede. Envio real roda no `deploy.sh` do back ou manual: `npm run seo:submit`. Bing: `public/BingSiteAuth.xml`. Google Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê a chave atual; se ausente, copia a chave legada `cidoa:*`, removendo-a apenas depois de salvar. Quota cheia mantém o original legível. Preserva JSON, isolamento por conta, preferências e aceite/recusa do Analytics; valores atuais prevalecem.
 - A limpeza de `cidoa.admin.session`, o suporte a consentimento de abas antigas e a remoção de caches legados mantêm nomes antigos apenas para compatibilidade. `cidoe-env-v2` baixa novamente os arquivos de ambiente; cidades não ficam nesse cache.
@@ -127,6 +128,7 @@ scripts/
   check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
+  check-exit-intent.mjs        ← saída de visitante sem conta: topo, aba, beforeunload, link interno, diálogo aberto; sem servidor/navegador
   check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
   check-public-startup.mjs     ← hidratação, vídeo/login, visibilidade independente, preferências antigas e fotos em cache
@@ -161,10 +163,10 @@ public/
   og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
   robots.txt                   ← bots de busca/IA permitidos; API/healthz restritos; admin recebe noindex
-  sitemap.xml                  ← URLs canônicas públicas: home, sobre, termos e privacidade
+  sitemap.xml                  ← cinco URLs canônicas; `/video` com título, descrição, miniatura e MP4
   acbc00eed07ed2d01d8f60b670973076.txt ← chave IndexNow (nome = conteúdo); não é segredo
   BingSiteAuth.xml              ← verificação Bing Webmaster; não remover
-  video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
+  video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15,1 s; página pública `/video` e modal → [[html-components#IntroVideoDialog.tsx]]
   video-cidoe-poster.jpg       ← miniatura pública 720×1280 do vídeo, usada em poster → [[seo#Vídeo de apresentação e miniatura]]
 src/
   App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
@@ -196,6 +198,7 @@ src/
   lib/seo.ts                    ← metadados e schema compartilhados → [[seo]]
   seo/render.tsx                ← entrada estática exclusiva do build
   pages/About.tsx               ← /sobre: funcionamento, autoria e contato
+  pages/Video.tsx               ← /video: página de exibição pública, player no HTML inicial
   pages/NotFound.tsx            ← página de erro 404
   components/RouteMetadata.tsx  ← head por rota, inclusive admin/erro
   components/PublicPageNav.tsx  ← links de texto no início da seção HTML abaixo da cena
@@ -555,8 +558,10 @@ flowchart LR
 | O que some com edifício de outra pessoa em foco  | `infoIsOwn` / `viewingOthers` em [[index#2. Container Principal]] · [[html-components#BuildingInfoModal.tsx]] |
 | Botão de editar preso ao edifício em foco        | [[index#2. Container Principal]] (`CitySceneEditor`) · posição em [[scene-runtime#Sistema de foco]] |
 | Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
+| Modal "Tem certeza que vai sair?" (visitante sem conta) | [[html-components#ExitIntentDialog.tsx]] · `src/lib/exitIntent.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
+| Vídeo público / descoberta pelo Google | [[html-components#Página de vídeo (Video.tsx)]] · [[seo#Vídeo de apresentação e miniatura]] |
 | Vídeo de apresentação sob demanda               | [[html-components#IntroVideoDialog.tsx]]          |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
 | Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |

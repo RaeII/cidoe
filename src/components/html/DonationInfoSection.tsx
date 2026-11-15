@@ -10,7 +10,7 @@ import { Photo } from "@/components/ui/photo";
 import { PublicPageNav } from "@/components/PublicPageNav";
 import { cn } from "@/lib/utils";
 import { PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
-import { ABOUT_PATH } from "@/lib/seo";
+import { ABOUT_PATH, VIDEO_PATH } from "@/lib/seo";
 import { formatBRL } from "@/lib/unlock";
 
 type DonationInfoSectionProps = {
@@ -85,6 +85,9 @@ export function DonationInfoSection({
               Cadastre-se, simule doações, personalize seus prédios e indique amigos. Nesta versão, os
               edifícios que você cria ficam apenas neste navegador.
             </p>
+            <a href={VIDEO_PATH} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline decoration-2 underline-offset-3 hover:bg-accent">
+              Assistir à apresentação do Cidoe
+            </a>
             {/* max-lg:mb-3: PixelDog espia 47px acima da foto, gap do grid é 40px. */}
             <p role="note" className="pixel bevel-edge mt-8 flex max-lg:mb-3 max-w-[46ch] flex-wrap items-center gap-x-3 gap-y-2 bg-card px-4 pt-3 pb-4 text-[15px] leading-snug">
               <Badge variant="reward">Período de teste</Badge>

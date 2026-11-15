@@ -79,10 +79,19 @@ for (const url of author.sameAs) {
 assert.equal((social.match(/target="_blank" rel="me noopener noreferrer"/g) ?? []).length, 2);
 assert.equal((social.match(/<svg[^>]+aria-hidden="true"/g) ?? []).length, 2);
 assert.ok(about.includes('id="israel-zeferino"'));
-if (IS_PRELAUNCH) assert.match(about, /Não há pagamentos reais/);
-else assert.doesNotMatch(about, /Não há pagamentos reais/);
+if (IS_PRELAUNCH) {
+  assert.match(about, /Não há pagamentos reais/);
+  assert.doesNotMatch(about, /As doações são feitas por Pix|Como doar para uma ONG pelo Cidoe/, "Beta sem instruções de pagamento real");
+  assert.match(about, /Administrar/, "Beta preserva personalização sem conta");
+}
+else {
+  assert.doesNotMatch(about, /Não há pagamentos reais/);
+  assert.ok(about.includes('href="/termos#contribuicoes"'), "Sobre aponta para as condições do pagamento");
+  assert.ok((await read("dist/termos/index.html")).includes('id="contribuicoes"'), "Destino das condições existe no HTML público");
+}
 assert.match(about, /mailto:contato@cidoe.com.br/);
 const home = await read("dist/index.html");
+assert.ok(home.includes('href="/video"'), "Página de vídeo descoberta por link no HTML da home");
 assert.ok(home.indexOf('id="scene-loading"') < home.indexOf("<h1"), "Loading ocupa a primeira viewport; apresentação vem abaixo");
 if (IS_PRELAUNCH) assert.match(home, /ONGs, edifícios e contribuições são fictícios/);
 assert.match(home, /<img[^>]*src="\/logo.webp"[^>]*loading="lazy"/);
@@ -95,6 +104,27 @@ const { PNG } = require("pngjs");
 const favicon = await readFile(new URL("../dist/favicon-96.png", import.meta.url));
 assert.equal(PNG.sync.read(favicon).width, 96);
 assert.equal(PNG.sync.read(favicon).height, 96);
+
+const videoPage = await read("dist/video/index.html");
+const players = [...videoPage.matchAll(/<video\b[^>]*>/g)];
+assert.equal(players.length, 1, "Página dedicada tem um player no HTML inicial, sem clique ou login");
+const player = players[0][0];
+const videoSource = player.match(/\bsrc="([^"]+)"/)[1];
+const videoPoster = player.match(/\bposter="([^"]+)"/)[1];
+assert.equal(videoSource, "/video-cidoe.mp4");
+assert.equal(videoPoster, "/video-cidoe-poster.jpg");
+assert.match(player, /\bcontrols=""/);
+assert.match(player, /width="1080" height="1920"/);
+assert.doesNotMatch(player, /aria-hidden|\bhidden(?:=|\s|>)|\bautoplay\b|display:\s*none/i);
+assert.doesNotMatch(videoPage, /id="scene-loading"|role="dialog"/, "Vídeo não depende da cena ou de modal");
+if (IS_PRELAUNCH) assert.match(videoPage, /nenhum pagamento é realizado/);
+const videoBytes = await readFile(new URL(`../dist${videoSource}`, import.meta.url));
+assert.equal(videoBytes.subarray(4, 8).toString(), "ftyp", "Arquivo público é MP4");
+assert.ok(videoBytes.equals(await readFile(new URL(`../public${videoSource}`, import.meta.url))), "MP4 preservado no build");
+const posterBytes = await readFile(new URL(`../dist${videoPoster}`, import.meta.url));
+assert.ok(posterBytes.equals(await readFile(new URL(`../public${videoPoster}`, import.meta.url))), "Miniatura preservada no build");
+const posterImage = require("jpeg-js").decode(posterBytes, { useTArray: true });
+assert.ok(posterImage.width >= 60 && posterImage.height >= 30, "JPEG opaco atende ao tamanho mínimo da miniatura");
 
 for (const path of ["/admin.html", "/404.html"]) {
   const html = await read(`dist${path}`);
@@ -135,7 +165,7 @@ new Function("require", "module", "exports", "document", result.outputFiles[0].t
     : name === "react-router-dom" ? { useLocation: () => ({ pathname }) } : require(name),
   module, module.exports, document,
 );
-for (pathname of ["/", "/privacidade", "/sobre", "/dale/login", "/", "/nao-existe", "/termos", "/"]) {
+for (pathname of ["/", "/privacidade", "/sobre", "/video", "/dale/login", "/", "/nao-existe", "/termos", "/"]) {
   module.exports.RouteMetadata();
   const seo = getPageSeo(pathname);
   assert.equal(document.title, seo.title);
@@ -150,6 +180,15 @@ const sitemap = await read("public/sitemap.xml");
 assert.deepEqual([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]), Object.keys(SEO_PAGES).map((path) => `${SITE_URL}${path}`));
 assert.equal(await read("dist/sitemap.xml"), sitemap);
 assert.doesNotMatch(sitemap, /lastmod|priority|changefreq|dale|<loc>[^<]*\?/);
+assert.match(sitemap, /xmlns:video="http:\/\/www.google.com\/schemas\/sitemap-video\/1.1"/);
+assert.equal((sitemap.match(/<video:video>/g) ?? []).length, 1);
+const videoEntry = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)]
+  .find((entry) => entry[1].includes(`<loc>${SITE_URL}/video</loc>`))?.[1];
+assert.ok(videoEntry, "Vídeo associado à página de exibição no sitemap");
+for (const [tag, value] of [
+  ["title", SEO_PAGES["/video"].title], ["description", SEO_PAGES["/video"].description],
+  ["thumbnail_loc", `${SITE_URL}${videoPoster}`], ["content_loc", `${SITE_URL}${videoSource}`],
+]) assert.ok(videoEntry.includes(`<video:${tag}>${value}</video:${tag}>`), `${tag}: metadados do vídeo consistentes`);
 const robots = await read("public/robots.txt");
 assert.equal(await read("dist/robots.txt"), robots);
 for (const agent of ["*", "Googlebot", "Bingbot", "Google-Extended", "OAI-SearchBot", "ChatGPT-User", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User"]) {
@@ -164,6 +203,6 @@ assert.match(nginx, /error_page 404 \/404.html/);
 assert.doesNotMatch(nginx, /try_files \$uri \$uri\/ \/index.html/);
 assert.match(nginx, /add_header X-Robots-Tag \$seo_robots always/);
 assert.match(nginx, /try_files \/admin.html =404/);
-for (const path of ["sobre", "termos", "privacidade"]) assert.ok(nginx.includes(`location = /${path} { try_files /${path}/index.html =404; }`));
-console.log("SEO: HTML público, autoria, metadados, navegação, noindex, sitemap e acesso dos bots OK. HTTP/Nginx não executados.");
+for (const path of ["sobre", "termos", "privacidade", "video"]) assert.ok(nginx.includes(`location = /${path} { try_files /${path}/index.html =404; }`));
+console.log("SEO: HTML público, autoria, metadados, navegação, vídeo, miniatura, noindex, sitemap e bots OK. HTTP/Nginx não executados.");
 await import("./check-public-startup.mjs");

@@ -2,6 +2,7 @@ import { LEGAL_CONTROLLER, LEGAL_EMAIL } from "./legal";
 
 export const SITE_URL = "https://cidoe.com.br";
 export const ABOUT_PATH = "/sobre";
+export const VIDEO_PATH = "/video";
 export const CREATOR_SOCIAL_PROFILES = {
   linkedin: "https://www.linkedin.com/in/dev-israel-zeferino/",
   instagram: "https://www.instagram.com/rael.zeferino/",
@@ -23,6 +24,10 @@ export const SEO_PAGES = {
   "/privacidade": {
     title: "Política de Privacidade · Cidoe",
     description: "Veja quais dados o Cidoe usa no cadastro, login e doações, como funcionam os cookies e como pedir acesso ou exclusão dos seus dados pessoais.",
+  },
+  [VIDEO_PATH]: {
+    title: "Conheça o Cidoe em vídeo",
+    description: "Vídeo de apresentação do Cidoe: uma cidade 3D que representa doações para ONGs de animais em prédios e incentiva indicações de amigos.",
   },
 } as const;
 

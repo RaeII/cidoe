@@ -2,6 +2,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import { Pencil } from "lucide-react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
+import { ExitIntentDialog } from "./ExitIntentDialog";
 import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
@@ -631,6 +632,7 @@ export function CitySceneEditor() {
         />
         </div>
       )}
+      {booted && <ExitIntentDialog onSignup={() => setAuthOpen(true)} />}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}

@@ -142,8 +142,8 @@ Referências: [Bun Docker](https://bun.sh/guides/ecosystem/docker), [Nginx sem r
 
 ## SEO após publicar
 
-Build executa `scripts/prerender.mjs`; `.dockerignore` inclui esse script. Publicar imagem atualizada entrega páginas estáticas e Nginx juntos. Home, `/sobre`, `/termos` e `/privacidade` têm HTML e metadados próprios. Entradas admin e erro não são indexáveis.
+Build executa `scripts/prerender.mjs`; `.dockerignore` inclui esse script. Publicar imagem atualizada entrega páginas estáticas e Nginx juntos. Home, `/sobre`, `/termos`, `/privacidade` e `/video` têm HTML e metadados próprios. `/video` contém o player público no HTML inicial; sitemap inclui miniatura e MP4. Publicar build e Nginx juntos para habilitar a nova rota. Entradas admin e erro não são indexáveis.
 
-No checkout local, depois do deploy, `npm run seo:submit` verifica a chave pública hospedada e notifica IndexNow sobre as quatro URLs canônicas. Antes do deploy, `npm run seo:submit -- --dry-run` valida sem rede. Não executado automaticamente no build; não garante indexação nem substitui Search Console.
+No checkout local, depois do deploy, `npm run seo:submit` verifica a chave pública hospedada e notifica IndexNow sobre as cinco URLs canônicas. Antes do deploy, `npm run seo:submit -- --dry-run` valida sem rede. Não executado automaticamente no build; não garante indexação nem substitui Search Console.
 
 Search Console, controle de inclusão em IA, Bing Webmaster Tools, HTTPS/host canônico e CDN/WAF: [guia SEO](../doc/seo.md#publicação-e-contas-externas). Conferência HTTP e ferramentas externas pendentes; nenhum servidor de teste necessário para build/checks locais.

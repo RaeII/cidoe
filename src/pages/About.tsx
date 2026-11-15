@@ -14,28 +14,29 @@ export default function About() {
         </Button>
         <header className="mt-14">
           <p className="mono-label text-primary">Doação para ONGs de animais</p>
-          <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">Sobre o Cidoe</h1>
+          <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">Sobre o Cidoe: apoio a ONGs de animais</h1>
           <p className="mt-8 text-lg leading-relaxed text-muted-foreground">
-            Cidoe é um projeto independente de {LEGAL_CONTROLLER} que transforma cada doação para uma
-            ONG de proteção animal em um prédio na cidade 3D. Você pode mudar a aparência do prédio;
-            o valor da doação define sua altura.
+            O Cidoe é um projeto independente de apoio a ONGs de proteção animal, criado por {LEGAL_CONTROLLER}.
+            Cada doação para uma ONG vira um prédio em uma cidade 3D, que você pode explorar pelo navegador.
+            O valor da doação influencia a altura do prédio, e você pode personalizar sua aparência.
           </p>
         </header>
         <div className="mt-12 space-y-10 text-base leading-relaxed [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_p+p]:mt-4">
           <section>
             <h2>Como funciona a doação para uma ONG?</h2>
             <p>
-              Você explora a cidade pelo navegador, escolhe uma ONG e cria seu prédio com uma
-              doação. O valor define a altura: o prédio da maior doação fica no centro da cidade.
-              Também é possível personalizar os prédios e ver as doações por cidade e ONG.
+              Na <Link to="/" className="font-semibold underline decoration-2 underline-offset-3">cidade 3D do Cidoe</Link>,
+              você escolhe uma ONG e faz uma doação para criar um prédio ou aumentar um dos seus.
+              O prédio da maior doação fica no centro da cidade. Você também pode filtrar as doações por cidade e ONG.
             </p>
             <p>
-              O objetivo é ajudar animais, como cães e gatos, por meio de ONGs de proteção animal.
-              O Cidoe é a plataforma da cidade virtual; as ONGs são as organizações apresentadas para receber apoio.
+              O objetivo é aproximar quem quer ajudar cães e gatos das ONGs de proteção animal.
+              O Cidoe não é uma ONG: é a plataforma da cidade virtual. Cada organização é responsável
+              pelos projetos que realiza e pelo uso das doações que recebe.
             </p>
           </section>
           <section>
-            <h2>As doações já são reais?</h2>
+            <h2>{IS_PRELAUNCH ? "As doações já são reais?" : "Quem recebe o dinheiro da doação?"}</h2>
             {IS_PRELAUNCH ? (
               <>
                 <p><strong>O Cidoe está em pré-lançamento. Não há pagamentos reais.</strong> ONGs, edifícios e valores apresentados são de teste, sem repasse de dinheiro.</p>
@@ -43,9 +44,40 @@ export default function About() {
                 <p>Cadastro, login e indicações de amigos são reais. As regras para o lançamento e para doações estão nos Termos de Uso.</p>
               </>
             ) : (
-              <p>Veja as ONGs disponíveis na cidade e confira as condições antes de doar. Os Termos de Uso explicam para onde vai o dinheiro, como funciona o pagamento e quem é responsável.</p>
+              <p>
+                As doações são feitas por Pix, gerado pela Woovi, diretamente para a conta da ONG escolhida.
+                O Cidoe não recebe, não guarda e não repassa o dinheiro. A confirmação do pagamento registra
+                a doação para criar ou aumentar seu prédio na cidade.
+              </p>
             )}
           </section>
+          {!IS_PRELAUNCH && <>
+            <section>
+              <h2>Como doar para uma ONG pelo Cidoe?</h2>
+              <ol className="list-decimal space-y-3 pl-6">
+                <li>Entre na sua conta e clique em <strong>Contribuir</strong>.</li>
+                <li>Escolha criar um prédio ou aumentar um dos seus, selecione a ONG e informe o valor. Para um novo prédio, escolha também a cidade.</li>
+                <li>Confira o valor e a ONG antes de gerar o Pix. No aplicativo do banco, confira também os dados do recebedor antes de pagar.</li>
+                <li>Após a confirmação do pagamento, seu prédio é criado ou cresce na cidade. Guarde o comprovante emitido pelo seu banco.</li>
+              </ol>
+              <p className="mt-4">
+                O prédio é uma representação visual da doação. As condições de pagamento e devolução estão nos{" "}
+                <a href={`${TERMS_PATH}#contribuicoes`} className="font-semibold underline decoration-2 underline-offset-3">Termos de Uso</a>.
+              </p>
+            </section>
+            <section>
+              <h2>Como conhecer as ONGs de animais antes de doar?</h2>
+              <p>
+                Consulte as ONGs apresentadas na cidade e procure os canais oficiais da organização que você quer apoiar.
+                Conheça sua atuação, os projetos que realiza e as informações que publica sobre o uso das doações.
+                Para dúvidas sobre a aplicação do dinheiro, fale com a própria ONG.
+              </p>
+              <p>
+                O comprovante do banco é a prova do pagamento. Os valores e prédios exibidos no Cidoe representam
+                doações registradas; não comprovam, por si só, resgates, tratamentos ou adoções realizados pela organização.
+              </p>
+            </section>
+          </>}
           <section>
             <h2>Preciso criar uma conta para visitar?</h2>
             <p>Você pode conhecer a cidade sem conta.{IS_PRELAUNCH ? " No período de teste, também pode personalizar qualquer edifício sem conta. Para criar edifícios, é necessário se cadastrar." : " Para criar e personalizar seus edifícios, é necessário se cadastrar."} As contas são destinadas a maiores de 18 anos.</p>

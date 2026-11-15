@@ -15,6 +15,7 @@ import {
   updateOwnProfile as apiUpdateOwnProfile,
 } from "../api/user/user.routes";
 import { AuthContext } from "../hooks/useAuth";
+import { exitPromptShown } from "../lib/exitIntent";
 
 /**
  * Sessão da CENA. O token JWT vive no cookie httpOnly `token_access` — o JS
@@ -80,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeRegistration = useCallback(
     async (input: CompleteRegistrationInput) => {
-      const { data } = await apiCompleteRegistration(input);
+      // E-mail e Google fecham aqui: ponto único da flag do modal de saída.
+      const { data } = await apiCompleteRegistration(exitPromptShown ? { ...input, exitPrompt: true } : input);
       return establishSession(data);
     },
     [establishSession],

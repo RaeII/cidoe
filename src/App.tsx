@@ -10,11 +10,12 @@ import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
 import { useVisualViewport } from "./hooks/useVisualViewport";
 import { RouteMetadata } from "./components/RouteMetadata";
-import { ABOUT_PATH } from "./lib/seo";
+import { ABOUT_PATH, VIDEO_PATH } from "./lib/seo";
 import { Toaster } from "./components/ui/toast";
 import Terms from "./pages/legal/Terms";
 import Privacy from "./pages/legal/Privacy";
 import About from "./pages/About";
+import Video from "./pages/Video";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -106,6 +107,7 @@ export function AppContent() {
           <Route path={TERMS_PATH} element={<Terms />} />
           <Route path={PRIVACY_PATH} element={<Privacy />} />
           <Route path={ABOUT_PATH} element={<About />} />
+          <Route path={VIDEO_PATH} element={<Video />} />
 
           {/* Área admin */}
           <Route

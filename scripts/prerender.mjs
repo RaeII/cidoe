@@ -33,7 +33,7 @@ try {
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, html);
   }
-  console.log("SEO: home, sobre, termos, privacidade, 404 e entrada admin gerados sem servidor.");
+  console.log(`SEO: ${Object.keys(SEO_PAGES).length} páginas públicas, 404 e entrada admin geradas sem servidor.`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
