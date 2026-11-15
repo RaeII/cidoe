@@ -82,11 +82,19 @@ Home: **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D**. Revi
 | Autoria | Cidoe Israel Zeferino, quem criou o Cidoe | Seção de autoria e descrição de Sobre |
 | Confiança | termos de uso, regras para doações, privacidade, dados pessoais, cookies | Metadados dos documentos próprios; contato verificável em Sobre |
 
-H1 da home: **Cidoe: doação para ONGs em uma cidade 3D.** H2 **Doações na cidade** para os totais; seção de ONGs mantém o contexto de cada branch. Sobre responde **Como funciona a doação para uma ONG?**, **As doações já são reais?** e **Como personalizar meu prédio?**. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. `main` mantém `LEGAL_EDITION="launch"`, seu fluxo Pix, dados públicos e cláusulas vigentes. `beta` informa ONGs fictícias e contribuição simulada. Analytics e consentimento de cookies sincronizados; simulação e mudanças de reaceite da beta não importadas. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
+H1 da home: **Cidoe: doação para ONGs em uma cidade 3D.** H2 **Doações na cidade** para os totais; seção de ONGs mantém o contexto de cada branch. Sobre responde **Como funciona a doação para uma ONG?**, **Quem recebe o dinheiro da doação?** na `main` (**As doações já são reais?** no ramo de teste) e **Como personalizar meu prédio?**. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. `main` mantém `LEGAL_EDITION="launch"`, seu fluxo Pix, dados públicos e cláusulas vigentes. `beta` informa ONGs fictícias e contribuição simulada. Analytics e consentimento de cookies sincronizados; simulação e mudanças de reaceite da beta não importadas. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
 
 “Doação” substitui “contribuição” e “prédio” substitui “edifício” nas explicações públicas quando isso melhora a leitura. Nomes reais de comandos, como **Simular contribuição** e **Meus edifícios**, permanecem nas instruções. Títulos de Termos de Uso e Política de Privacidade continuam descritivos; suas descrições usam doações, pagamentos, cadastro, dados pessoais e cookies. Cláusulas e avisos operacionais preservados. Textos alternativos continuam descrevendo as imagens; marca Cidoe e autoria de Israel Zeferino preservadas.
 
 Sem `meta keywords`, listas escondidas, repetição de variantes ou densidade-alvo. Palavras entram em frases úteis; sinônimos não exigem páginas separadas. Fonte: [guia de SEO do Google](https://developers.google.com/search/docs/fundamentals/seo-starter-guide).
+
+## Conteúdo da página Sobre
+
+Revisão sincronizada em **15/11/2026**; mesmo `src/pages/About.tsx` nas duas branches. H1 **Sobre o Cidoe: apoio a ONGs de animais**. Introdução identifica projeto independente de apoio à proteção animal e autoria. Texto explica doação para ONG, prédio novo/aumento, filtros e papel da plataforma; Cidoe não é ONG.
+
+Na edição `launch`, detalha Pix pela Woovi diretamente à ONG, passos de **Contribuir**, conferência de recebedor e comprovante bancário. Link `/termos#contribuicoes` leva às condições existentes, sem alterar cláusulas ou versão legal. Orienta consultar canais oficiais e atuação da organização; distingue doação registrada de comprovação de impacto. Sem parceiros, credenciais, auditoria, repasses ou resgates inventados. Blocos de teste permanecem condicionais: `beta` informa simulação local e personalização de qualquer edifício sem conta; passos de Pix só na `main`. Tags compartilhadas preservadas.
+
+Conteúdo útil para dúvidas reais sobre apoio a ONGs de animais; termos em frases naturais, sem repetições artificiais ou promessa de posição no Google. Base: [conteúdo útil](https://developers.google.com/search/docs/fundamentals/creating-helpful-content). Mesmo componente React no cliente e no HTML inicial; `check:seo` verifica paridade e existência da seção legal vinculada. [[html-components#Página Sobre (About.tsx)]].
 
 ## Israel Zeferino
 

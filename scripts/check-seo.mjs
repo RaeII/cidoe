@@ -79,8 +79,16 @@ for (const url of author.sameAs) {
 assert.equal((social.match(/target="_blank" rel="me noopener noreferrer"/g) ?? []).length, 2);
 assert.equal((social.match(/<svg[^>]+aria-hidden="true"/g) ?? []).length, 2);
 assert.ok(about.includes('id="israel-zeferino"'));
-if (IS_PRELAUNCH) assert.match(about, /Não há pagamentos reais/);
-else assert.doesNotMatch(about, /Não há pagamentos reais/);
+if (IS_PRELAUNCH) {
+  assert.match(about, /Não há pagamentos reais/);
+  assert.doesNotMatch(about, /As doações são feitas por Pix|Como doar para uma ONG pelo Cidoe/, "Beta sem instruções de pagamento real");
+  assert.match(about, /Administrar/, "Beta preserva personalização sem conta");
+}
+else {
+  assert.doesNotMatch(about, /Não há pagamentos reais/);
+  assert.ok(about.includes('href="/termos#contribuicoes"'), "Sobre aponta para as condições do pagamento");
+  assert.ok((await read("dist/termos/index.html")).includes('id="contribuicoes"'), "Destino das condições existe no HTML público");
+}
 assert.match(about, /mailto:contato@cidoe.com.br/);
 const home = await read("dist/index.html");
 assert.ok(home.indexOf('id="scene-loading"') < home.indexOf("<h1"), "Loading ocupa a primeira viewport; apresentação vem abaixo");

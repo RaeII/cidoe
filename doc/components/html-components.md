@@ -58,6 +58,14 @@ Mesmo aviso da `beta`, montado globalmente após hidratação. Sem modal nem blo
 
 `src/lib/analytics.ts`: tag `G-GEHP0ENSCR` só em produção e após aceite; inicialização em `src/main.tsx`. Revogação na mesma aba ou via evento `storage` desativa coleta. Sem duplicar script; `?ref=` removido da URL enviada. Checks: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`, sem servidor/navegador/rede. [[seo#Paridade entre beta e main]].
 
+### Página Sobre (`About.tsx`)
+
+`/sobre`: H1 **Sobre o Cidoe: apoio a ONGs de animais**. Apresentação explica projeto independente, autoria e representação visual das doações. Texto distingue plataforma das ONGs, responsáveis pelos próprios projetos e uso dos valores.
+
+Edição `launch`: Pix pela Woovi direto à ONG, passos do botão **Contribuir**, conferência de valor/recebedor, comprovante bancário e link `/termos#contribuicoes`. Orienta conhecer canais oficiais da ONG; valores/prédios registrados não comprovam resgate, tratamento ou adoção. Sem prometer parceria, certificação ou resultado de impacto. Mesmo `About.tsx` nas duas branches. `IS_PRELAUNCH` preserva na `beta` os avisos de simulação local, personalização de qualquer edifício sem conta e catálogo liberado; passos de Pix aparecem só na `main`. Layout, autoria, contato e redes preservados. [[seo#Conteúdo da página Sobre]].
+
+Mesmo componente no HTML pré-renderizado e no cliente. `npm run check:seo` valida paridade e destino do link de condições. Sem servidor/navegador.
+
 ### Menu público (`PublicPageNav.tsx`)
 
 **Sobre**, **Termos**, **Privacidade**: palavras com links reais, alinhadas à direita no início da `DonationInfoSection`, abaixo da cena. `<a href>` simples; sem fundo, borda, sombra ou formato de botão. Só a seção HTML da home monta esse menu, inclusive no HTML pré-renderizado; canvas, loading e cabeçalhos de Sobre/Termos/Privacidade não montam. Sem dependência de Router, API ou WebGL.
