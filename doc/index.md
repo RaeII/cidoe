@@ -42,7 +42,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 
 ### Interface
 
-**Pré-lançamento** no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). Metadados usam apresentação permanente da marca, igual à `main`. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
+**Pré-lançamento** no HUD público: linha no rodapé da cena, abaixo dos botões ("Pré-lançamento: ONGs e contribuições são de teste"), placa **Período de teste** no hero da home e "ONGs de teste: nenhuma delas existe" na seção de ONGs ([[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]]). Modal **Cidoe em pré-lançamento** (design `ModalPreLancamento`: cidade em pixel animada, "Ainda não há pagamento real", **Criar conta** / **Explorar a cidade**) 20 s após a cidade pronta, uma vez por navegador, nunca sobre outro diálogo ([[html-components#ProjectStatusDialog.tsx]]). Metadados usam apresentação permanente da marca, igual à `main`. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
 
 Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. **Beta aberto**: qualquer visitante, logado ou não, administra e personaliza qualquer edifício (seed, próprio ou alheio) com todo o catálogo liberado (`editorCatalog`, sem passe). Alteração vale só no navegador. Passe/recompensas seguem com progresso real.
 
@@ -52,7 +52,7 @@ Limpar dados do site remove a cidade simulada; outro navegador/dispositivo não 
 
 ### Verificação
 
-`npm run build`, `npm run lint`, `node scripts/check-prelaunch.mjs`, `node scripts/check-contribution.mjs`, `node scripts/check-building-management.mjs`, `node scripts/check-donation-info.mjs`. Sem servidor ou navegador.
+`npm run build`, `npm run lint`, `node scripts/check-prelaunch.mjs`, `node scripts/check-project-status.mjs`, `node scripts/check-contribution.mjs`, `node scripts/check-building-management.mjs`, `node scripts/check-donation-info.mjs`. Sem servidor ou navegador.
 
 ## Como a Documentação Está Organizada
 
@@ -129,9 +129,11 @@ scripts/
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-exit-intent.mjs        ← saída de visitante sem conta: topo, aba, beforeunload, link interno, diálogo aberto; sem servidor/navegador
+  check-project-status.mjs     ← aviso de pré-lançamento: 20 s, adia com diálogo aberto, 1× por navegador, storage bloqueado; relógio falso, sem servidor/navegador
   check-branding.mjs           ← migração de chaves legadas, quota e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, metadados, navegação, sitemap e bots; sem servidor/navegador
   check-public-startup.mjs     ← hidratação, vídeo/login, visibilidade independente, preferências antigas e fotos em cache
+  check-initial-loading.mjs    ← loading inicial no Chrome headless: entrada não recomeça nas 3 montagens, barra só avança até 100%, sai e desmonta, console limpo; precisa `vite preview` + API (MOBILE/REDUCE/SHOTS)
   prerender.mjs                ← gera HTML estático dos componentes públicos depois do Vite
   submit-indexnow.mjs          ← notifica buscadores após publicar; --dry-run sem rede
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
@@ -155,6 +157,7 @@ scripts/
   measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
+  cachorro_triste_cidoe.gif    ← GIF do modal de saída (3,1 MB; baixa só ao abrir) → [[html-components#ExitIntentDialog.tsx]]
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
   favicon-32.png               ← logo oficial verde-oliva 32px (aba do navegador)
   favicon-96.png               ← logo oficial verde-oliva 96px, favicon declarado no HTML
@@ -223,7 +226,7 @@ src/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
       RewardExamples.tsx        ← exemplos locais dos dois modais reais, no Passe e nas recompensas por indicação
     ui/
-      pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`, `PixelPhoto`
+      pixel-icon.tsx                ← ícones em pixel do DS, logo (+ `LOGO_PATHS` em partes p/ animar), gato/cachorro, `BlockLoader`, `PixelPhoto`
       social-icons.tsx              ← LinkedIn compartilhado com indicações; Instagram do criador
       photo.tsx                     ← `<Photo ratio>`: foto na moldura do DS, espera em blocos, "Foto indisponível"
       avatar.tsx                    ← avatar quadrado do DS: 32/48/72, iniciais mono
@@ -255,7 +258,8 @@ src/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
-      DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
+      InitialLoading.tsx           ← página de loading da cena (design LoadingInicial): entrada em CSS, barra ligada ao boot, sai em blocos → [[html-components#InitialLoading.tsx]]
+      DonationLoadOverlay.tsx      ← card de carregamento dos rebuilds por filtro → [[html-components#DonationLoadOverlay.tsx]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; Administrar/nome e imagem só p/ dono
@@ -559,6 +563,7 @@ flowchart LR
 | Botão de editar preso ao edifício em foco        | [[index#2. Container Principal]] (`CitySceneEditor`) · posição em [[scene-runtime#Sistema de foco]] |
 | Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Modal "Tem certeza que vai sair?" (visitante sem conta) | [[html-components#ExitIntentDialog.tsx]] · `src/lib/exitIntent.ts` |
+| Aviso "Cidoe em pré-lançamento" (20 s após carregar, 1× por navegador) | [[html-components#ProjectStatusDialog.tsx]] · `src/lib/projectStatus.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Vídeo público / descoberta pelo Google | [[html-components#Página de vídeo (Video.tsx)]] · [[seo#Vídeo de apresentação e miniatura]] |

@@ -258,7 +258,7 @@ const sections: LegalSection[] = [
             ["cidoe:analytics-consent", "Armazenamento local", "Lembrar se você aceitou ou recusou a análise", "Até você mudar a escolha ou limpar o navegador"],
             ["_ga e _ga_*", "Cookies próprios de análise (Google Analytics), opcionais", "Distinguir visitantes e sessões após o aceite", "Até 2 anos, renovados com o uso"],
             ...(IS_PRELAUNCH
-              ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
+              ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento e lembrar que você já viu o aviso de pré-lançamento", "Até você limpar o navegador"]]
               : []),
             ["chunk-reload-at", "Armazenamento da aba", "Evitar recarga repetida depois de uma atualização do site", "Até fechar a aba"],
             ["Imagem do céu da cidade", "Cache do navegador", "Carregar a cena mais rápido", "Até você limpar o navegador"],

@@ -124,7 +124,7 @@ Faixa de 4px no tom escuro na base dá volume. Soma com `pixel`.
 
 Altura: `bevel-w-3` (pequeno), padrão 4, `bevel-w-6` (modal). Compense o bisel no padding de baixo (`pb-1` a mais) para o conteúdo ficar centrado na área visível.
 
-Botão soma **sombra dura** na diagonal (`raised`, luz do canto superior esquerdo) e **afunda ao pressionar** (`press`: anda 4px, sombra zera, bisel não muda). Só botão usa `raised`/`press`.
+Botão soma **sombra dura** na diagonal (`raised`, luz do canto superior esquerdo) e **afunda ao pressionar** (`press`: anda 4px, sombra zera, bisel não muda). Só botão usa `raised`/`press`. Exceção: aviso de pré-lançamento (design `ModalPreLancamento`) e modal de saída (design `ModalSaida`) usam `raised-modal` — mesma sombra a 12px, distância em `--drop` (anima 0→12px na entrada). Ver [[html-components#ProjectStatusDialog.tsx]] e [[html-components#ExitIntentDialog.tsx]].
 
 ### 3 · Cursor de menu ▸ — `menu-cursor`
 
@@ -145,6 +145,8 @@ Todo progresso contado em blocos. Cheio = verde, **próximo bloco a conquistar a
 > No DS a barra de meta (cartão 6.6: 12 blocos, gap 3px, 10px de altura) **não** acende bloco âmbar — dinheiro arrecadado não é conquista do usuário. Hoje `BlockBar` sempre acende o próximo; ao implementar meta, adicionar opção para desligar.
 
 Carregando sem progresso conhecido: `<BlockLoader />` (três blocos acendem em sequência). **Nada de spinner girando** (`animate-spin`).
+
+Loading inicial da cena (design `LoadingInicial`): barra própria de 10 blocos com próximo âmbar piscando, coreografia em keyframes `ld-*` (`src/index.css`) — ver [[html-components#InitialLoading.tsx]].
 
 Chamar atenção: sequência curta (~2s) com `motion`, transições suaves (ease-out na ida, ease-in-out na volta), pausa longa entre ciclos, só `opacity`/transform. Placa nunca muda de tamanho nem treme. Movimento reduzido → parada. Uso: placa do visitante, presente abrindo ([[html-components#Placa da marca (CitySceneEditor.tsx)]]).
 
@@ -373,7 +375,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Aviso de pré-lançamento na cena | placa de papel sólido, sem `white`/blur | texto `papel` sem placa nem desfoque, rodapé | pedido explícito: aviso mínimo, sem borda nem fundo; exceção restrita a [[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]] |
 | Imagem enviada pelo usuário | WebP, mín. 1200px | JPEG; edifício 800px, perfil 400px (`resizeImage`) | backend do perfil só aceita JPEG/PNG; Safari não gera WebP em `canvas`; JSON limitado a 1 MB |
 
-**Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo). Logo oficial = PNG/WebP em `public/` (`logo.webp`, `logo-branca.webp`, `favicon-32.png`); admin usa via `CidoeLogo`.
+**Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo), arte da cidade no aviso de pré-lançamento (fachadas da cena + silhuetas do fundo). Logo oficial = PNG/WebP em `public/` (`logo.webp`, `logo-branca.webp`, `favicon-32.png`); admin usa via `CidoeLogo`.
 
 **Fora do app:** templates de redes sociais (seção 08 do DS: 1080×1920, 1080×1080, 1920×1080, zonas seguras) vivem só no arquivo HTML.
 

@@ -1,5 +1,5 @@
 /** Diálogo Radix aberto (login, contribuição, menu…). Card de edifício não conta: sem `data-state`. */
-const OPEN_DIALOG = '[role="dialog"][data-state="open"]';
+export const OPEN_DIALOG ='[role="dialog"][data-state="open"]';
 
 /** Modal apareceu neste carregamento → cadastro grava `user.signup_after_exit_prompt` (relatório). */
 export let exitPromptShown = false;

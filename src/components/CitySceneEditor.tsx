@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { ExitIntentDialog } from "./ExitIntentDialog";
+import { ProjectStatusDialog } from "./ProjectStatusDialog";
 import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
@@ -22,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
+import { InitialLoading } from "./html/InitialLoading";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
@@ -56,6 +58,7 @@ import {
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
 import { SEED_FACADE_TEXTURES } from "@/lib/prelaunchCity";
+import { scheduleProjectStatus } from "@/lib/projectStatus";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -227,6 +230,10 @@ export function CitySceneEditor() {
     if (booted || loadState.status !== "ready" || !donationsApplied || !customizationCatalog) return;
     if (sceneReadyRef.current) setBooted(true);
   }, [booted, loadState.status, donationsApplied, customizationCatalog, sceneStats.sceneReady]);
+
+  // Aviso de pré-lançamento: 20 s depois da cidade pronta, uma vez por navegador.
+  const [statusOpen, setStatusOpen] = useState(false);
+  useEffect(() => (booted ? scheduleProjectStatus(() => setStatusOpen(true)) : undefined), [booted]);
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
@@ -592,8 +599,15 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
         onFocusScreenPosition={handleFocusScreenPosition}
       />
-      {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
-      <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
+      {/* Página de loading (a mesma do HTML pré-renderizado) cobre a cena até tudo carregar.
+          Barra: 70% = download do snapshot; 75% aplicando na cena; 90% esperando catálogo/texturas/shaders. */}
+      <InitialLoading
+        progress={booted ? 100
+          : loadState.status === "loading" ? (loadState.totalBytes ? (70 * loadState.loadedBytes) / loadState.totalBytes : 20)
+          : loadState.status === "ready" ? (donationsApplied ? 90 : 75) : 0}
+        error={loadState.status === "error" ? loadState.message : undefined}
+        onRetry={retry}
+      />
       {/* Controles da cena só depois do loading; apresentação pública segue independente. */}
       {booted && (
       <div hidden={myBuildingsOpen || selectedBuildingId !== null} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
@@ -613,7 +627,7 @@ export function CitySceneEditor() {
             showMenuButton={uiVisibility.menuButton}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
-            onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+            onboardingBlocked={statusOpen || myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
           />
         </div>
       </div>
@@ -633,6 +647,7 @@ export function CitySceneEditor() {
         </div>
       )}
       {booted && <ExitIntentDialog onSignup={() => setAuthOpen(true)} />}
+      {booted && <ProjectStatusDialog open={statusOpen} onClose={() => setStatusOpen(false)} onSignup={() => setAuthOpen(true)} />}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}

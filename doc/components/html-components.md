@@ -34,10 +34,10 @@ Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse 
 
 Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, apresentação e imagens informativas disponíveis na seção HTML abaixo da cena, sem esperar API/WebGL; imagens usam lazy loading nativo. A primeira renderização do React hidrata o HTML do build; [[seo]]. Sem pôster da cidade.
 
-1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
+1. **`index.html`** — `#root` traz só `#scene-loading` vazio (papel `pattern-paws`): casca do dev até o React montar. Build troca o miolo pelo HTML pré-renderizado ([[#InitialLoading.tsx|InitialLoading]] + apresentação), então produção pinta a entrada já no 1º paint. Script inline remove fora de `/`.
 2. **`AppContent` (`App.tsx`)** — compartilhado com o build (`renderToString` + `StaticRouter`), incluindo limites de `Suspense` e IDs. `SceneFallback` mantém loading + `DonationInfoSection` completos durante o download do editor. Documentos públicos usam imports diretos para corresponder ao HTML inicial. `main.tsx` usa `hydrateRoot` em produção com HTML; dev e casca vazia do admin usam `createRoot`.
 3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). Após a hidratação, `clientReady` monta sessão da cena, `CookieNotice` e `Toaster`; só então o editor lazy começa a baixar. Preferências de cookies não alteram o HTML da primeira renderização. Store do toast preserva notificações anteriores ao mount.
-4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
+4. **`CitySceneEditor`** — `<InitialLoading progress error onRetry />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. `progress`: download do snapshot 0–70% (20% sem total), aplicando 75%, esperando catálogo/cena 90%, `booted` 100% → fim (~1 s) → papel em blocos (~0,8 s) → desmonta.
 5. **Até `booted`** não montam: placa da marca, `AuthMenu`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` mantém texto, links, logo e foto desde o início; sem prop `mediaReady`. Fotos e avatares usam `loading="lazy"`. Sem onboarding sobre o loading. `CookieNotice` segue independente do boot.
 
 > [!note] Custo
@@ -46,7 +46,7 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 `CitySceneEditor` usa só `SEED_FACADE_TEXTURES` na cidade inicial: mesmas 6 fachadas e mesmo sorteio em local e produção, sem depender do catálogo. Facade007, Facade014, Facade016 e Facade019A ficam fora. Ver [[scene-textures#Sorteio por edifício]].
 
 > [!warning] LCP
-> LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] ou texto do card de loading (os dois no HTML/`index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
+> LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] ou nome/frase do loading (os dois no HTML/`index.js`; nome entra em 0,42 s por CSS, sem esperar JS). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
 
 - **Fontes** self-hosted — [[desingn-system-index#Tipografia]].
 - **GIS** sob demanda — [[area-admin]] (`AuthDialog`).
@@ -183,17 +183,36 @@ Card flutuante no canto inferior esquerdo, só admin (`isAdmin`): público não 
 
 ---
 
+### `InitialLoading.tsx`
+
+Página de loading da cena, design `LoadingInicial` (canvas "Sistema de design para doação"). Cobre `#scene-loading`/`#city-scene` (`absolute inset-0 z-40`, papel `pattern-paws`); seção HTML abaixo segue rolável.
+
+- **Entrada (CSS, `ld-*` em `src/index.css`)** — metades da logo sobem do chão (clip), cachorro encaixa com mola, gato chega por baixo e pula pro telhado (agacha/amortece), nome letra a letra, frase, barra; 3 edifícios do centro sobem em 8 degraus, janelas acendem e piscam. CSS e não `motion`: roda no HTML pré-renderizado antes do JS, sobrevive à hidratação e não põe `motion` no bundle inicial. Estilo base = estado final; keyframe só diz de onde parte.
+- **3 montagens, uma entrada** — HTML → `SceneFallback` (casca) → editor. 1ª marca `introStart` (relógio do documento); seguintes alinham `startTime` de todas as animações CSS (`getAnimations({ subtree: true })`) — entrada continua de onde estava.
+- **Barra** — 10 blocos (`pixel`, 14px): verde cheio, próximo âmbar piscando (0,9 s), resto `muted`; `%` mono conta. Anda ≤ 40 %/s, só depois de 1,1 s de entrada, nunca volta. Cada bloco cheio sobe 2 edifícios do skyline. Mensagem troca em 3/6/8/10 blocos ("Erguendo os edifícios…", "Acendendo as janelas…", "Chamando os bichos…", "Tudo pronto!").
+- **Fim (100%)** — onda âmbar na barra, faíscas no telhado, gato comemora; 1 s depois conteúdo some e papel se desfaz em blocos (56–96px) a partir da logo, revelando a cena; `animationend` do último bloco desmonta.
+- **Erro** — no lugar da mensagem: `ErrorMark` + "Falha ao carregar as doações" + motivo + **Tentar novamente** (`onRetry`).
+- **Movimento reduzido** — sem entrada nem piscar (tudo no lugar), barra direta, fim 0,5 s, saída por fade 300 ms.
+- Skyline gerado de tabela (`SKYLINE`: x, largura, topo, caixa/antena, janelas acesas) — mesmo desenho do design, verificado path a path. Logo de `LOGO_PATHS` (`ui/pixel-icon.tsx`, dividido com [[#ProjectStatusDialog.tsx]]). Hex só nos tons do skyline (`#C9D5C0`/`#BBC8B2`, sem token, igual ao `ProjectStatusDialog`). Nome em `<p>`, não `h1` (h1 da home é da [[#DonationInfoSection.tsx|apresentação]]).
+- Verificação: `node scripts/check-initial-loading.mjs` (Chrome headless + `vite preview`).
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `progress` | `number` | 0–100; 100 → fim e saída. Casca passa 0 |
+| `error` | `string?` | Motivo; mostra erro + retry no lugar da mensagem |
+| `onRetry` | `() => void`? | Refaz o fetch |
+
+---
+
 ### `DonationLoadOverlay.tsx`
 
-Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Duas instâncias no editor:
-- **`cover`** = página de loading inicial: fundo opaco `bg-background`, sem imagem, `pointer-events-auto` (bloqueia a cena). `hidden` → fade 500 ms e desmonta de vez. Ver [[#Carregamento inicial (casca)]].
-- **sem `cover`** = rebuild por filtro após o boot: card sobre a cena visível.
+Card de carregamento dos **rebuilds por filtro**, depois do boot (loading inicial = [[#InitialLoading.tsx]]). Card sobre a cena visível ([[donation-api]]).
 
 **Responsabilidades:**
 - Placa central: `BlockLoader` (ou `BlockBar` quando há total) + progresso por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
 - Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
-- Sem `cover`: fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
-- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Vale pro load inicial **e pra troca de filtro** — o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
+- Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
+- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Na troca de filtro o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
 
 **Props:**
 | Prop | Tipo | Descrição |
@@ -371,6 +390,13 @@ Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) sob demanda em
 
 Visitante **sem conta** saindo da cena → modal **Tem certeza que vai sair?** com só **Criar conta** (abre login: `setAuthOpen(true)`). Recusar = X, Esc ou clique fora. Montado no `CitySceneEditor` depois de `booted`. Eventos em `src/lib/exitIntent.ts` (`watchExitIntent`), ativos só com `!isLoading && !isAuthenticated`; login no meio desliga tudo.
 
+- **Visual (design `ModalSaida`)** — mesmo cartão do [[#ProjectStatusDialog.tsx]]: `raised-modal`, X em pixel, sem padding no `DialogContent`. GIF `public/cachorro_triste_cidoe.gif` (`object-cover`, foco 50% 30%) + texto: logo (`CidoeLogo`), título com marca-texto âmbar em **sair** (`text-tinta` fixo: lê nos dois temas), frase "Crie sua conta e ajude a construir um futuro melhor para os animais.", selos **Grátis** (`PixelHeart`) · **Pelos animais** (`PixelPaw`) · **Recompensas** (`PixelGift` âmbar), só `md+`, sempre numa linha (`whitespace-nowrap`, sem quebra), CTA com ▸.
+- **Layout** — celular: GIF quadrado em cima (`max-h-[42dvh]`), texto embaixo, `max-w` 440px. Celular baixo (`max-height: 700px`): GIF 34dvh, sem logo, título 24px → CTA cabe sem rolar. `md+`: duas colunas, GIF à esquerda (`min-h` 480px), `max-w` 940px; `md` texto 1.15fr (selos precisam de ~348px e cabem já em 768px), `lg+` GIF 1.08fr.
+- **Entrada** — `intro()` com `motion/react` no `useLayoutEffect` de `ExitContent` (mesmo esquema do `ProjectStatusDialog`): cartão salta e sombra descola (`--drop` 0→12px), GIF surge em 144 blocos `bg-muted` linha a linha do chão pra cima (grade 8 × `12.5cqw`), texto em cascata, marca-texto em degraus, ▸ pisca e botão dá pulinho em laço até desmontar. Replaya a cada abertura (Radix desmonta o conteúdo ao fechar). Movimento reduzido: sem `intro`, fade padrão.
+- **Foco inicial** — X vem depois do CTA no DOM → Radix foca **Criar conta**.
+- Fora do design: campo de e-mail + tela "Seu lugar está guardado!" (cadastro é do `AuthDialog`: e-mail ou Google), montagem animada do logo (usa `CidoeLogo` estático), "Rever o modal" (demo do canvas). Copy do título e do botão segue o pedido do dono ("Tem certeza que vai sair?" / "Criar conta"), não o design ("Fica mais um pouquinho?" / "Criar minha conta").
+- GIF pesa 3,1 MB; só baixa quando o modal abre (conteúdo Radix monta ao abrir).
+
 | Saída | Evento | O que aparece |
 |---|---|---|
 | Desktop: ponteiro sai pelo topo (abas, X, endereço) | `mouseout` sem `relatedTarget`, `clientY <= 0` | Modal, **antes** de sair |
@@ -391,6 +417,24 @@ Visitante **sem conta** saindo da cena → modal **Tem certeza que vai sair?** c
 > - **Rolagem rápida pra cima** (heurística mobile): cena 3D rola pra seção HTML; ruído alto.
 
 Verificação: `node scripts/check-exit-intent.mjs` (sem servidor/navegador).
+
+---
+
+### `ProjectStatusDialog.tsx`
+
+Aviso **Cidoe em pré-lançamento**, igual ao design `ModalPreLancamento` do projeto do DS (canvas "Sistema de design para doação"). Para todo mundo, com ou sem conta. Montado no `CitySceneEditor` depois de `booted`; estado `statusOpen` no editor.
+
+- **Conteúdo** — topo 210px `bg-secondary`: cidade em pixel (sol, nuvens, edifícios, logo com cachorro e gato) + fechar em placa `pixel bevel-edge`. Título com "pré-lançamento" em marca-texto âmbar, linha "contribuição vira edifício", faixa `bg-ambar-100` + `ErrorMark` "Ainda não há pagamento real.", rótulo mono "Enquanto isso, você pode:" e três itens com ícone (conta, indicar, simular). Placa com `raised-modal`: sombra dura tinta a 12px.
+- **Botões** — **Criar conta** fecha e abre login (`onSignup` → `setAuthOpen(true)`, igual ao `ExitIntentDialog`); logado: some, e **Explorar a cidade** vira `default`. **Explorar a cidade** só fecha.
+- **Entrada** — `intro()` com `animate` do `motion/react`, no `useLayoutEffect` de `StatusContent` (monta com o conteúdo do Radix; pai direto = diálogo): cartão salta e sombra descola (`--drop` 0→12px), edifícios brotam, metades do logo sobem, cachorro encaixa, gato pula pro telhado com faíscas, texto em cascata, ícones animam. Laços (nuvens, janelas, pulinho do gato, ▸ do CTA, pulinho do botão) param ao desmontar. Movimento reduzido: sem `intro`, fade padrão do `DialogContent`. Saída = fade/zoom padrão.
+- Arte em hex: cores de edifício da cena e silhuetas do fundo (exceção de sprite, como pelagem). Resto em token (`var(--color-*)`). Logo = `LOGO_PATHS` de `ui/pixel-icon.tsx` (mesmas partes do [[#InitialLoading.tsx]]).
+
+- **Quando abre** — `scheduleProjectStatus` (`src/lib/projectStatus.ts`), ligado por efeito quando `booted` vira `true`: **20 s** depois da cidade pronta (`PROJECT_STATUS_DELAY_MS`). Motivo: Google penaliza no celular janela que cobre a página logo ao entrar ("intrusive interstitial") → [[seo]].
+- **Não empilha** — aos 20 s, diálogo Radix aberto (`OPEN_DIALOG` de `exitIntent.ts`: login, contribuição, menu, saída…) → confere de novo a cada 1 s e abre quando fechar. Aberto, entra em `onboardingBlocked` do `AuthMenu`: segura **Complete seu perfil** e `RewardDialog`. Card de edifício não é diálogo; aviso cobre o card.
+- **Uma vez por navegador** — fechar de qualquer jeito (botões, X, Esc, clique fora) grava `cidoe:prelaunch:status-seen = "1"`; visita seguinte não agenda timer. Storage bloqueado → aparece a cada visita, sem erro. Chave coberta pela linha `cidoe:prelaunch:…` da Política de Privacidade ([[termos-e-privacidade]]).
+- Fora: sem botão para reabrir ("Rever o aviso" do design = só demo do canvas). Rodapé "Pré-lançamento: ONGs e contribuições são de teste" segue como resumo fixo.
+
+Verificação: `node scripts/check-project-status.mjs` (relógio falso; sem servidor/navegador).
 
 ---
 
