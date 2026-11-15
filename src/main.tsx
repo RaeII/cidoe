@@ -2,6 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { initializeAnalytics } from './lib/analytics.ts'
+
+initializeAnalytics()
 
 // Deploy novo apaga chunks antigos: aba aberta antes pede hash que não existe mais.
 // Reload pega o index.html novo. Janela de 10s evita loop se o chunk faltar de verdade.

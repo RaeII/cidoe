@@ -9,11 +9,12 @@ for (const [production, hasHtml] of [[true, true], [true, false], [false, true]]
   const bundle = await build({
     entryPoints: ["src/main.tsx"], bundle: true, format: "cjs", platform: "node",
     packages: "external", jsx: "automatic", write: false, loader: { ".css": "empty" },
-    external: ["./App.tsx"],
+    external: ["./App.tsx", "./lib/analytics.ts"],
     define: { "import.meta.env.PROD": String(production) },
   });
   const root = { hasChildNodes: () => hasHtml };
   let method;
+  let analyticsCalls = 0;
   new Function("require", "document", "window", bundle.outputFiles[0].text)(
     (name) => {
       if (name === "react-dom/client") return {
@@ -21,11 +22,13 @@ for (const [production, hasHtml] of [[true, true], [true, false], [false, true]]
         createRoot(node) { assert.equal(node, root); return { render() { method = "create"; } }; },
       };
       if (name === "./App.tsx") return { __esModule: true, default: () => null };
+      if (name === "./lib/analytics.ts") return { initializeAnalytics() { analyticsCalls++; } };
       return require(name);
     },
     { getElementById: () => root }, { addEventListener() {} },
   );
   assert.equal(method, production && hasHtml ? "hydrate" : "create");
+  assert.equal(analyticsCalls, 1, "Entrada inicializa Analytics uma vez");
 }
 
 const bundle = await build({

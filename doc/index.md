@@ -32,13 +32,14 @@ Domínio oficial `https://cidoe.com.br`, marca **Cidoe**. GitHub: [RaeII/cidoe](
 - `main`: pacote `cidoe`, imagem `ghcr.io/raeii/cidoe-front:main`, rede `cidoe`. `LEGAL_EDITION="launch"`, pagamentos, sessões e cláusulas legais preservados. Alterações de SEO aplicadas diretamente, sem merge da beta.
 - Auditoria, fontes oficiais e estratégia de publicação: [[seo]]. Google, Gemini, ChatGPT, Claude, Perplexity, Bing e IndexNow; configuração externa de Search Console/CDN documentada.
 - `src/lib/seo.ts`: fonte única de título, descrição, canonical, previews e JSON-LD. Título da home **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D**; metadados permanentes iguais em `beta` e `main`, sem fase ou métricas inventadas.
+- Paridade conferida em **15/11/2026**, referência `beta` em `3e327f9`: tags Analytics `G-GEHP0ENSCR`, consentimento de cookies, verificação Bing e IndexNow trazidos para `main`. `beta` intacta; Pix, edição `launch` e reaceite da `main` preservados. [[seo#Paridade entre beta e main]].
 - `npm run build`: TypeScript + Vite + `scripts/prerender.mjs`. `AppContent` compartilhado usa `renderToString`; `main.tsx` hidrata a mesma primeira renderização. Home e documentos preservam texto, links e imagens enquanto a cena lazy carrega; logo/foto usam lazy loading nativo. Nenhuma API ou dado de conta entra no build.
 - `PublicPageNav`: **Sobre**, **Termos**, **Privacidade**, links de texto à direita no início da seção HTML abaixo da cena. Sem formato de botão; hover/clique/toque, alvo mínimo 44px. Fora do canvas, loading e cabeçalhos das outras páginas. [[html-components#Menu público (PublicPageNav.tsx)]].
 - `/sobre`: funcionamento, condições das contribuições, autoria de **Israel Zeferino**, contato, LinkedIn e Instagram fornecidos pelo criador. Ícones compartilhados; URLs em `CREATOR_SOCIAL_PROFILES` e `Person.sameAs`. Sem credenciais inventadas; `Organization` identifica projeto sem afirmar que Cidoe é ONG.
 - Apresentação em vídeo sob demanda: **Conheça o Cidoe** ou login solicitado no desktop. Visita inicial e `?ref=` não abrem modal; indicação permanece preenchida no próximo login. Sem uso de `cidoe:intro-video-seen`. Favicon declarado: `favicon-96.png`.
 - Vocabulário: **doação para ONGs de proteção animal**, **cidade 3D**, **ajudar animais**, **cães e gatos**, **personalizar meu prédio**. Metadados das quatro páginas públicas, H1/H2, apresentação, Sobre e `noscript` usam palavras simples. Sobre mantém **Israel Zeferino**; títulos legais, cláusulas e comandos da interface preservados. H1 descritivo, H2 internos; sem `meta keywords`, repetição artificial ou volume de busca inventado.
 - `public/robots.txt`: bots de pesquisa e IA permitidos no mesmo grupo; API/healthz restritos. Admin rastreável para ler `noindex` no HTML/cabeçalho. Fallback SPA só em `/dale`; URLs inexistentes recebem 404. Sitemap com quatro páginas, sem datas falsas.
-- IndexNow: chave pública em `public/indexnow-key.txt`; `npm run seo:submit -- --dry-run` valida localmente. Envio real somente após publicar. Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
+- IndexNow: chave pública em `public/acbc00eed07ed2d01d8f60b670973076.txt`; nome e conteúdo iguais, sem `keyLocation`. Bing: `public/BingSiteAuth.xml`. `npm run seo:submit -- --dry-run` valida localmente. Envio real somente após publicar. Search Console e WAF exigem configuração externa; [[seo#Publicação e contas externas]].
 - `src/lib/projectStorage.ts`: `readProjectStorage(storage, key)` lê `cidoe:*`; na ausência, migra `cidoa:*`. Remove chave antiga só após gravar; quota cheia mantém original legível. Preferências e dados existentes preservados.
 - Docker front/back precisa de [transição coordenada](../prod/README.md#transição-para-os-nomes-cidoe), preservando banco e volume de logs. Nomes antigos restritos à compatibilidade e caminhos físicos existentes.
 - Verificação: `npm run build`, `npm run lint`, `npm run check:seo`, `node scripts/check-branding.mjs`, `node scripts/check-donation-info.mjs` e `node scripts/check-building-management.mjs`. IndexNow somente `--dry-run`; sem servidor/navegador, deploy ou envio aos buscadores.
@@ -88,6 +89,8 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-branding.mjs           ← migração das preferências, edição launch e check-seo; executar após build
   check-seo.mjs                ← HTML público, autoria, menu textual, metadados, sitemap e bots
+  check-analytics.mjs          ← consentimento, tag única, migração e revogação; sem rede/navegador
+  check-consent.mjs            ← aviso de cookies: aceitar, recusar, reabrir e persistir; sem navegador
   prerender.mjs                ← gera HTML das quatro páginas públicas, 404 e entrada admin
   submit-indexnow.mjs          ← valida chave publicada e envia URLs; --dry-run sem rede
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
@@ -129,7 +132,8 @@ public/
   logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
   robots.txt                   ← bots de pesquisa/IA; admin rastreável para ler noindex; API/healthz restritos
   sitemap.xml                  ← URLs canônicas: home, sobre, termos e privacidade
-  indexnow-key.txt             ← chave pública de verificação do IndexNow
+  acbc00eed07ed2d01d8f60b670973076.txt ← chave pública de verificação do IndexNow
+  BingSiteAuth.xml             ← verificação de propriedade do Bing, igual à beta
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
   video-cidoe-poster.jpg       ← miniatura pública 720×1280 do vídeo, usada em poster → [[seo#Vídeo de apresentação e miniatura]]
 src/
@@ -160,6 +164,7 @@ src/
     contributionApi.ts              ← Pix (cobrança/status/pendente) + perfil do edifício, gravados no back
     regions.ts
   lib/seo.ts                    ← metadados, schema e perfis sociais do criador → [[seo]]
+  lib/analytics.ts              ← tag Google Analytics; coleta só após aceite explícito → [[seo]]
   seo/render.tsx                ← renderização estática exclusiva do build
   pages/About.tsx               ← funcionamento, autoria, redes sociais e contato
   pages/NotFound.tsx            ← erro 404
@@ -202,6 +207,7 @@ src/
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
     TermsDialog.tsx               ← `TermsConsent` (caixa de aceite) + reaceite quando `LEGAL_VERSION` muda
+    CookieNotice.tsx              ← aceite/recusa opcionais do Analytics; preferências em `/privacidade#cookies`
     IntroVideoDialog.tsx          ← vídeo de apresentação sob demanda (mudo, loop, sem controles); mobile "Acessar Cidoe", desktop + login à direita
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
@@ -371,7 +377,7 @@ doc/
 ### 1. Entrada
 
 - `src/main.tsx` → hidrata HTML público em produção; `createRoot` só para dev e casca vazia do admin.
-- `src/App.tsx` → `BrowserRouter` + `AppContent` compartilhado com o build. Páginas públicas diretas; cena e rotas do admin lazy. Sessão da cena e toaster só após a hidratação; `SceneFallback` preserva apresentação pública durante o download. Cada área monta só a própria sessão ([[area-admin#Duas sessões (cena × painel)]]). Ver [[seo]].
+- `src/App.tsx` → `BrowserRouter` + `AppContent` compartilhado com o build. Páginas públicas diretas; cena e rotas do admin lazy. Sessão da cena, aviso de cookies e toaster só após a hidratação; `SceneFallback` preserva apresentação pública durante o download. Cada área monta só a própria sessão ([[area-admin#Duas sessões (cena × painel)]]). Ver [[seo]].
 - `/termos` e `/privacidade` → documentos legais públicos, fora de qualquer provider de sessão ([[termos-e-privacidade]]).
 - Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela e marca a caixa de aceite dos termos. Conta sem aceite da versão vigente vê `TermsDialog` antes de tudo. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 

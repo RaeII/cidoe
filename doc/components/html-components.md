@@ -36,7 +36,7 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 
 1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
 2. **`AppContent` (`App.tsx`)** — compartilhado com o build (`renderToString` + `StaticRouter`), incluindo limites de `Suspense` e IDs. `SceneFallback` mantém loading + `DonationInfoSection` completos durante o download do editor. Documentos públicos usam imports diretos para corresponder ao HTML inicial. `main.tsx` usa `hydrateRoot` em produção com HTML; dev e casca vazia do admin usam `createRoot`.
-3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). Após a hidratação, `clientReady` monta sessão da cena e `Toaster`; só então o editor lazy começa a baixar. Store do toast preserva notificações anteriores ao mount.
+3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). Após a hidratação, `clientReady` monta sessão da cena, `CookieNotice` e `Toaster`; só então o editor lazy começa a baixar. Store do toast preserva notificações anteriores ao mount.
 4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
 5. **Até `booted`** não montam: placa da marca, `AuthMenu`, `ContributeDialog` e seta/engrenagem. `DonationInfoSection` mantém texto, links, logo e foto desde o início; sem prop `mediaReady`. Fotos e avatares usam `loading="lazy"`. Sem onboarding sobre o loading.
 
@@ -51,6 +51,12 @@ Primeira viewport = loading da cena; sai com **tudo** carregado. Menu público, 
 - **nginx** (`docker/nginx.conf`) — `^~ /assets/`: `Cache-Control: public, max-age=31536000, immutable` (sem `always`: 404 de chunk não fica em cache). Arquivos de `public/` (webp/jpg/png/svg/woff2/ico): `expires 30d`. HTML: `no-cache`. gzip nível 6, ≥ 1 KB, + `text/plain`, `text/javascript`, `application/manifest+json`. `/api` e `/healthz` intactos.
 
 ## Componentes Principais
+
+### `CookieNotice.tsx`
+
+Mesmo aviso da `beta`, montado globalmente após hidratação. Sem modal nem bloqueio de navegação. **Recusar** salva `denied`; **Aceitar** salva `granted` em `cidoe:analytics-consent`. Escolha válida fecha aviso e persiste; storage bloqueado mantém escolha só na visita. `/privacidade#cookies` permite reabrir preferências e desativar análise. Aceite independente dos termos de cadastro.
+
+`src/lib/analytics.ts`: tag `G-GEHP0ENSCR` só em produção e após aceite; inicialização em `src/main.tsx`. Revogação na mesma aba ou via evento `storage` desativa coleta. Sem duplicar script; `?ref=` removido da URL enviada. Checks: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`, sem servidor/navegador/rede. [[seo#Paridade entre beta e main]].
 
 ### Menu público (`PublicPageNav.tsx`)
 

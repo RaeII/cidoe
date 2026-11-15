@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
+import { CookieNotice } from "./components/CookieNotice";
 import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
 import { DonationInfoSection } from "./components/html/DonationInfoSection";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -30,7 +31,7 @@ function afterPaint() {
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
 // (Three.js, pesada) e a área /dale (admin) viram chunks separados. A cena só
-// começa a baixar depois que a casca (loading) pinta: o
+// começa a baixar depois que a casca (loading, aviso de cookies) pinta: o
 // download e a avaliação do Three.js não atrasam o 1º paint útil (LCP).
 const CitySceneEditor = lazy(() =>
   afterPaint()
@@ -134,6 +135,7 @@ export function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      {clientReady && <CookieNotice />}
       {clientReady && <Toaster />}
     </>
   );

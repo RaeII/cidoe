@@ -83,6 +83,12 @@ flowchart TD
 
 Vídeo de apresentação sob demanda: `cidoe:intro-video-seen` deixou de ser usado e foi retirado da tabela de armazenamento; chaves antigas não são apagadas. Sem finalidade nova de tratamento de dados.
 
+### Consentimento de análise
+
+Paridade com `beta` em **15/11/2026**: `CookieNotice` e `src/lib/analytics.ts` usam a mesma tag `G-GEHP0ENSCR`. Escolha opcional e separada do aceite contratual: sem `granted`, nenhum script ou envio ao Analytics. Política informa dados de navegação/dispositivo, finalidade, Google e cookies `_ga`/`_ga_*`; `/privacidade#cookies` oferece preferências e revogação. Configuração desativa sinais Google e personalização de anúncios; remove `?ref=` do endereço enviado.
+
+Versão contratual e reaceite da `main` preservados; coleta depende do novo aceite específico de análise, inclusive para contas existentes. Chave `cidoe:analytics-consent`, com migração de `cidoa:*`. Ver [[html-components#CookieNotice.tsx]] e [[seo#Paridade entre beta e main]]. Checks locais: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`.
+
 ### Backend (`cidoe-back`)
 
 | Peça | O quê |

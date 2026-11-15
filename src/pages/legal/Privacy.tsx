@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { COOKIE_PREFERENCES_EVENT, setAnalyticsConsent } from "@/lib/analytics";
 import { IS_PRELAUNCH, LEGAL_CONTROLLER, LEGAL_EMAIL, TERMS_PATH } from "@/lib/legal";
 import { docLink, LegalPage, type LegalSection } from "./LegalPage";
 
@@ -93,6 +96,7 @@ const sections: LegalSection[] = [
             ["Aceite destes documentos: versão, data, IP e navegador", "Caixa de aceite"],
             ["Mensagens que você nos envia (dúvidas, denúncias, contestações, pedidos sobre seus dados, comprovantes)", "Você envia por e-mail"],
             ["IP, navegador (user-agent), data e hora de acesso", "Seu acesso ao site"],
+            ["Páginas visitadas, interações, origem da visita, dados do dispositivo e identificadores de cookies", "Google Analytics, somente se você aceitar a análise"],
             ["Datas de cadastro e de último acesso", "Uso do Cidoe"],
           ]}
         />
@@ -127,6 +131,7 @@ const sections: LegalSection[] = [
                 ["Encaminhar à ONG seu pedido de devolução de Pix", "Execução de contrato (inciso V)"],
               ]),
           ["Liberar recompensas e contar indicações", "Execução de contrato (inciso V)"],
+          ["Medir o uso do site com Google Analytics", "Consentimento (inciso I), opcional e revogável"],
           ["Entender de onde as pessoas são e como conhecem o Cidoe e, quando disponível, sugerir ONGs da sua região (campos opcionais)", "Legítimo interesse (inciso IX)"],
           ["Segurança e prevenção de fraude e abuso: limites de envio, bloqueio de e-mail temporário, registros técnicos de acesso", "Legítimo interesse (inciso IX)"],
           ["Não reenviar e-mail a quem recusou nossas mensagens (devolução ou marcação como spam)", "Legítimo interesse (inciso IX)"],
@@ -168,10 +173,13 @@ const sections: LegalSection[] = [
         <p>Não vendemos seus dados e não os usamos para publicidade. Eles passam só por:</p>
         <ul>
           <li>
-            <strong>Google</strong>: o site carrega a ferramenta de login e as fontes a partir dos servidores do
-            Google, que recebem seu IP e dados do navegador em cada acesso; a foto vinda da conta Google também é
+            <strong>Google</strong>: quando você abre o login ou passa o ponteiro sobre "Entrar", o site carrega a ferramenta de login a partir dos
+            servidores do Google, que recebem seu IP e dados do navegador; a foto vinda da conta Google também é
             exibida a partir desses servidores. No login com Google, o Google atua como controlador próprio e nos
             envia os dados da conta descritos acima.
+            Se você aceitar a análise, o Google Analytics também recebe dados de navegação e do dispositivo para
+            gerar estatísticas de uso. Não enviamos dados do seu cadastro, como nome ou e-mail, ao Analytics e
+            desativamos os sinais do Google e a personalização de anúncios nessa integração.
           </li>
           <li>
             <strong>Zoho CPaaS (ZeptoMail)</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
@@ -227,18 +235,32 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          Usamos só o necessário para o site funcionar. <strong>Não usamos cookies de publicidade nem de medição de
-          audiência</strong>, por isso não pedimos consentimento para cookies.
+          Usamos cookies essenciais para o site funcionar. <strong>O Google Analytics só é carregado se você
+          escolher "Aceitar" no aviso</strong>; "Recusar" mantém só os essenciais. Sem esse aceite, não carregamos a tag nem enviamos dados ao
+          Analytics. Não usamos cookies de publicidade. Guardamos sua escolha no navegador;
+          você pode alterá-la abaixo a qualquer momento. Desativar os cookies opcionais não impede o uso do site e interrompe novos
+          envios; os cookies já existentes podem ser apagados nas configurações do navegador.
         </p>
+        <Button type="button" variant="outline" onClick={() => window.dispatchEvent(new Event(COOKIE_PREFERENCES_EVENT))}>
+          Preferências de cookies
+        </Button>
+        <Button type="button" variant="outline" onClick={() => {
+          setAnalyticsConsent("denied");
+          toast.success("Cookies opcionais desativados.");
+        }}>
+          Desativar cookies opcionais
+        </Button>
         <Table
           head={["Nome", "Tipo", "Para quê", "Duração"]}
           rows={[
             ["token_access", "Cookie próprio, essencial", "Manter você conectado", "7 dias, ou até você sair"],
             ["token_admin", "Cookie próprio, essencial", "Sessão do painel administrativo (só equipe)", "30 dias, ou até sair"],
             ["sidebar_state", "Cookie próprio, preferência", "Lembrar o menu lateral do painel (só equipe)", "7 dias"],
-            ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
+            ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google, depois que você abre o login", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoe:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
+            ["cidoe:analytics-consent", "Armazenamento local", "Lembrar se você aceitou ou recusou a análise", "Até você mudar a escolha ou limpar o navegador"],
+            ["_ga e _ga_*", "Cookies próprios de análise (Google Analytics), opcionais", "Distinguir visitantes e sessões após o aceite", "Até 2 anos, renovados com o uso"],
             ...(IS_PRELAUNCH
               ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
               : []),

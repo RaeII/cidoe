@@ -16,6 +16,24 @@ Auditoria: **3 de novembro de 2026**. Escopo: frontend, conteúdo público, buil
 > [!important] Resultado esperado
 > Conteúdo acessível, coerente e elegível para pesquisa. Indexação, posição e citação por IA dependem dos buscadores; nenhuma tag garante aparição.
 
+## Paridade entre beta e main
+
+Comparação em **15 de novembro de 2026**, após atualizar referências remotas: `main` em `96b1bcb`, `beta` em `3e327f9`. Alterações aplicadas somente ao checkout da `main`; `beta` intacta.
+
+| Configuração | Antes da sincronização | Resultado na main |
+|---|---|---|
+| Títulos, descrições, canonical, Open Graph, Twitter e JSON-LD | Iguais | Mesma fonte `src/lib/seo.ts` |
+| Idioma, viewport, tema, favicon, imagens sociais e miniatura do vídeo | Iguais | Preservados |
+| Robots, sitemap, prerender e regras Nginx de indexação/404/admin | Iguais | Preservados |
+| Google Analytics | Só na beta | Mesmo módulo e tag `G-GEHP0ENSCR` |
+| Consentimento de análise | Só na beta | Mesmo aviso; aceitar, recusar, reabrir e revogar |
+| Bing Webmaster Tools | XML só na beta | Mesmo `public/BingSiteAuth.xml` |
+| IndexNow | Mesmo valor de chave; arquivo e envio diferentes | Mesmo `public/{chave}.txt` e script da beta, sem `keyLocation` |
+
+Tag Analytics carrega apenas em produção e após aceite explícito. `src/main.tsx` inicializa; `AppContent` monta `CookieNotice` depois da hidratação. Preferências em `/privacidade#cookies`; política descreve a análise opcional. Sem sinais Google nem personalização de anúncios; código `?ref=` removido da URL enviada. Checks de Analytics/aviso reutilizados da beta; check de consentimento cobre só cookies, sem importar mudanças no cadastro. [[html-components#CookieNotice.tsx]] e [[termos-e-privacidade#Consentimento de análise]].
+
+`LEGAL_EDITION="launch"`, versão contratual, reaceite, Pix e conteúdo operacional da `main` preservados. Texto de simulação da beta não deve substituir conteúdo do lançamento. Nenhum deploy, envio ao IndexNow, configuração em contas ou verificação HTTP nesta comparação.
+
 ## Diagnóstico e implementação
 
 | Área | Antes | Agora |
@@ -37,8 +55,9 @@ Google recomenda conteúdo disponível em texto, links rastreáveis e renderiza�
 
 - `src/lib/seo.ts`: domínio, títulos, descrições, canonical, previews e JSON-LD. Fonte única para Vite, build estático e navegação.
 - `src/components/RouteMetadata.tsx`: atualiza head a cada rota, inclusive volta à home; remove canonical e schema público em páginas não indexáveis.
+- `src/lib/analytics.ts` e `src/components/CookieNotice.tsx`: tag e consentimento opcionais, iguais à beta; coleta desativada sem aceite.
 - `src/seo/render.tsx`: entrada exclusiva do build. Renderiza `AppContent` com `renderToString` e `StaticRouter`, preservando marcadores de hidratação e IDs do React. Cena/admin lazy ficam externos ao bundle do prerender e não são executados nesse processo.
-- `src/main.tsx`: `hydrateRoot` em produção quando existe HTML no root; `createRoot` no dev e no admin vazio. `AppContent` começa com `clientReady=false` no build e no cliente; após o primeiro paint monta sessão da cena e toaster. `SceneFallback` mantém texto/links/imagens enquanto o editor baixa. Documentos públicos usam imports diretos para corresponder ao HTML inicial.
+- `src/main.tsx`: inicializa Analytics respeitando consentimento; `hydrateRoot` em produção quando existe HTML no root; `createRoot` no dev e no admin vazio. `AppContent` começa com `clientReady=false` no build e no cliente; após o primeiro paint monta sessão da cena, cookies e toaster. `SceneFallback` mantém texto/links/imagens enquanto o editor baixa. Documentos públicos usam imports diretos para corresponder ao HTML inicial.
 - `scripts/prerender.mjs`: usa esbuild já instalado pelo Vite, sem dependência nova; temporário em `node_modules/.tmp`, removido ao terminar. Flag de produção desativada nesse processo Node para evitar efeitos de navegador. Sem API ou dados de contas.
 - `npm run build`: TypeScript → Vite → HTML público. Não publicar somente a saída de `vite build`, pois faltariam os documentos estáticos.
 - `dist/index.html`, `dist/sobre/index.html`, `dist/termos/index.html`, `dist/privacidade/index.html`: páginas públicas.
@@ -63,7 +82,7 @@ Home: **Cidoe | Doação para ONGs de proteção animal em uma cidade 3D**. Revi
 | Autoria | Cidoe Israel Zeferino, quem criou o Cidoe | Seção de autoria e descrição de Sobre |
 | Confiança | termos de uso, regras para doações, privacidade, dados pessoais, cookies | Metadados dos documentos próprios; contato verificável em Sobre |
 
-H1 da home: **Cidoe: doação para ONGs em uma cidade 3D.** H2 **Doações na cidade** para os totais; seção de ONGs mantém o contexto de cada branch. Sobre responde **Como funciona a doação para uma ONG?**, **As doações já são reais?** e **Como personalizar meu prédio?**. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. `main` mantém `LEGAL_EDITION="launch"`, seu fluxo Pix, dados públicos e cláusulas vigentes. `beta` informa ONGs fictícias e contribuição simulada. A aplicação direta do SEO não importa simulação, Analytics, cookies ou mudanças de reaceite da beta. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
+H1 da home: **Cidoe: doação para ONGs em uma cidade 3D.** H2 **Doações na cidade** para os totais; seção de ONGs mantém o contexto de cada branch. Sobre responde **Como funciona a doação para uma ONG?**, **As doações já são reais?** e **Como personalizar meu prédio?**. Metadados permanentes da marca preservados entre branches; corpo informa situação operacional. `main` mantém `LEGAL_EDITION="launch"`, seu fluxo Pix, dados públicos e cláusulas vigentes. `beta` informa ONGs fictícias e contribuição simulada. Analytics e consentimento de cookies sincronizados; simulação e mudanças de reaceite da beta não importadas. Não prometer repasses, adoção, resgates realizados, benefícios fiscais ou parceiros não comprovados.
 
 “Doação” substitui “contribuição” e “prédio” substitui “edifício” nas explicações públicas quando isso melhora a leitura. Nomes reais de comandos, como **Simular contribuição** e **Meus edifícios**, permanecem nas instruções. Títulos de Termos de Uso e Política de Privacidade continuam descritivos; suas descrições usam doações, pagamentos, cadastro, dados pessoais e cookies. Cláusulas e avisos operacionais preservados. Textos alternativos continuam descrevendo as imagens; marca Cidoe e autoria de Israel Zeferino preservadas.
 
@@ -128,7 +147,7 @@ Após publicar: conferir HTTP 200 e `Content-Type: image/jpeg` na URL da miniatu
 3. Google Search Console: conferir propriedade de domínio por DNS; enviar `/sitemap.xml`; inspecionar as quatro páginas. Validar canonical selecionada, ausência de `noindex` público, acesso às imagens e resposta real 404.
 4. **Settings → Search generative AI:** manter inclusão dos links e conteúdo habilitada; conferir herança de propriedades pai/filhas. Esse controle de conta não pode ser definido por tag neste repositório. [Documentação do controle](https://support.google.com/webmasters/answer/16908024).
 5. Consultar relatório de desempenho em IA; ausência pode significar impressões insuficientes. Não mede todo uso do domínio por todas as IAs. [Relatório do Google](https://support.google.com/webmasters/answer/16984139).
-6. Bing Webmaster Tools: verificar propriedade, enviar sitemap e acompanhar AI Performance. Depois de a chave pública estar publicada, executar `npm run seo:submit`. `public/indexnow-key.txt` é prova pública de controle, não segredo. Script confirma arquivo em produção e envia somente URLs canônicas do sitemap. HTTP 200/202 significa aceite, não indexação. Não substitui Google Search Console. [Protocolo IndexNow](https://www.indexnow.org/documentation).
+6. Bing Webmaster Tools: verificar propriedade pelo método **Arquivo XML** com `public/BingSiteAuth.xml`, publicado na raiz como `https://cidoe.com.br/BingSiteAuth.xml`; mesmo arquivo da beta. Confirmar na conta após deploy e manter arquivo publicado. Enviar sitemap e acompanhar AI Performance. IndexNow: chave pública `public/acbc00eed07ed2d01d8f60b670973076.txt`, conteúdo igual ao nome sem `.txt`; mesmo formato e script da beta, sem `keyLocation`. Depois de publicar, executar `npm run seo:submit`. Script confirma arquivo em produção e envia somente URLs canônicas do sitemap. HTTP 200/202 significa aceite, não indexação. Não substitui Google Search Console. [Protocolo IndexNow](https://www.indexnow.org/documentation).
 7. CDN/WAF: permitir bots legítimos nas páginas públicas sem captcha/challenge; conferir IPs nas listas oficiais atualizadas. Não confiar só no User-Agent para liberar acesso privilegiado. Não alterar autenticação nem firewall da API.
 8. Pós-deploy autorizado: validar Rich Results/Schema Markup Validator, URL Inspection e PageSpeed; conferir cabeçalhos, cache e compressão na origem/CDN. Revalidar depois de trocar domínio, proxy ou regras de bots.
 
@@ -148,9 +167,11 @@ npm run lint
 npm run check:seo
 node scripts/check-branding.mjs
 node scripts/check-donation-info.mjs
+node scripts/check-consent.mjs
+node scripts/check-analytics.mjs
 npm run seo:submit -- --dry-run
 ```
 
-`check:seo`: HTML emitido sem JS, paridade com `AppContent`, H1, imagens lazy, favicon 96×96, head único, schema, autoria, rotas privadas/erro, metadados entre rotas, sitemap e bots. Inclui `check-public-startup.mjs`: seleção de hidratação versus root vazio, vídeo fechado na entrada (desktop/mobile/com indicação), abertura por botão, login solicitado e foto já carregada antes da hidratação. IndexNow validado apenas em modo local. Não executa navegador, servidor, hidratação em DOM real ou métricas de campo.
+`check:seo`: HTML emitido sem JS, paridade com `AppContent`, H1, imagens lazy, favicon 96×96, head único, schema, autoria, rotas privadas/erro, metadados entre rotas, sitemap, bots, XML Bing e chave IndexNow copiados ao build. Inclui `check-public-startup.mjs`: inicialização única do Analytics, seleção de hidratação versus root vazio, vídeo fechado na entrada (desktop/mobile/com indicação), abertura por botão, login solicitado e foto já carregada antes da hidratação. `check-consent` cobre aceite/recusa, reabertura, persistência e storage bloqueado. `check-analytics` cobre ordem dos comandos, tag única, migração e revogação entre abas. IndexNow validado apenas em modo local. Não executa navegador, servidor, hidratação em DOM real ou métricas de campo.
 
 Validação adicional desta alteração: jsdom temporário fora do repositório, sem nova dependência no projeto. Home, Sobre, Termos, Privacidade e 404 hidrataram sem avisos e reaproveitaram o H1 original; cena pendente manteve apresentação, foto e links. Sem GPU, servidor ou navegador. Referência da beta: imports diretos dos documentos públicos aumentaram o JS inicial de aproximadamente 111 para 139 KB gzip. Não é uma medição da main; medir experiência real após deploy.

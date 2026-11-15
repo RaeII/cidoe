@@ -1,6 +1,6 @@
 // npm run build && npm run check:seo — sem servidor, navegador ou rede.
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 
@@ -159,11 +159,18 @@ assert.ok(robots.lastIndexOf("User-agent:") < robots.indexOf("Allow:"), "Um úni
 assert.doesNotMatch(robots, /^Disallow: (?:\/\s*$|\/dale)/m, "Permite ler noindex do admin");
 assert.match(robots, /^Disallow: \/api$/m);
 assert.match(robots, /Sitemap: https:\/\/cidoe.com.br\/sitemap.xml/);
+const bing = await read("public/BingSiteAuth.xml");
+assert.match(bing, /<users>\s*<user>[A-F0-9]{32}<\/user>\s*<\/users>/);
+assert.equal(await read("dist/BingSiteAuth.xml"), bing, "Verificação Bing publicada no build");
+const keyFiles = (await readdir(new URL("../public/", import.meta.url))).filter((name) => /^[a-f0-9]{32}\.txt$/.test(name));
+assert.equal(keyFiles.length, 1, "Uma única chave pública IndexNow");
+assert.equal((await read(`public/${keyFiles[0]}`)).trim(), keyFiles[0].slice(0, -4));
+assert.equal(await read(`dist/${keyFiles[0]}`), await read(`public/${keyFiles[0]}`), "Chave IndexNow publicada no build");
 const nginx = await read("docker/nginx.conf");
 assert.match(nginx, /error_page 404 \/404.html/);
 assert.doesNotMatch(nginx, /try_files \$uri \$uri\/ \/index.html/);
 assert.match(nginx, /add_header X-Robots-Tag \$seo_robots always/);
 assert.match(nginx, /try_files \/admin.html =404/);
 for (const path of ["sobre", "termos", "privacidade"]) assert.ok(nginx.includes(`location = /${path} { try_files /${path}/index.html =404; }`));
-console.log("SEO: HTML público, autoria, metadados, navegação, noindex, sitemap e acesso dos bots OK. HTTP/Nginx não executados.");
+console.log("SEO: HTML público, autoria, metadados, navegação, noindex, sitemap, bots, Bing e chave IndexNow OK. HTTP/Nginx não executados.");
 await import("./check-public-startup.mjs");
