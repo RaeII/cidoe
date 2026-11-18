@@ -3,8 +3,11 @@ import { createRoot, hydrateRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { initializeAnalytics } from './lib/analytics.ts'
+import { prefetchDonationSnapshot } from './api/donationApi.ts'
 
 initializeAnalytics()
+// Dados da cidade descem junto com o chunk da cena, não depois dele.
+if (window.location.pathname === '/') prefetchDonationSnapshot()
 
 // Deploy novo apaga chunks antigos: aba aberta antes pede hash que não existe mais.
 // Reload pega o index.html novo. Janela de 10s evita loop se o chunk faltar de verdade.

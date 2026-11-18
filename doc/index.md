@@ -27,7 +27,7 @@ Recompensa por indicação também real: etapas contam cadastros indicados, sem 
 
 ### Dados da cidade
 
-- Cenário inicial: leitura pública de `/donation/snapshot` e `/donation/customizations`.
+- Cenário inicial: leitura pública de `/donation/snapshot` (ONGs + cidades com edifício, <1 KB em produção), disparada no `main.tsx` junto do chunk da cena. `/donation/customizations` não é pedida (aparência é local). Ver [[donation-api#Contrato do snapshot]].
 - Pré-lançamento (`IS_PRELAUNCH`) → `createSeedBuildings(ongs)` (`src/lib/prelaunchCity.ts`) põe 480 edifícios fixos, só no front, pra cidade abrir cheia (grade 3×3 de quadras). Valor em cauda longa `5 + 595·(1 − i/480)³`: poucas torres, muita base. IDs `-1_000_000 - i` (longe dos locais `-1…-3`), 8 capitais, ONGs do catálogo em rodízio. Sem dono, sem perfil, nada no backend. Mesmo cenário em local e produção: doações e personalizações de teste do banco ficam fora da cena, sem apagar registros. Fora do pré-lançamento, seeds só com snapshot vazio.
 - Aparência dos seeds: `createSeedCustomizations(seeds)` entra em `savedCustomizations`. Determinística por índice. 40 maiores giram pelos 15 formatos, índice 0 (central, mais alto) = Residencial (sacadas) (`residential`); resto 1 a cada 4 entre 6 formatos de base, com prioridade pros novos residenciais. Residencial com janelas (`apartment`): 30 unidades; Varanda Gourmet (`gourmet`): 30; Loftifício (`loft`): 31 — 91 edifícios dos modelos antes ausentes, nas torres centrais e quadras de base. 147 edifícios com formato próprio, demais com caixa padrão e instancing quando sem acessórios. Cor só em 20 (1 a cada 24): 10 tons escuros e dessaturados (grafite, ardósia, café, bronze, musgo; canal ≤ `0x50`). Seed sem nada especial fica fora do mapa → cor global da cena; com acessório mas sem cor → `#d4d4d4` (= `DEFAULT_BUILDING_SETTINGS.color`). Acessório raro: heliponto/helicóptero/holofotes só nas 40 maiores, jardim a cada 13, nada em pináculo; LED só em 4 torres das 40 maiores, nunca em prédio baixo; letreiro "Cidoe" no central + nome da capital em ~12. Textura `null` → sorteio por edifício da cena. `seeded` (de `useDonations`) usa só `SEED_FACADE_TEXTURES` (6 fachadas do repo, na ordem usada em produção), na mesma ordem em local e produção; catálogo não altera o sorteio. Facade007, Facade014, Facade016 e Facade019A ficam fora. Admin edita cópia local por cima.
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
@@ -156,6 +156,7 @@ scripts/
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
   check-mobile-performance.mjs ← buffers, GIFs, preparo de shaders e cache incremental; sem navegador/GPU
   measure-building-geometry.mjs ← custo por formato: draws, materiais, triângulos e MB do cache por andar; sem servidor/navegador/GPU → [[relatorio-desempenho-edificios]]
+  measure-city-load.mjs        ← abertura da cidade: FCP/LCP, dados, 1º desenho, cidade pronta, loading sai, bytes por tipo, tarefas longas (desktop frio/quente, mobile CPU 4× + 9 Mbps); pede `vite preview` + API ou `URL=` de produção
   measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
@@ -607,6 +608,7 @@ flowchart LR
 | Mexer no pipeline WebP (qualidade, variante 512 mobile, HDRI) | [[scene-textures#Pipeline WebP]] · `scripts/encode-webp.mjs` |
 | Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2 (fallback, fora do caminho padrão)]] · `scripts/encode-ktx2.mjs` |
 | Página de loading / velocidade da home (PageSpeed): loading no HTML, fontes, GSI sob demanda, cache nginx | [[html-components#Carregamento inicial (casca)]] · `index.html` · `docker/nginx.conf` |
+| Medir tempo até a cidade abrir (antes/depois) | `scripts/measure-city-load.mjs` · marcas `cidoe:dados`, `cidoe:doacoes-aplicadas`, `cidoe:cidade-pronta` · [[html-components#InitialLoading.tsx]] |
 | Modo leve mobile (`IS_LOW_TIER`: texturas 512, céu 2K, DPR/FPS) | `src/scene/utils/deviceTier.ts` · [[scene-textures]] · [[scene-runtime]] |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |

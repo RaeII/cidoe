@@ -200,8 +200,7 @@ export function CitySceneEditor() {
         // setDonations é replace-all: o manager só preserva o que já estava na
         // cena, então o que veio do banco (e o que voltou pelo filtro) precisa
         // ser reaplicado aqui.
-        // ponytail: updateDonationCustomization faz find O(n) por chamada — ok
-        // enquanto prédio personalizado for minoria; indexar por id se crescer.
+        // Runtime enfileira e drena em fatias de 4 ms; o manager acha por id em O(1).
         for (const [id, customization] of customizationsRef.current) {
           canvasRef.current?.updateDonationCustomization(id, customization);
         }
@@ -214,6 +213,7 @@ export function CitySceneEditor() {
           canvasRef.current?.focusOnDonation(focusId);
           if (activeManagedId !== focusId) setInfoBuildingId(focusId);
         }
+        performance.mark("cidoe:doacoes-aplicadas");
         setDonationsApplied(true);
       });
     });
@@ -225,11 +225,15 @@ export function CitySceneEditor() {
 
   // Página de loading sai uma vez só, com tudo pronto: doações aplicadas, catálogo (pool de
   // texturas) resolvido e cena sem nada baixando/compilando. Depois disso rebuilds usam o overlay.
+  // Cidade inicial usa pool fixo: catálogo só serve ao editor, não segura a abertura.
   const [booted, setBooted] = useState(false);
   useEffect(() => {
-    if (booted || loadState.status !== "ready" || !donationsApplied || !customizationCatalog) return;
-    if (sceneReadyRef.current) setBooted(true);
-  }, [booted, loadState.status, donationsApplied, customizationCatalog, sceneStats.sceneReady]);
+    if (booted || loadState.status !== "ready" || !donationsApplied || (!customizationCatalog && !seeded)) return;
+    if (sceneReadyRef.current) {
+      performance.mark("cidoe:cidade-pronta");
+      setBooted(true);
+    }
+  }, [booted, loadState.status, donationsApplied, customizationCatalog, seeded, sceneStats.sceneReady]);
 
   // Aviso de pré-lançamento: 20 s depois da cidade pronta, uma vez por navegador.
   const [statusOpen, setStatusOpen] = useState(false);

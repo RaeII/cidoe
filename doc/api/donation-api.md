@@ -26,9 +26,9 @@ Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization(id, customization)` — gravação local no balde do navegador; nenhuma escrita HTTP. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot, mapeia tuplas → objetos. Pré-lançamento não pede `/donation/customizations` (aparência é local). `prefetchDonationSnapshot()` — disparado no `main.tsx` (rota `/`), em paralelo ao chunk da cena. `loadDonationSnapshot()` — 1ª carga reaproveita essa promessa (e o progresso); resolvida, some. `saveDonationCustomization(id, customization)` — gravação local no balde do navegador; nenhuma escrita HTTP. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
-| `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
+| `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot (`loadDonationSnapshot`; marca `cidoe:dados`), guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
 | `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` locais da conta; assina alterações após simulação. Vazio sem login; outra conta usa outras chaves. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
 
 ## Contrato do snapshot
@@ -36,11 +36,10 @@ Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais
 `GET /donation/snapshot` (proxy Vite `/api` → back). Formato compacto por tuplas:
 
 ```json
-{ "v": 5, "total": 100000,
+{ "v": 6, "total": 100000,
   "cities": [[2800308, "Aracaju", "SE"]],
   "ongs": [[1, "Instituto X", null]],
   "data": [[1, 42.5, 3550308, 7]],
-  "custom": [[1, { "color": "#ffd700", "buildingShape": "twisted", "…": "…" }]],
   "beneficiaries": [[1, [7, 8]]] }
 ```
 
@@ -50,9 +49,13 @@ Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais
 
 `ongId` = ONG original, mantida na tupla por compatibilidade. `beneficiaries`: `[donationId, ongIds][]`, só edifícios com várias ONGs. `DonationRecord.ongIds` usa complemento ou `[ongId]` no snapshot antigo/edifício com uma ONG. Edifício aparece no filtro de qualquer ONG apoiada; card/menu mostram todos os nomes. Valor/altura continuam usando total acumulado.
 
-`custom`: cópia cacheada mantida no snapshot por compatibilidade. Não é mais fonte da hidratação porque pode ficar desatualizada por até 30s.
+`cities` (v6): só cidades com edifício ativo. Antes vinha o IBGE inteiro (5.571, 99,7% do payload: 165 KB → <1 KB em produção). Catálogo completo dos formulários = `/location/cities`. Pré-lançamento: seeds e edifícios locais trazem a própria cidade.
 
-`GET /donation/customizations`: `[donationId, BuildingCustomization][]`, só dos edifícios personalizados. Resposta `Cache-Control: no-store`, lida direto do banco em cada carga. `fetchDonationSnapshot` dispara as duas requisições em paralelo e usa esta resposta para montar `DonationDataset.customizations` (Map).
+`custom` saiu no v6: front não lia (cópia até 30 s velha). Personalização = `/donation/customizations`.
+
+`GET /donation/customizations`: `[donationId, BuildingCustomization][]`, só dos edifícios personalizados. `Cache-Control: no-cache` + ETag: lida do banco em cada carga, 304 sem corpo quando nada mudou. `hologramImage` vem como URL versionada (`/api/donation/{id}/hologram.{ext}?v=…`), nunca a data URL. Fora do pré-lançamento, `fetchDonationSnapshot` dispara as duas em paralelo e usa esta para montar `DonationDataset.customizations` (Map); no pré-lançamento ela não é pedida.
+
+Nginx: `expires off` no `/api` — cabeçalho de cache da API chega intacto (antes o `expires -1` do server virava tudo `no-cache`).
 
 ## Gotcha: barra de progresso com gzip
 
@@ -76,9 +79,10 @@ Sem filtro → retorna array original (mesma referência, evita rebuild à toa).
 
 ```mermaid
 flowchart LR
-    Hook[useDonations] --> Fetch[fetchDonationSnapshot]
+    Entry[main.tsx prefetch] --> Fetch[fetchDonationSnapshot]
+    Hook[useDonations] --> |1ª carga reaproveita| Fetch
     Fetch --> Snapshot[GET /donation/snapshot cacheado]
-    Fetch --> Current[GET /donation/customizations no-store]
+    Fetch --> |fora do pré-lançamento| Current[GET /donation/customizations no-cache]
     Snapshot --> DS[DonationDataset completo]
     Current --> DS
     DS --> Filter[useMemo filtro AND]

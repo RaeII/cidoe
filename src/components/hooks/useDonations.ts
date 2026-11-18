@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  fetchDonationSnapshot,
+  loadDonationSnapshot,
   type City,
   type DonationDataset,
   type DonationRecord,
@@ -58,12 +58,16 @@ export function useDonations() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchDonationSnapshot({
+    // 1ª carga reaproveita a busca disparada no entry (main.tsx); retry busca de novo.
+    loadDonationSnapshot({
       signal: controller.signal,
-      onProgress: ({ loadedBytes, totalBytes }) =>
-        setLoadState({ status: "loading", loadedBytes, totalBytes }),
+      onProgress: ({ loadedBytes, totalBytes }) => {
+        if (!controller.signal.aborted) setLoadState({ status: "loading", loadedBytes, totalBytes });
+      },
     })
       .then((data) => {
+        if (controller.signal.aborted) return;
+        performance.mark("cidoe:dados");
         setDataset(data);
         setLoadState({ status: "ready", count: data.donations.length });
       })

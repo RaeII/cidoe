@@ -201,6 +201,7 @@ const city = {
   setVisibleLimit: (value) => { city.limit = value; },
   requestAnimationFrame: (handler) => { frames.push(handler); return frames.length; },
   cancelAnimationFrame() {},
+  performance: { mark() {} },
 };
 city.canvasRef = { current: {
   focusOnDonation(id) { city.focusedId = id; },

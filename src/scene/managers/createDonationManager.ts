@@ -3050,6 +3050,8 @@ export function createDonationManager({
   // Rebuild adiado pela fila de customização do runtime (setRebuildDeferred).
   let rebuildDeferred = false;
   let rebuildPending = false;
+  // Cor de instância pedida durante a fila: uma passada O(N) no fim, não uma por edifício.
+  let colorsPending = false;
 
   // Mesh de formato com materiais próprios (clones de fachada/topo + extras do builder).
   // `customization` null = protótipo de lote instanciado: cores do builder, tiling 1.
@@ -3556,8 +3558,15 @@ export function createDonationManager({
     },
     setRebuildDeferred(deferred: boolean) {
       rebuildDeferred = deferred;
-      if (deferred || !rebuildPending) return;
+      if (deferred) return;
+      if (!rebuildPending) {
+        // Rebuild já recalcula as cores; sem ele, uma passada só para a rajada inteira.
+        if (colorsPending && (compositeFocus || focusedDonationId === null)) applyInstanceColors();
+        colorsPending = false;
+        return;
+      }
       rebuildPending = false;
+      colorsPending = false;
       // Malhas de formato ficam todas para pumpCustomShapes: o rebuild já custa a fatia.
       shapeDeadline = -Infinity;
       rebuildInstances();
@@ -3597,6 +3606,7 @@ export function createDonationManager({
       const prevTextureTransform = prevCustomization?.textureTransform ??
         DEFAULT_BUILDING_TEXTURE_TRANSFORM;
       const prevTextureKey = prevCustomization?.textureKey ?? null;
+      const prevColor = prevCustomization?.color;
       const prevHologramImage = prevCustomization?.hologramImage ?? null;
       const prevHologramColor = prevCustomization?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR;
       const prevHologramOpacity = prevCustomization?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY;
@@ -3726,8 +3736,10 @@ export function createDonationManager({
         updateCustomShapeColor(donationId, customization.color);
       } else if (focusedDonationId === donationId && focusHighlightMesh) {
         focusFacadeMaterial.color.set(customization.color);
-      } else if (compositeFocus || focusedDonationId === null) {
-        applyInstanceColors();
+      } else if (customization.color !== prevColor && (compositeFocus || focusedDonationId === null)) {
+        // O(N) + compactação: só quando a cor muda; na fila do runtime, uma vez no fim.
+        if (rebuildDeferred) colorsPending = true;
+        else applyInstanceColors();
       }
 
       applyAccessories();
