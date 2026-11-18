@@ -18,6 +18,8 @@ import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType }
 import type { FacadeTextureSet } from "../textures/facadeTextureLoader";
 import { createSignMesh, disposeSignMesh } from "./createSignMesh";
 import { createHologramMesh, disposeHologramMesh, positionHologram, setHologramImage, setHologramOpacity, setHologramTint, tickHologram } from "./createHologramMesh";
+import { createLedScreenMesh, disposeLedScreenMesh, tickLedScreen } from "./createLedScreenMesh";
+import { getScreenImageUrl } from "../textures/screenImageManifest";
 import { setEmpireBuildingMeshColor } from "./createEmpireBuildingMesh";
 import { getResidentialRoofOffset, RESIDENTIAL_ROOFTOP_SCALE, setResidentialStoneMaps } from "./createResidentialBuildingMesh";
 import { APARTMENT_ROOFTOP_SCALE } from "./createApartmentBuildingMesh";
@@ -149,6 +151,7 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
   let edgeLight: THREE.Group | null = null;
   let sign: THREE.Group | null = null;
   let hologram: ReturnType<typeof createHologramMesh> | null = null;
+  let screen: ReturnType<typeof createLedScreenMesh> = null;
   let disposed = false;
   if (customization) {
     const centers = shape === "yachthouse" ? YACHTHOUSE_TOWER_CENTERS : [0];
@@ -191,6 +194,13 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
         appearance?.onReady?.();
       }).catch((error: unknown) => { if (!disposed) console.warn("Falha ao carregar holograma da prévia", error); });
     }
+    // Mesma regra da cena: key sem arquivo some. Group na base do prédio.
+    const screenUrls = (customization.screenImages ?? []).flatMap((key) => getScreenImageUrl(key) ?? []);
+    screen = createLedScreenMesh({ width: 1, depth: 1, height, side: customization.screenSide ?? "front", shape, imageUrls: screenUrls });
+    if (screen) {
+      screen.group.position.y = -height / 2;
+      root.add(screen.group);
+    }
   }
 
   const dispose = () => {
@@ -209,6 +219,8 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
     if (edgeLight) disposeEdgeLightMesh(edgeLight);
     if (sign) disposeSignMesh(sign);
     if (hologram) disposeHologramMesh(hologram);
+    // Texturas e plano do telão são do módulo (a cidade usa os mesmos).
+    if (screen) disposeLedScreenMesh(screen);
   };
 
   const bounds = () => {
@@ -216,7 +228,12 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
     if (hologram) box.union(new THREE.Box3().setFromObject(hologram.group));
     return box;
   };
-  const tick = (elapsed: number, deltaMs: number) => { if (hologram) tickHologram(hologram, elapsed, deltaMs); };
+  /** true = algo mudou (holograma sempre; telão só na troca de imagem). */
+  const tick = (elapsed: number, deltaMs: number) => {
+    if (hologram) tickHologram(hologram, elapsed, deltaMs);
+    const screenChanged = screen ? tickLedScreen(screen, elapsed) : false;
+    return hologram !== null || screenChanged;
+  };
   const updateStyle = (next: BuildingCustomization) => {
     if (shape === "empire") setEmpireBuildingMeshColor(building, next.color);
     else facadeMat.color.set(next.color);
@@ -225,7 +242,9 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
       setHologramOpacity(hologram, next.hologramOpacity);
     }
   };
-  return { root, bounds, tick, hasAnimation: () => hologram !== null, updateStyle, dispose };
+  // Prévia abre virada pro telão (giro padrão de 45° somado ao yaw da fachada dele).
+  const facingYaw = screen ? screen.group.children[0].rotation.y : 0;
+  return { root, bounds, tick, updateStyle, dispose, facingYaw };
 }
 
 /**
@@ -280,13 +299,14 @@ export function createPreviewScene(resolved: ResolvedSubject, appearance?: Build
 
   /** Câmera na diagonal padrão. Separado de `frame` pra resize não matar o orbit. */
   const place = (distance: number) => {
+    const azimuth = Math.PI / 4 + built.facingYaw;
     camera.position
-      .set(1, VIEW[resolved.kind].elevation, 1)
+      .set(Math.SQRT2 * Math.sin(azimuth), VIEW[resolved.kind].elevation, Math.SQRT2 * Math.cos(azimuth))
       .normalize()
       .multiplyScalar(distance)
       .add(sphere.center);
     camera.lookAt(sphere.center);
   };
 
-  return { scene, camera, center: sphere.center, frame, place, tick: built.tick, hasAnimation: built.hasAnimation, updateStyle: built.updateStyle, dispose: built.dispose };
+  return { scene, camera, center: sphere.center, frame, place, tick: built.tick, updateStyle: built.updateStyle, dispose: built.dispose };
 }

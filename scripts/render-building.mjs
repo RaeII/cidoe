@@ -8,6 +8,9 @@
  *   --height <n>                   altura na cena, 0,5–16 (padrão 4)
  *   --width <n>                    largura/profundidade do lote (padrão 2; torre central = 2,3)
  *   --sign <texto>                 letreiro nos 4 lados, como createSignMesh na cena
+ *   --screen <lado>                telão (front|right|back|left) com a 1ª imagem de src/assets/club-images;
+ *                                  3ª vista vira close dele (LEDs, gabinete, braços)
+ *   --screen-image <imagem>        imagem do telão no lugar da padrão
  *   --ref <imagem>                 referência ao lado das vistas
  *   --color <hex>                  cor da customização (aplicada como no manager)
  *   --slot <i>=<hex>[,metal[,rough]]  sobrescreve o material do slot i (calibrar autoral; repetível)
@@ -15,11 +18,11 @@
  * Navegador: env CHROME, senão Chrome/Brave/Chromium nos caminhos padrão.
  *
  * Fiel à cena: mesmo HDRI (IBL + céu), luz ambiente padrão, ACES 1,45, lote 2×2.
- * Fora: texturas PBR, parapeito, acessórios (exceto letreiro) e envMap dinâmico — conferir no app.
+ * Fora: texturas PBR, parapeito, acessórios (exceto letreiro e telão) e envMap dinâmico — conferir no app.
  * Erro na página sai escrito no próprio PNG.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -50,6 +53,7 @@ import { setGourmetBuildingHeight } from "./src/scene/builders/createGourmetBuil
 import { setLoftBuildingHeight } from "./src/scene/builders/createLoftBuildingMesh.ts";
 import { setYachthouseBuildingHeight } from "./src/scene/builders/createYachthouseBuildingMesh.ts";
 import { createSignMesh } from "./src/scene/builders/createSignMesh.ts";
+import { createLedScreenMesh } from "./src/scene/builders/createLedScreenMesh.ts";
 import { getLightMetrics } from "./src/scene/utils/lighting.ts";
 import { DEFAULT_LIGHT_SETTINGS } from "./src/scene/config/lightConfig.ts";
 import { DEFAULT_BUILDING_SETTINGS } from "./src/scene/config/buildingConfig.ts";
@@ -73,7 +77,7 @@ const VIEWS = [
 const FOV = 30;
 const hex = (value) => (value.startsWith("#") ? value : "#" + value);
 
-function render({ shape, height, width, sign, color, slots, tile }) {
+function render({ shape, height, width, sign, screen, screenImage, color, slots, tile }) {
   if (!BUILDING_SHAPES.includes(shape)) {
     throw new Error("formato desconhecido: " + shape + "\\nconhecidos: " + BUILDING_SHAPES.join(", "));
   }
@@ -124,6 +128,10 @@ function render({ shape, height, width, sign, color, slots, tile }) {
     signGroup.position.y = height / 2;
     scene.add(signGroup);
   }
+  // Manager posiciona o telão na base do edifício.
+  const screenEntry = screen && createLedScreenMesh({ width, depth: width, height, side: screen, shape, imageUrls: [screenImage] });
+  if (screen && !screenEntry) throw new Error("fachada sem trecho plano pro telão: " + shape + " " + screen);
+  if (screenEntry) scene.add(screenEntry.group);
 
   if (color) {
     if (shape === "empire") setEmpireBuildingMeshColor(mesh, hex(color));
@@ -150,10 +158,17 @@ function render({ shape, height, width, sign, color, slots, tile }) {
   const right = new THREE.Vector3();
   const up = new THREE.Vector3();
   const corner = new THREE.Vector3();
-  VIEWS.forEach((view, i) => {
-    const part = box.clone();
-    part.min.y = box.min.y + size.y * view.from;
-    part.max.y = box.min.y + size.y * view.to;
+  // Com telão, a 3ª vista enquadra ele de perto, 20° fora do eixo da fachada.
+  screenEntry?.group.updateMatrixWorld(true); // setFromObject não atualiza os pais (giro do mount)
+  const screenBox = screenEntry && new THREE.Box3().setFromObject(screenEntry.face);
+  const screenYaw = screenEntry ? THREE.MathUtils.radToDeg(screenEntry.group.children[0].rotation.y) : 0;
+  const views = screenEntry ? VIEWS.map((view, i) => (i === 2 ? { az: screenYaw + 20, el: 8, box: screenBox } : view)) : VIEWS;
+  const draw = () => views.forEach((view, i) => {
+    const part = view.box ? view.box.clone() : box.clone();
+    if (!view.box) {
+      part.min.y = box.min.y + size.y * view.from;
+      part.max.y = box.min.y + size.y * view.to;
+    }
     part.getCenter(center);
     const az = THREE.MathUtils.degToRad(view.az);
     const el = THREE.MathUtils.degToRad(view.el);
@@ -176,19 +191,24 @@ function render({ shape, height, width, sign, color, slots, tile }) {
     renderer.setScissor(i * tile.w, 0, tile.w, tile.h);
     renderer.render(scene, camera);
   });
+  // Telão carrega a imagem pelo ImageLoader (DefaultLoadingManager): desenha quando chegar.
+  if (screenEntry) THREE.DefaultLoadingManager.onLoad = () => guard(draw);
+  else draw();
 }
 
-// Imagens no DOM seguram o load: céu e referência já decodificados aqui.
-window.addEventListener("load", () => {
+function guard(run) {
   try {
-    render(window.RENDER);
+    run();
   } catch (error) {
     const pre = document.createElement("pre");
     pre.style.cssText = "color:#c00;font:16px monospace;padding:16px;white-space:pre-wrap";
     pre.textContent = String(error?.stack ?? error);
     document.body.replaceChildren(pre);
   }
-});
+}
+
+// Imagens no DOM seguram o load: céu e referência já decodificados aqui.
+window.addEventListener("load", () => guard(() => render(window.RENDER)));
 `;
 
 const { values, positionals: [shape] } = parseArgs({
@@ -197,6 +217,8 @@ const { values, positionals: [shape] } = parseArgs({
     height: { type: "string", default: "4" },
     width: { type: "string", default: "2" }, // DONATION_LAYOUT.buildingWidth/Depth do manager
     sign: { type: "string" },
+    screen: { type: "string" },
+    "screen-image": { type: "string" },
     ref: { type: "string" },
     color: { type: "string" },
     slot: { type: "string", multiple: true, default: [] },
@@ -204,7 +226,7 @@ const { values, positionals: [shape] } = parseArgs({
   },
 });
 if (!shape) {
-  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--width n] [--sign texto] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
+  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--width n] [--sign texto] [--screen lado] [--screen-image img] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
   process.exit(1);
 }
 const browser = BROWSERS.find((path) => path && existsSync(path));
@@ -228,6 +250,17 @@ if (ref && !existsSync(ref)) {
   process.exit(1);
 }
 const out = resolve(values.out ?? join(tmpdir(), "cidoe-render", `${shape}.png`));
+if (values.screen && !["front", "right", "back", "left"].includes(values.screen)) {
+  console.error(`--screen inválido: ${values.screen} (front|right|back|left)`);
+  process.exit(1);
+}
+const clubImages = join(ROOT, "src/assets/club-images");
+const screenImage = values.screen && resolve(values["screen-image"]
+  ?? join(clubImages, readdirSync(clubImages).filter((name) => name.endsWith(".webp")).sort()[0] ?? ""));
+if (screenImage && !existsSync(screenImage)) {
+  console.error(`imagem do telão não existe: ${screenImage}`);
+  process.exit(1);
+}
 
 const work = mkdtempSync(join(tmpdir(), "cidoe-render-build-"));
 try {
@@ -237,7 +270,10 @@ try {
     outfile: join(work, "page.js"), logLevel: "warning",
   });
   const asset = (name) => pathToFileURL(join(ROOT, "src/assets/environment", name)).href;
-  const config = { shape, height, width, sign: values.sign, color: values.color, slots: values.slot, tile: TILE };
+  const config = {
+    shape, height, width, sign: values.sign, color: values.color, slots: values.slot, tile: TILE,
+    screen: values.screen, screenImage: screenImage && pathToFileURL(screenImage).href,
+  };
   writeFileSync(join(work, "index.html"), `<!doctype html>
 <body style="margin:0;display:flex;background:#fff">
 <img id="env" src="${asset("DaySkyHDRI040B_4K_TONEMAPPED.pmrem.webp")}" hidden>
@@ -253,7 +289,7 @@ ${ref ? `<img src="${pathToFileURL(ref).href}" style="width:${TILE.h}px;height:$
   // SwiftShader: mesmo resultado com ou sem GPU; file:// liberado pro WebGL ler as imagens.
   const result = spawnSync(browser, [
     "--headless=new", "--use-angle=swiftshader", "--enable-unsafe-swiftshader",
-    "--hide-scrollbars", "--allow-file-access-from-files",
+    "--hide-scrollbars", "--allow-file-access-from-files", "--virtual-time-budget=15000",
     `--window-size=${TILE.w * VIEW_COUNT + (ref ? TILE.h : 0)},${TILE.h}`,
     `--screenshot=${out}`, pathToFileURL(join(work, "index.html")).href,
   ], { encoding: "utf8", timeout: 120_000 });

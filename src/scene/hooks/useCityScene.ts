@@ -11,6 +11,7 @@ import type {
   LightSettings,
   ReflectionSettings,
   SceneStats,
+  ScreenSide,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -236,8 +237,8 @@ export function useCityScene({
     [callRuntime],
   );
 
-  const focusOnDonation = useCallback((donationId: number) => {
-    callRuntime((runtime) => runtime.focusOnDonation(donationId));
+  const focusOnDonation = useCallback((donationId: number, facing?: ScreenSide) => {
+    callRuntime((runtime) => runtime.focusOnDonation(donationId, facing));
   }, [callRuntime]);
 
   const clearFocus = useCallback(() => {

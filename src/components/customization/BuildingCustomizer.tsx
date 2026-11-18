@@ -5,7 +5,8 @@ import { Tabs } from "radix-ui";
 import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import { formatUnlockCta } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
-import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType, TextureSettings } from "@/scene/types";
+import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenSide, type TextureSettings } from "@/scene/types";
+import { SCREEN_IMAGES } from "@/scene/textures/screenImageManifest";
 import { CustomizationImage } from "./CustomizationImage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,12 @@ const CATEGORIES = [
   { key: "rooftop", label: "Topo", field: "rooftops" },
   { key: "edge_light", label: "LED", field: "edgeLights" },
 ] as const;
+const SCREEN_SIDE_OPTIONS: ReadonlyArray<{ value: ScreenSide; label: string }> = [
+  { value: "front", label: "Frente" },
+  { value: "right", label: "Direita" },
+  { value: "back", label: "Fundos" },
+  { value: "left", label: "Esquerda" },
+];
 // Barra de categorias: distância (px) entre centros. Painéis: respiro (px) entre um e outro no deslize.
 const SLOT = 104;
 const GAP = 12;
@@ -86,7 +93,8 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   useEffect(() => () => settling.current?.stop(), []);
   useMotionValueEvent(pos, "change", (value) => setStep(Math.round(value)));
   const categories = CATEGORIES.filter((item) => (catalog?.[item.field].length ?? 0) > 0);
-  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : [])];
+  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : []), ...(SCREEN_IMAGES.length ? [{ key: "screen", label: "Telão" }] : [])];
+  const screenIds = useId();
   const count = tabs.length;
   const active = count ? ((step % count) + count) % count : 0;
 
@@ -258,6 +266,47 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
       {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
     </>;
   };
+  // Imagens do evento: escolhe até SCREEN_MAX_IMAGES, na ordem de exibição. Key sem arquivo
+  // (imagem que saiu) não conta e some na próxima gravação.
+  const screenPanel = () => {
+    const chosen = customization.screenImages.filter((key) => SCREEN_IMAGES.some((image) => image.key === key));
+    const full = chosen.length >= SCREEN_MAX_IMAGES;
+    const toggle = (key: string) => onChange({ screenImages: chosen.includes(key) ? chosen.filter((item) => item !== key) : [...chosen, key] });
+    return <>
+      <div className="space-y-2">
+        <p className="flex items-baseline justify-between gap-3">
+          <span id={`${screenIds}-images`} className="mono-label">Imagens</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{chosen.length}/{SCREEN_MAX_IMAGES}</span>
+        </p>
+        <div role="group" aria-labelledby={`${screenIds}-images`} className={cn("grid gap-2", side ? "grid-cols-3" : "grid-cols-3 sm:grid-cols-4")}>
+          {SCREEN_IMAGES.map((image) => {
+            const order = chosen.indexOf(image.key);
+            return (
+              <button key={image.key} type="button" aria-pressed={order >= 0} disabled={order < 0 && full} onClick={() => toggle(image.key)}
+                aria-label={order >= 0 ? `${image.label}, ${order + 1}ª no telão` : image.label}
+                className={cn("focus-inset relative aspect-square overflow-hidden pixel pixel-thin bg-tinta p-1.5 transition-opacity disabled:cursor-not-allowed disabled:opacity-40", order >= 0 && "pixel-ink-verde")}>
+                <img src={image.url} alt="" loading="lazy" className="size-full object-contain" />
+                {order >= 0 && <span aria-hidden className="absolute right-1 top-1 grid size-5 place-items-center bg-primary font-mono text-[11px] font-semibold text-primary-foreground">{order + 1}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">Com mais de uma, o telão alterna nessa ordem.</p>
+      </div>
+      <fieldset className="space-y-2">
+        <legend className="mono-label">Lado</legend>
+        <div className="grid grid-cols-4 gap-2">
+          {SCREEN_SIDE_OPTIONS.map(({ value, label }) => (
+            <label key={value} className={cn("grid h-10 cursor-pointer place-items-center pixel pixel-thin text-sm font-semibold transition-colors has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-[-3px]", customization.screenSide === value ? "pixel-ink-verde bg-secondary" : "bg-card hover:bg-accent")}>
+              <input type="radio" name={`${screenIds}-side`} value={value} checked={customization.screenSide === value} onChange={() => onChange({ screenSide: value })} className="sr-only" />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {chosen.length > 0 && <Button type="button" variant="outline" onClick={() => onChange({ screenImages: [] })}>Remover telão</Button>}
+    </>;
+  };
   return (
     <section aria-label="Personalizar edifício" className={cn("flex h-full min-h-0 min-w-0 flex-col gap-2", !side && "md:grid md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)] md:gap-5")}>
       {!side && <div className="h-[clamp(6rem,28cqh,13rem)] min-w-0 shrink-0 md:h-full md:min-h-0">
@@ -280,7 +329,7 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
                     <div className={cn("grid items-stretch gap-2", side ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4")}>
                       {[...(item.key === "texture" ? [{ id: -1, key: "default", label: "Padrão", value: null, sortOrder: -1, unlock: null, isUnlocked: true }] : []), ...catalog[item.field]].map((option) => <OptionCard key={option.id} category={item.key} option={option} selected={selected(item.key, option)} onSelect={() => select(item.key, option)} />)}
                     </div>
-                  </> : featurePanel(item.key as "sign" | "hologram"))}
+                  </> : item.key === "screen" ? screenPanel() : featurePanel(item.key as "sign" | "hologram"))}
                 </Tabs.Content>
               ))}
             </div>

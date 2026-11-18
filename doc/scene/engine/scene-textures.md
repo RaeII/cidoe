@@ -140,6 +140,17 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 > [!warning] Plugin `drop-superseded-textures` (vite.config.ts, `dropSupersededTextures`)
 > O glob casa `.webp`, fonte **e** `.ktx2`, então o Rollup emitiria todos pro dist — os perdedores como peso morto (nunca baixados). O plugin agrupa os assets de `src/assets/texture/` por nome-base (via `originalFileNames`) e remove os de rank menor (`webp 3 > png/jpg 2 > ktx2 1`), e **loga** o que removeu. `.low.webp` tem outro nome-base, nunca concorre. Asset fundido pelo Rollup (conteúdo idêntico, ex. Facade001/Facade002) só sai se **todas** as fontes dele perderam. A ordem **tem que espelhar o `RANK` do manifesto**: invertida, apaga justamente o arquivo que o runtime pede → 404 só em produção. Mexeu na prioridade do manifesto, mexa aqui junto.
 
+## Imagens do telão
+
+`src/scene/textures/screenImageManifest.ts` (sem THREE): todo `.webp` de `src/assets/club-images/` vira opção do telão, sem lista manual. `key` = slug do nome do arquivo (`Escudo pixelado do Grêmio` → `escudo-pixelado-do-gremio`, gravada em `screenImages`), `label` = nome (texto alternativo). Só URL (`?url&no-inline`), baixa sob demanda. Glob só casa `.webp`: fonte `.png` fica fora do build.
+
+- Imagem nova: soltar o WebP na pasta. Gerar da fonte: `cwebp -q 90 -sharp_yuv -resize 256 256 fonte.png -o "Nome.webp"` (256 px: miniatura do painel e fonte dos 64×64 LEDs; 7–17 KB).
+- Renomear arquivo muda a key: telões salvos com a antiga somem (key sem arquivo é ignorada).
+- Scripts que empacotam manager/prévia com esbuild trocam o módulo por stub (`import.meta.glob` é só do Vite), igual ao manifesto de fachadas.
+
+> [!warning] Teste
+> Imagens atuais são de teste (escudo/mascote em pixel art de clube). Antes de ficar público: licença do clube ou trocar — ver pesquisa de marcas (`pesquisa-torcida`).
+
 ## Fiação na cena
 
 ### Global (cena inteira)

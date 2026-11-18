@@ -145,10 +145,12 @@ scripts/
   check-scene-stats.mjs        ← feedback público, loading síncrono, diagnóstico admin e controles de distância frente/trás; sem navegador
   check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-draw-calls.mjs ← grupos por material, triângulos, picking, cache, transparência e dispose; sem navegador/GPU → [[scene-builders#Agrupamento por material (mobile)]]
-  render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
+  render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`; `--screen <lado>` = telão + close) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
-  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes), ciclo, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
+  check-led-screen-ui.mjs      ← telão no app (Chrome + CDP, dev server): aba, ordem, lado, gravação e ciclo sem erro; SHOTS=pasta salva telas
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
   check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
@@ -346,6 +348,7 @@ src/
       createGourmetBuildingMesh.ts ← Varanda Gourmet: torre bege e creme, sacadas curvas, pilastras com rasgo
       createLoftBuildingMesh.ts    ← Loftifício: torre bege, faixas de pastilha verde, pilotis, portões
       createHologramMesh.ts
+      createLedScreenMesh.ts       ← telão de LED numa fachada: posição sem cortar o prédio, shader de LED, ciclo de imagens
       loadEnvironment.ts
     managers/
       createDonationManager.ts
@@ -354,6 +357,7 @@ src/
       facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). `.low.webp` (mobile) > `.webp` > PNG/JPG > KTX2
       facadeTextureLoader.ts    ← carrega set PBR (lazy + async + cache)
       loadImageTexture.ts       ← ImageBitmap (decode fora da main thread) com fallback TextureLoader
+      screenImageManifest.ts    ← imagens do telão (glob de src/assets/club-images/*.webp, sem THREE)
     hooks/
       useCityScene.ts
     runtime/
@@ -630,6 +634,7 @@ flowchart LR
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
+| Telão de LED (posição, shader, ciclo, imagens do evento) | [[scene-builders#createLedScreenMesh.ts]] · [[scene-managers#Telões de LED]] · [[scene-textures#Imagens do telão]] |
 | Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |

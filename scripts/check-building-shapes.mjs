@@ -19,6 +19,11 @@ const bundle = await build({
     resolveDir: process.cwd(),
   },
   bundle: true, format: "esm", platform: "node", write: false,
+  // Manifesto do telão usa import.meta.glob (só Vite): toda key vira uma URL de teste.
+  plugins: [{ name: "screen-images", setup(builder) {
+    builder.onResolve({ filter: /screenImageManifest$/ }, ({ path }) => ({ path, namespace: "screen-images" }));
+    builder.onLoad({ filter: /.*/, namespace: "screen-images" }, () => ({ contents: `export const getScreenImageUrl = (key) => "/" + key + ".webp";` }));
+  } }],
 });
 const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, createPreviewScene,
   disposeBuildingShapeSharedResources, createEdgeLightMesh, resolveSubject, frameBox,

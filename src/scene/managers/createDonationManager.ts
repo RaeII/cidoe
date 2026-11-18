@@ -9,6 +9,7 @@ import type {
   DonationEntry,
   EdgeLightType,
   RooftopType,
+  ScreenSide,
   TextureSettings,
 } from "../types";
 import {
@@ -40,7 +41,17 @@ import {
   tickHologram,
   type HologramEntry,
 } from "../builders/createHologramMesh";
-import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY } from "../types";
+import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY, SCREEN_MAX_IMAGES, SCREEN_SIDES } from "../types";
+import {
+  createLedScreenMesh,
+  disposeLedScreenMesh,
+  disposeLedScreenSharedResources,
+  setLedScreenNight,
+  setLedScreenOpacity,
+  tickLedScreen,
+  type LedScreenEntry,
+} from "../builders/createLedScreenMesh";
+import { getScreenImageUrl } from "../textures/screenImageManifest";
 import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh";
 import {
   getYachthouseRoofOffset,
@@ -250,6 +261,8 @@ export type DonationManager = {
   getDonationBox: (donationId: number) => THREE.Box3 | null;
   setFocusedDonation: (donationId: number | null) => void;
   hasFocusedDonation: () => boolean;
+  /** Yaw da fachada onde o telão ficou (torcida gira com a altura). null = sem telão. */
+  getScreenYaw: (donationId: number) => number | null;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /**
    * true: transição de formato em updateDonationCustomization só marca o rebuild.
@@ -264,7 +277,10 @@ export type DonationManager = {
    * catálogo). Lista vazia = toda a cidade usa a textura global.
    */
   setFacadeTexturePool: (keys: readonly string[]) => void;
-  /** Devolve true se algo animou (holograma visível) — o runtime mantém o loop desenhando. */
+  /**
+   * Devolve true se algo animou (holograma visível, telão em troca) — o runtime pede frame.
+   * Roda em todo rAF, inclusive com a cena parada: é o que dispara a troca do telão.
+   */
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => boolean;
   /** `groundDistance`: raio do chão da cidade (horizonte), independente dos prédios. */
   setRenderDistance: (distance: number, backDistance: number, groundDistance: number) => void;
@@ -2364,6 +2380,7 @@ export function createDonationManager({
     syncSigns();
     syncEdgeLights();
     syncHolograms();
+    syncScreens();
 
     rebuildRoads(r, blockSpacing, streetWidth);
     rebuildLots(emptyLots);
@@ -2394,6 +2411,7 @@ export function createDonationManager({
     for (const entries of [rooftopMeshes, signMeshes, edgeLightMeshes, hologramMeshes]) {
       for (const [id, entry] of entries) tag(entry.group, id === focusedDonationId);
     }
+    for (const [id, { entry }] of screenMeshes) if (entry) tag(entry.group, id === focusedDonationId);
     if (focusHighlightMesh) tag(focusHighlightMesh, true);
   };
 
@@ -2410,7 +2428,7 @@ export function createDonationManager({
     if (compositeFocus) { applyFocusLayers(); return; }
     restoreAccessoryFocus(focusedDonationId === null);
     const used = new Set<THREE.Material>();
-    const fadeGroup = (donationId: number, group: THREE.Group) => {
+    const fadeGroup = (donationId: number, group: THREE.Object3D) => {
       if (focusedDonationId === null || donationId === focusedDonationId) return;
       group.traverse((object) => {
         const mesh = object as THREE.Mesh;
@@ -2437,6 +2455,13 @@ export function createDonationManager({
     for (const [id, entry] of rooftopMeshes) fadeGroup(id, entry.group);
     for (const [id, entry] of signMeshes) fadeGroup(id, entry.group);
     for (const [id, entry] of edgeLightMeshes) fadeGroup(id, entry.group);
+    // Telão: gabinete pelo clone do material compartilhado; painel e clarão pelo uniform
+    // (clonar ShaderMaterial clonaria as texturas junto).
+    for (const [id, { entry }] of screenMeshes) {
+      if (!entry) continue;
+      fadeGroup(id, entry.frame);
+      setLedScreenOpacity(entry, focusedDonationId === null || id === focusedDonationId ? 1 : 0.15);
+    }
     for (const [source, material] of accessoryFadeMaterials) {
       if (used.has(source)) continue;
       material.dispose();
@@ -2757,8 +2782,8 @@ export function createDonationManager({
     { group: THREE.Group; type: EdgeLightType }
   >();
 
-  // Groups de LED escondidos durante a captura do cube (restaurados em endEnvCapture).
-  const edgeLightsHiddenForCapture: THREE.Group[] = [];
+  // Groups de LED e telão escondidos durante a captura do cube (restaurados em endEnvCapture).
+  const hiddenForCapture: THREE.Group[] = [];
 
   // Luz real que o LED joga nos edifícios VIZINHOS. O group do LED sai da captura
   // do envMap (ver beginEnvCapture), então o vizinho não espelha a fita — recebe
@@ -2937,6 +2962,58 @@ export function createDonationManager({
       const e = hologramMeshes.get(donationId);
       if (e) positionHologram(e, center, fp);
     });
+  };
+
+  // --- Telões de LED ---
+  // Mapa: donationId → pedido (lado + keys) e o telão criado. Pedido fica mesmo sem telão
+  // (fachada sem trecho plano que caiba): o próximo rebuild tenta de novo se o prédio crescer.
+  // Recriado em todo rebuild, como o LED de arestas: posição e tamanho dependem da altura e
+  // do formato. Textura é por imagem, compartilhada (createLedScreenMesh): recriar é barato.
+  const screenMeshes = new Map<number, { entry: LedScreenEntry | null; side: ScreenSide; images: readonly string[] }>();
+
+  // Dado do navegador ou do banco: lado inválido vira frente, key sem arquivo some e o teto vale.
+  const normalizeScreen = (customization?: BuildingCustomization) => {
+    const side = SCREEN_SIDES.includes(customization?.screenSide as ScreenSide) ? customization!.screenSide : "front";
+    const images = (Array.isArray(customization?.screenImages) ? customization?.screenImages ?? [] : [])
+      .filter((key) => typeof key === "string" && getScreenImageUrl(key) !== null)
+      .slice(0, SCREEN_MAX_IMAGES);
+    return { side, images };
+  };
+
+  const getScreenEntries = () => [...screenMeshes.values()].flatMap(({ entry }) => (entry ? [entry] : []));
+
+  const setScreen = (donationId: number, side: ScreenSide, images: readonly string[]) => {
+    const existing = screenMeshes.get(donationId);
+    if (existing?.entry) {
+      scene.remove(existing.entry.group);
+      disposeLedScreenMesh(existing.entry);
+    }
+    screenMeshes.delete(donationId);
+    if (images.length === 0) return;
+    const scale = getBuildingScale(donationId);
+    const entry = scale && createLedScreenMesh({
+      width: scale.x,
+      depth: scale.z,
+      height: scale.y,
+      side,
+      shape: donationById.get(donationId)?.customization?.buildingShape ?? "default",
+      imageUrls: images.map((key) => getScreenImageUrl(key)!),
+    });
+    screenMeshes.set(donationId, { entry: entry || null, side, images });
+    if (!entry) return;
+    scene.add(entry.group);
+    // Group na base do edifício, como o LED de arestas.
+    if (readDonationTransform(donationId)) {
+      entry.group.position.set(
+        tmpTransformPosition.x,
+        tmpTransformPosition.y - tmpTransformScale.y / 2,
+        tmpTransformPosition.z,
+      );
+    }
+  };
+
+  const syncScreens = () => {
+    for (const [donationId, { side, images }] of [...screenMeshes]) setScreen(donationId, side, images);
   };
 
   const updateCustomShapeColor = (donationId: number, color: string) => {
@@ -3217,6 +3294,9 @@ export function createDonationManager({
         disposeHologramMesh(entry);
         hologramMeshes.delete(donId);
       }
+      for (const donId of [...screenMeshes.keys()]) {
+        if (!newIds.has(donId)) setScreen(donId, "front", []);
+      }
       releaseUnusedSpillPool();
 
       // Customização (cor/formato/tiling) vive em donation.customization —
@@ -3358,6 +3438,7 @@ export function createDonationManager({
       nightWindowUniform.value = night ? Math.max(0, windowIntensity) : 0;
       lampHeadMaterial.emissiveIntensity = night ? NIGHT_PRESET.lampEmissive : 0;
       lampPoolMaterial.uniforms.uIntensity.value = night ? NIGHT_PRESET.lampPool : 0;
+      setLedScreenNight(getScreenEntries(), night);
       // Reaplica pra fachada pegar o envMapIntensity da noite (e devolver o do painel).
       applyTextureToFacade(currentTextureSettings);
     },
@@ -3394,10 +3475,17 @@ export function createDonationManager({
       // LED fora do reflexo, por completo: nem a fita espelhada, nem o clarão que
       // ela joga nos vizinhos entram no envMap. O que o LED ilumina só aparece no
       // render principal.
-      edgeLightsHiddenForCapture.length = 0;
+      hiddenForCapture.length = 0;
       for (const entry of edgeLightMeshes.values()) {
         if (!entry.group.visible) continue;
-        edgeLightsHiddenForCapture.push(entry.group);
+        hiddenForCapture.push(entry.group);
+        entry.group.visible = false;
+      }
+      // Telão também: a imagem troca a cada ciclo e o reflexo é capturado só de vez em
+      // quando — ficaria a imagem velha espelhada nos vizinhos.
+      for (const entry of getScreenEntries()) {
+        if (!entry.group.visible) continue;
+        hiddenForCapture.push(entry.group);
         entry.group.visible = false;
       }
       // Intensidade a 0 em vez de `visible = false`: apagar a luz mudaria a contagem
@@ -3437,8 +3525,8 @@ export function createDonationManager({
         if (entry) entry.mesh.visible = !entry.mesh.visible;
       }
       customShapesToggledForCapture.length = 0;
-      for (const group of edgeLightsHiddenForCapture) group.visible = true;
-      edgeLightsHiddenForCapture.length = 0;
+      for (const group of hiddenForCapture) group.visible = true;
+      hiddenForCapture.length = 0;
       for (let i = 0; i < spillLights.length; i++) {
         spillLights[i].intensity = spillIntensitiesBeforeCapture[i] ?? 0;
       }
@@ -3492,6 +3580,9 @@ export function createDonationManager({
       applyFocus(donationId);
     },
     hasFocusedDonation() { return focusedDonationId !== null; },
+    getScreenYaw(donationId) {
+      return screenMeshes.get(donationId)?.entry?.group.children[0].rotation.y ?? null;
+    },
     updateDonationCustomization(donationId: number, customization: BuildingCustomization) {
       const donation = donationById.get(donationId);
       if (!donation) return;
@@ -3509,6 +3600,7 @@ export function createDonationManager({
       const prevHologramImage = prevCustomization?.hologramImage ?? null;
       const prevHologramColor = prevCustomization?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR;
       const prevHologramOpacity = prevCustomization?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY;
+      const prevScreen = normalizeScreen(prevCustomization);
       donation.customization = customization;
 
       const prevNeedsCustom = needsCustomMesh(prevCustomization);
@@ -3552,6 +3644,13 @@ export function createDonationManager({
               setHologramOpacity(entry, customization.hologramOpacity);
             }
           }
+        }
+
+        // Telão: lado ou imagens (ordem inclusa) mudaram → recria. Troca de formato já
+        // passou pelo rebuild (syncScreens) com o formato novo.
+        const screen = normalizeScreen(customization);
+        if (screen.side !== prevScreen.side || screen.images.join("\n") !== prevScreen.images.join("\n")) {
+          setScreen(donationId, screen.side, screen.images);
         }
         if (focusedDonationId !== null) applyAccessoryFocus();
       };
@@ -3645,6 +3744,15 @@ export function createDonationManager({
           animated = true;
         }
       }
+      // Telão só pede frame quando muda (cascata ou troca de imagem); parado, nada.
+      for (const entry of getScreenEntries()) {
+        if (!entry.group.visible) continue;
+        if (viewFrustum) {
+          entry.group.updateWorldMatrix(true, true);
+          if (!viewFrustum.intersectsObject(entry.face)) continue;
+        }
+        if (tickLedScreen(entry, elapsedSeconds)) animated = true;
+      }
       return animated;
     },
     setRenderDistance(distance, backDistance, groundDistance) {
@@ -3697,6 +3805,7 @@ export function createDonationManager({
       for (const [donId, entry] of signMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of edgeLightMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of hologramMeshes) applyCull(donId, entry.group);
+      for (const [donId, { entry }] of screenMeshes) if (entry) applyCull(donId, entry.group);
       parapets.updateVisibility((position) => {
         const distanceSq = distSqTo(position);
         return distanceSq <= ACCESSORY_DETAIL_DISTANCE_SQ && distanceSq <= limitSqFor(position);
@@ -3815,7 +3924,7 @@ export function createDonationManager({
         disposeEdgeLightMesh(entry.group);
       }
       edgeLightMeshes.clear();
-      edgeLightsHiddenForCapture.length = 0;
+      hiddenForCapture.length = 0;
       releaseUnusedSpillPool();
       disposeEdgeLightSharedResources();
       // Limpar hologramas
@@ -3824,6 +3933,14 @@ export function createDonationManager({
         disposeHologramMesh(entry);
       }
       hologramMeshes.clear();
+      // Limpar telões (texturas e plano são do módulo: descartados por último)
+      for (const { entry } of screenMeshes.values()) {
+        if (!entry) continue;
+        scene.remove(entry.group);
+        disposeLedScreenMesh(entry);
+      }
+      screenMeshes.clear();
+      disposeLedScreenSharedResources();
       // Limpar prédios com formato customizado
       for (const [, entry] of customShapeMeshes) {
         disposeCustomShapeEntry(entry);

@@ -337,11 +337,13 @@ export function AuthMenu({
   return (
     <>
       <div hidden={!showMenuButton} className="flex items-center gap-2 sm:gap-3">
-        {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
-        <NightToggle night={night} onNightChange={onNightChange} />
+        {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". Mobile esconde dia/noite e vídeo: o espaço em cima empurra o ReferralHud pra baixo. */}
+        {!isMobile && <NightToggle night={night} onNightChange={onNightChange} />}
+        {!isMobile && (
         <Button type="button" variant="outline" onClick={() => setIntroOpen(true)} aria-haspopup="dialog" title="Conheça o Cidoe">
           <Play /><span className="max-sm:sr-only">Conheça o Cidoe</span>
         </Button>
+        )}
         {/* Ponteiro/foco no "Entrar" já adianta o script do Google (carrega sob demanda). */}
         <Button
           type="button"

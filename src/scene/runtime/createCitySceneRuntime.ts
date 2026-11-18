@@ -21,11 +21,15 @@ import type {
   HorizonSettings,
   ReflectionSettings,
   SceneStats,
+  ScreenSide,
   TerrainSettings,
   TextureSettings,
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
 import { IS_LOW_TIER, isSoftwareGL } from "../utils/deviceTier";
+
+// Normal de cada fachada como yaw (0 = +Z): frente, direita (+X), fundos, esquerda.
+const FACING_YAW: Record<ScreenSide, number> = { front: 0, right: Math.PI / 2, back: Math.PI, left: -Math.PI / 2 };
 
 // Piso urbano mantém o cull separado dos edifícios. Relevo não usa cull de distância.
 const CITY_FLOOR_CULL_SPAN = 1.8;
@@ -74,7 +78,8 @@ export type CitySceneRuntime = {
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
   setFacadeTexturePool: (keys: readonly string[]) => void;
-  focusOnDonation: (donationId: number) => void;
+  /** `facing`: gira a câmera até a fachada do telão (escolha de lado no painel). */
+  focusOnDonation: (donationId: number, facing?: ScreenSide) => void;
   clearFocus: () => void;
   /** Desloca a cena px para a esquerda (painel lateral ao lado do edifício). 0 = centro. */
   setViewShift: (px: number) => void;
@@ -685,6 +690,9 @@ export async function createCitySceneRuntime({
     // uma vez no fim, não a cada fatia.
     const draining = pendingCustomizations.size > 0 || shapesPending;
     if (compileRequested && !compiling && !draining) void runCompilePass();
+    // Antes do "nada mudou": holograma visível anima sempre; telão pede frame só na troca,
+    // que precisa disparar com a cena parada.
+    if (donationManager.tickAnimations(time / 1000, elapsed * 1000)) renderNeeded = true;
     // Nada mudou, ou shader ainda compilando: o canvas segura o último frame.
     if (!renderNeeded || compiling || draining) {
       renderedLastTick = false;
@@ -820,9 +828,6 @@ export async function createCitySceneRuntime({
 
     // Captura pendente (debounce, intervalo, câmera que parou entre capturas) segura o loop.
     if (cubeActive() && (cubeDirty || cameraMovedSinceCapture())) renderNeeded = true;
-
-    // Holograma visível anima: loop continua.
-    if (donationManager.tickAnimations(time / 1000, elapsed * 1000)) renderNeeded = true;
 
     focusRenderer.render(donationManager.hasFocusedDonation());
     emitFocusScreenPosition();
@@ -1020,7 +1025,7 @@ export async function createCitySceneRuntime({
       pendingCustomizations.set(donationId, customization);
       if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
     },
-    focusOnDonation(donationId) {
+    focusOnDonation(donationId, facing) {
       const box = donationManager.getDonationBox(donationId);
       if (!box) return;
       // Topo do edifício
@@ -1049,6 +1054,13 @@ export async function createCitySceneRuntime({
       // Fallback se câmera estiver exatamente acima do alvo (direção horizontal degenerada)
       if (dir.lengthSq() < 1e-6) dir.set(1, 0, 1);
       dir.normalize();
+      if (facing) {
+        // Telão quase de frente: ~20° pro lado em que a câmera já está, pra ler imagem e
+        // volume. Yaw real do telão (torcida gira); sem telão ainda, o eixo da fachada.
+        const yaw = donationManager.getScreenYaw(donationId) ?? FACING_YAW[facing];
+        const turn = Math.sign(dir.x * Math.cos(yaw) - dir.z * Math.sin(yaw)) || 1;
+        dir.set(Math.sin(yaw + turn * 0.35), 0, Math.cos(yaw + turn * 0.35));
+      }
       const endCamPos = targetPos.clone().add(dir.multiplyScalar(FOCUS_DISTANCE));
       endCamPos.y = worldPos.y + 4.3;
 

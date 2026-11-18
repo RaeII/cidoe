@@ -171,6 +171,21 @@ Holograma cyberpunk acima do prédio: 1 plano + `ShaderMaterial` (uTime, aberra�
 > [!note] Cap de resolução de GIF
 > Canvas e bitmaps dos quadros limitados a **512px** no maior lado. Cada VideoFrame é reduzido com o mesmo canvas 2D usado na exibição e fechado imediatamente; não se retêm os originais grandes. `tickHologram` avança pelo tempo real, salta ciclos completos e desenha só o quadro final quando muda. Distância/frustum controlam os ticks; o retorno à visão recupera a fase. `LinearFilter` usa `generateMipmaps = false` nas texturas de hologramas, estáticas ou GIF. Descarte, erro e carga obsoleta fecham os recursos.
 
+### `createLedScreenMesh.ts`
+
+Telão de LED numa fachada (`screenSide`) com imagens do evento (`screenImages`, [[scene-textures#Imagens do telão]]). Group na **base** do edifício, igual LED de arestas. 2 draw calls por telão (+1 de noite).
+
+- **Posição** (`computeLedScreenPlacement`): faixa entre térreo e letreiro (`getSignBand` de [[#createSignMesh.ts]] — telão não muda de lugar quando letreiro aparece). Térreo dos formatos com andares vem do `*_FLOOR_KIT` (pilotis do Loft, portaria). 40 alturas amostradas: contorno da fachada (`getFacadePolygonAt`: helpers de cada builder, tiers, anéis do One Trade, gourmet com sacada `GOURMET_FRONT_SCALE`/`GOURMET_SIDE_SCALE`). Profundidade também medida na malha unitária (`getEnvelope`, 128 faixas, cache por geometria) nos formatos de malha única — ornamento passa do analítico (diagrid Hearst, base Empire, beirais/pórtico Taipei, facetas One Trade). Janela plana: folga ≤ 6% do lote, torção ≤ 20°, face ≥ lado/0,84. Escolha = tamanho × (1 + altura do centro/altura): caixa vai pro alto, setback pega tier largo, One Trade o embasamento. Quadrado (imagens quadradas), lado mín. 0,16. `null` = fachada sem trecho plano (prédio de 0,6 em formato de torre).
+- **Torcida**: normal gira com a altura (inversa transposta, igual letreiro); afastamento = envoltório ao longo da normal do meio → cantos girados nunca cortam o telão.
+- **Yatchcasa**: frente/fundos/esquerda na torre esquerda, direita na direita.
+- **Peças**: gabinete (caixa, `FRAME_MATERIAL` compartilhado) + 4 braços até a parede (`depthAlong`), mesclados numa geometria. Painel = `UNIT_PLANE` compartilhado escalado. Clarão noturno = plano aditivo na parede (cor média da imagem).
+- **Shader do painel**: textura 64×64 = 1 texel por LED (`NearestFilter` perto, mip longe). Diodo arredondado + vazamento no louver; máscara some quando LED < 1 px (`fwidth`, sem moiré). Variação por LED e módulo 16×16 só de perto. Perde brilho fora do eixo, painel preto reflete céu de raspão (fresnel). `toneMapped: false` (cor da imagem, não do ACES). Fog. Noite: preto mais fundo, 90% do brilho, clarão visível (`setLedScreenNight`, uniform `DAYLIGHT` compartilhado).
+- **Ciclo** (`tickLedScreen`): relógio global — todos trocam juntos a cada 7 s, cascata linha a linha de 0,8 s. Só retorna `true` durante a troca → cidade redesenha 0,8 s a cada 7 s, não por telão.
+- **Textura**: uma por URL pra cidade toda (`getScreenTexture`). Nasce preta, recebe a imagem reduzida ao carregar (mesma identidade). `ImageLoader` → `DefaultLoadingManager` → runtime recompila/redesenha/recaptura sozinho.
+- **Foco sem composição**: `setLedScreenOpacity` (uniform; clonar `ShaderMaterial` clonaria texturas).
+- **Dispose**: `disposeLedScreenMesh` só gabinete + materiais; `disposeLedScreenSharedResources` (manager) texturas, plano e material do gabinete. Prévia nunca chama o shared.
+- Checagem: `node scripts/check-led-screen.mjs` (raycast na geometria real, 15 formatos × 4 lados × 6 lotes + manager) · visual: `node scripts/render-building.mjs <formato> --screen <lado>` (3ª vista = close do telão).
+
 ### `createParapetMesh.ts`
 
 Acabamento automático das coberturas planas. `createParapetGeometry(shape, variant)` cria anéis vazados com parede interna/externa, friso e capeamento. Laje original permanece aparente no centro; acessórios continuam ancorados nela.

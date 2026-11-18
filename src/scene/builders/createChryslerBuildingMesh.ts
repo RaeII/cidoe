@@ -454,7 +454,7 @@ function buildChryslerGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getChryslerGeometry(): THREE.BufferGeometry {
+export function getChryslerGeometry(): THREE.BufferGeometry {
   if (!sharedChryslerGeometry) {
     sharedChryslerGeometry = buildChryslerGeometry();
   }

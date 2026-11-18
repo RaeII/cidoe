@@ -194,7 +194,7 @@ function buildOctagonalGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getOctagonalGeometry(): THREE.BufferGeometry {
+export function getOctagonalGeometry(): THREE.BufferGeometry {
   if (!sharedOctagonalGeometry) {
     sharedOctagonalGeometry = buildOctagonalGeometry();
   }

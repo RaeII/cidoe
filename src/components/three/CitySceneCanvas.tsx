@@ -10,6 +10,7 @@ import type {
   LightSettings,
   ReflectionSettings,
   SceneStats,
+  ScreenSide,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -20,7 +21,8 @@ export type CitySceneCanvasHandle = {
   addDonations: (entries: ReadonlyArray<{ value: number; customization?: BuildingCustomization }>) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
-  focusOnDonation: (donationId: number) => void;
+  /** `facing`: gira a câmera até a fachada do telão. */
+  focusOnDonation: (donationId: number, facing?: ScreenSide) => void;
   clearFocus: () => void;
   /** Desloca a cena px para a esquerda (painel lateral ao lado do edifício). */
   setViewShift: (px: number) => void;

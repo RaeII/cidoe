@@ -116,6 +116,8 @@ export function createSeedCustomizations(seeds: readonly LocalBuilding[]): Map<n
       hologramImage: null,
       hologramColor: "#73f2ff",
       hologramOpacity: 0.78,
+      screenSide: "front",
+      screenImages: [] as string[],
     }] as const];
   }));
 }

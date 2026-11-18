@@ -42,6 +42,9 @@ export type BuildingShape =
   | "gourmet"
   | "loft";
 
+/** Fachada do telão. Frente = +Z, direita = +X, fundos = −Z, esquerda = −X. */
+export type ScreenSide = "front" | "right" | "back" | "left";
+
 export type BuildingCustomization = {
   color: string;
   rooftopType: RooftopType;
@@ -59,7 +62,14 @@ export type BuildingCustomization = {
   hologramImage: string | null; // data URL (PNG/JPG/GIF). null = sem holograma
   hologramColor: string; // tint cyberpunk aplicado sobre a imagem
   hologramOpacity: number; // 0–1, multiplica brilho/alpha do holograma
+  screenSide: ScreenSide; // fachada do telão de LED
+  /** Keys das imagens do telão ([[scene-textures#Imagens do telão]]), na ordem de exibição. [] = sem telão. */
+  screenImages: string[];
 };
+
+export const SCREEN_SIDES: readonly ScreenSide[] = ["front", "right", "back", "left"];
+/** Teto de imagens por telão: o ciclo fica curto e o dado salvo, limitado. */
+export const SCREEN_MAX_IMAGES = 4;
 
 export const DEFAULT_HOLOGRAM_COLOR = "#73f2ff";
 export const DEFAULT_HOLOGRAM_OPACITY = 0.78;

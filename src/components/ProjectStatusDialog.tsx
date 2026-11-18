@@ -21,7 +21,7 @@ export function ProjectStatusDialog({ open, onClose, onSignup }: { open: boolean
       {/* text-foreground: o body da cena pinta texto branco. animate-none: entrada é do `intro` (motion); movimento reduzido mantém o fade padrão. */}
       <DialogContent
         showCloseButton={false}
-        className="gap-0 p-0 text-foreground raised-modal motion-safe:data-[state=open]:animate-none! sm:max-w-[520px]"
+        className="gap-0 p-0 text-foreground raised-modal motion-safe:data-[state=open]:animate-none! sm:max-w-[520px] max-h-[calc(var(--viewport-height,100dvh)-1.5rem)] overflow-hidden"
       >
         <StatusContent onSignup={onSignup} />
       </DialogContent>
@@ -31,7 +31,7 @@ export function ProjectStatusDialog({ open, onClose, onSignup }: { open: boolean
 
 const STEPS = [
   [
-    <svg key="conta" viewBox="0 0 24 24" width={28} height={28} className="block overflow-visible">
+    <svg key="conta" viewBox="0 0 24 24" className="block overflow-visible size-5 sm:size-6 md:size-7">
       <g data-ip>
       <circle cx="10" cy="7.6" r="4.3" fill="var(--color-verde)" />
       <path fill="var(--color-verde)" d="M2.4 21.2c0-4.8 3.4-7.7 7.6-7.7s7.6 2.9 7.6 7.7z" />
@@ -45,7 +45,7 @@ const STEPS = [
     "Criar sua conta",
   ],
   [
-    <svg key="indicar" viewBox="0 0 24 24" width={28} height={28} className="block overflow-visible">
+    <svg key="indicar" viewBox="0 0 24 24" className="block overflow-visible size-5 sm:size-6 md:size-7">
       <g data-gift>
       <path fill="var(--color-verde)" d="M4 13.6h16v6.9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
       <rect x="11.2" y="13.6" width="1.6" height="7.9" fill="var(--color-verde-100)" />
@@ -59,7 +59,7 @@ const STEPS = [
     "Indicar amigos e liberar recompensas",
   ],
   [
-    <svg key="simular" viewBox="0 0 28 28" width={28} height={28} shapeRendering="crispEdges" className="block">
+    <svg key="simular" viewBox="0 0 28 28" shapeRendering="crispEdges" className="block size-5 sm:size-6 md:size-7">
       <g data-bld>
       <path fill="#4C5358" d="M9 1h10v3h-10zM1 4h26v4h-26zM3 8h22v17h-22zM1 25h26v2h-26z" />
       <path fill="#93979A" d="M11 2h6v2h-6z" />
@@ -89,7 +89,7 @@ function StatusContent({ onSignup }: { onSignup: () => void }) {
 
   return (
     <>
-      <div ref={sceneRef} className="relative h-[210px] shrink-0 overflow-hidden bg-secondary">
+      <div ref={sceneRef} className="relative h-[clamp(90px,18dvh,150px)] sm:h-[clamp(140px,22dvh,210px)] shrink-0 overflow-hidden bg-secondary">
         <div data-scene className="absolute inset-0">
           <svg viewBox="0 0 520 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true" className="absolute inset-0 block size-full">
             <circle data-sun cx="118" cy="62" r="24" fill="var(--color-ambar-100)" />
@@ -222,62 +222,62 @@ function StatusContent({ onSignup }: { onSignup: () => void }) {
             <rect x="-20" y="208" width="560" height="14" fill="var(--color-verde-700)" />
           </svg>
         </div>
-        <DialogClose className="absolute top-[15px] right-[15px] grid size-[38px] place-items-center pixel bevel-edge bevel-w-3 bg-background transition-colors hover:bg-card">
-          <PixelClose className="size-2.5" />
+        <DialogClose className="absolute top-2.5 right-2.5 sm:top-[15px] sm:right-[15px] grid size-7 sm:size-[38px] place-items-center pixel bevel-edge bevel-w-3 bg-background transition-colors hover:bg-card">
+          <PixelClose className="size-2 sm:size-2.5" />
           <span className="sr-only">Fechar</span>
         </DialogClose>
       </div>
 
-      <div className="flex flex-col gap-5 px-[clamp(20px,6vw,30px)] pt-[26px] pb-8">
-        <div className="flex flex-col gap-2.5">
-          <DialogTitle data-in className="text-[length:clamp(25px,6.6vw,31px)] font-extrabold tracking-[-0.02em] text-balance">
+      <div className="flex flex-col gap-2.5 sm:gap-4 md:gap-5 px-4 sm:px-[clamp(20px,6vw,30px)] pt-3 sm:pt-5 md:pt-[26px] pb-4 sm:pb-6 md:pb-8 [@media(max-height:650px)]:gap-2 [@media(max-height:650px)]:pt-2 [@media(max-height:650px)]:pb-3">
+        <div className="flex flex-col gap-1 sm:gap-2.5">
+          <DialogTitle data-in className="text-[length:clamp(19px,4.8vw,31px)] leading-tight font-extrabold tracking-[-0.02em] text-balance">
             Cidoe em{" "}
             <span className="relative -mx-0.5 inline-block px-[7px] whitespace-nowrap">
               <span data-mark aria-hidden="true" className="absolute inset-x-0 top-0.5 bottom-0 origin-left bg-ambar" />
               <span className="relative">pré-lançamento</span>
             </span>
           </DialogTitle>
-          <DialogDescription data-in className="text-[16.5px] leading-normal text-pretty">
+          <DialogDescription data-in className="text-xs sm:text-[14.5px] md:text-[16.5px] leading-snug sm:leading-normal text-pretty text-muted-foreground">
             Aqui, cada contribuição para ONGs de proteção animal <strong className="font-bold text-foreground">vira um edifício na cidade</strong>.
           </DialogDescription>
         </div>
 
-        <p data-in className="flex items-center gap-3 bg-ambar-100 px-3.5 py-3 text-[15px] leading-[1.4] font-bold">
-          <span data-bang className="flex">
-            <ErrorMark className="mt-0 size-6 text-[13px]" />
+        <p data-in className="flex items-center gap-2 sm:gap-3 bg-ambar-100 px-2.5 py-1.5 sm:px-3.5 sm:py-2.5 md:py-3 text-xs sm:text-[14px] md:text-[15px] leading-[1.3] sm:leading-[1.4] font-bold">
+          <span data-bang className="flex shrink-0">
+            <ErrorMark className="mt-0 size-4.5 sm:size-5 md:size-6 text-[10px] sm:text-[11px] md:text-[13px]" />
           </span>
           Ainda não há pagamento real.
         </p>
 
-        <div className="flex flex-col gap-3">
-          <p data-in className="mono-label text-secondary-foreground">Enquanto isso, você pode:</p>
-          <ul className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5 sm:gap-2.5 md:gap-3">
+          <p data-in className="mono-label text-[10px] sm:text-[11px] text-secondary-foreground">Enquanto isso, você pode:</p>
+          <ul className="flex flex-col gap-1.5 sm:gap-2.5 md:gap-3">
             {STEPS.map(([icon, label]) => (
-              <li key={label} data-in className="flex items-center gap-3.5 text-base leading-[1.4] font-semibold">
-                <span aria-hidden="true" className="m-0.5 grid size-11 shrink-0 place-items-center overflow-hidden pixel pixel-thin pixel-ink-verde bg-secondary">
+              <li key={label} data-in className="flex items-center gap-2 sm:gap-3 md:gap-3.5 text-xs sm:text-sm md:text-base leading-[1.3] sm:leading-[1.4] font-semibold">
+                <span aria-hidden="true" className="m-0.5 grid size-8 sm:size-9 md:size-11 shrink-0 place-items-center overflow-hidden pixel pixel-thin pixel-ink-verde bg-secondary">
                   {icon}
                 </span>
-                {label}
+                <span className="truncate sm:text-wrap">{label}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <div data-in className="flex flex-wrap gap-x-4 gap-y-3.5 pt-1.5">
+        <div data-in className="flex flex-wrap gap-2 sm:gap-x-4 sm:gap-y-3.5 pt-1 sm:pt-1.5">
           {!isAuthenticated && (
-            <div data-hop className="relative flex flex-[1_1_180px]">
-              <PixelArrow data-cur width={12} height={21} className="absolute top-1/2 -left-[18px] -translate-y-1/2 text-primary" />
+            <div data-hop className="relative flex flex-[1_1_130px] sm:flex-[1_1_180px]">
+              <PixelArrow data-cur width={12} height={21} className="absolute top-1/2 -left-3 sm:-left-[18px] -translate-y-1/2 text-primary scale-75 sm:scale-100 origin-right hidden min-[360px]:block" />
               <DialogClose asChild>
-                <Button size="lg" className="flex-1" onClick={onSignup}>
+                <Button size="lg" className="h-9 sm:h-11 md:h-12 flex-1 text-xs sm:text-sm md:text-base px-3 sm:px-6" onClick={onSignup}>
                   Criar conta
-                  <ArrowRight />
+                  <ArrowRight className="size-3.5 sm:size-4" />
                 </Button>
               </DialogClose>
             </div>
           )}
           <DialogClose asChild>
-            <Button variant={isAuthenticated ? "default" : "outline"} size="lg" className="flex-[1_1_180px]">
-              <MapPin />
+            <Button variant={isAuthenticated ? "default" : "outline"} size="lg" className="h-9 sm:h-11 md:h-12 flex-[1_1_130px] sm:flex-[1_1_180px] text-xs sm:text-sm md:text-base px-3 sm:px-6">
+              <MapPin className="size-3.5 sm:size-4" />
               Explorar a cidade
             </Button>
           </DialogClose>

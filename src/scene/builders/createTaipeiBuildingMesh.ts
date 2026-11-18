@@ -682,7 +682,7 @@ function buildTaipeiGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getTaipeiGeometry(): THREE.BufferGeometry {
+export function getTaipeiGeometry(): THREE.BufferGeometry {
   if (!sharedTaipeiGeometry) {
     sharedTaipeiGeometry = buildTaipeiGeometry();
   }

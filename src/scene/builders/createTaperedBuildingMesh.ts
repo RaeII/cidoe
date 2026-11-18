@@ -54,7 +54,7 @@ function buildTaperedGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getTaperedGeometry(): THREE.BufferGeometry {
+export function getTaperedGeometry(): THREE.BufferGeometry {
   if (!sharedTaperedGeometry) {
     sharedTaperedGeometry = buildTaperedGeometry();
   }
