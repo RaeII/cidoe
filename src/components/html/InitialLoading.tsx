@@ -103,7 +103,7 @@ export function InitialLoading({ progress, error, onRetry }: { progress: number;
       // 250 %/s só suaviza os saltos, não segura a cidade pronta atrás do papel.
       else if (now - introStart! > 900) shown = Math.max(shown, Math.min(goal, shown + (last ? now - last : 0) * 0.25));
       last = now;
-      const pct = `${String(Math.round(shown)).padStart(3, "0")}%`;
+      const pct = `${Math.round(shown)}%`;
       if (pctRef.current && pctRef.current.textContent !== pct) pctRef.current.textContent = pct;
       setFilled(Math.floor(shown / 10));
       if (shown >= 100) setPhase("finish");
@@ -250,8 +250,8 @@ export function InitialLoading({ progress, error, onRetry }: { progress: number;
                     {message}
                   </span>
                 </span>
-                <span ref={pctRef} aria-hidden="true" className="flex-none font-mono text-xs font-medium tracking-[.04em] text-primary">
-                  000%
+                <span ref={pctRef} aria-hidden="true" className="min-w-[4ch] flex-none text-right font-mono text-xs font-medium tracking-[.04em] text-primary">
+                  0%
                 </span>
               </div>
             )}
