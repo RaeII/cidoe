@@ -6,8 +6,7 @@ COPY . .
 ENV VITE_API_URL=/api
 RUN bun run build
 
-# Versão fixa: `--pull` sozinho não garante patch; suba a tag a cada correção de segurança.
-FROM nginxinc/nginx-unprivileged:1.30.7-alpine
+FROM nginxinc/nginx-unprivileged:stable-alpine
 # Sobrescreve labels herdados da imagem base; GHCR vincula pacote ao repo por `source`.
 LABEL org.opencontainers.image.source="https://github.com/RaeII/cidoe" \
       org.opencontainers.image.url="https://github.com/RaeII/cidoe" \
