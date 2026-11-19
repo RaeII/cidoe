@@ -351,7 +351,8 @@ export async function setHologramImage(
   entry.animation = null;
   entry.lastAnimationSeconds = null;
 
-  const isGif = dataUrl.startsWith("data:image/gif");
+  // Data URL (recém-enviada) ou URL da API (`/hologram.gif?v=…`, vinda da lista).
+  const isGif = dataUrl.startsWith("data:image/gif") || /\.gif(?:\?|$)/.test(dataUrl);
 
   if (isGif) {
     const result = await loadGifFrames(dataUrl, () => entry.loadToken === myToken);

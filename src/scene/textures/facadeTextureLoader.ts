@@ -81,23 +81,35 @@ export type FacadeLoadOptions = Partial<Record<OptionalMap, boolean>> & { bump?:
 const optionalMaps: OptionalMap[] = ["normal", "roughness", "metalness", "displacement"];
 const mapInFlight = new Map<string, Promise<THREE.Texture | null>>();
 
+function requestMap(key: string, kind: OptionalMap, anisotropy: number): Promise<THREE.Texture | null> | null {
+  const url = getFacadeMapUrls(key)?.[kind];
+  if (!url) return null;
+  const mapKey = `${key}:${kind}`;
+  let pending = mapInFlight.get(mapKey);
+  if (!pending) {
+    pending = loadOptional(url, false, anisotropy);
+    mapInFlight.set(mapKey, pending);
+  }
+  return pending;
+}
+
+const requestedMaps = (options: FacadeLoadOptions): OptionalMap[] => {
+  const kinds = optionalMaps.filter((kind) => options[kind] !== false);
+  if (options.bump && options.normal === false && !kinds.includes("displacement")) kinds.push("displacement");
+  return kinds;
+};
+
 async function ensureMaps(key: string, set: FacadeTextureSet, anisotropy: number, options: FacadeLoadOptions) {
-  const urls = getFacadeMapUrls(key);
-  if (!urls) return set;
   const ensure = async (kind: OptionalMap) => {
-    if (set[kind] || !urls[kind]) return;
-    const mapKey = `${key}:${kind}`;
-    let pending = mapInFlight.get(mapKey);
-    if (!pending) {
-      pending = loadOptional(urls[kind], false, anisotropy);
-      mapInFlight.set(mapKey, pending);
-    }
+    if (set[kind]) return;
+    const pending = requestMap(key, kind, anisotropy);
+    if (!pending) return;
     set[kind] = await pending;
-    if (!set[kind]) mapInFlight.delete(mapKey); // Falha opcional permite nova tentativa.
+    if (!set[kind]) mapInFlight.delete(`${key}:${kind}`); // Falha opcional permite nova tentativa.
   };
-  await Promise.all(optionalMaps.filter((kind) => options[kind] !== false).map(ensure));
+  await Promise.all(requestedMaps(options).map(ensure));
   // normalMap substitui bumpMap no shader; se o normal falhar, conserva o relevo anterior.
-  if (options.bump && (options.normal === false || !set.normal)) await ensure("displacement");
+  if (options.bump && !set.normal) await ensure("displacement");
   return set;
 }
 
@@ -108,6 +120,8 @@ export async function loadFacadeTextureSet(
   options: FacadeLoadOptions = {},
 ): Promise<FacadeTextureSet | null> {
   const key = resolveFacadeFolder(value);
+  // Mapas saem junto com a cor: esperar a cor antes custava 2–3 idas de rede por pasta.
+  if (!ready.get(key)) for (const kind of requestedMaps(options)) requestMap(key, kind, anisotropy);
   const set = await (inFlight.get(key) ?? startSet(key, anisotropy));
   return set ? ensureMaps(key, set, anisotropy, options) : null;
 }

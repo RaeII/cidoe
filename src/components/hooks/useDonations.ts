@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  fetchDonationSnapshot,
+  loadDonationSnapshot,
   type City,
   type DonationDataset,
   type DonationRecord,
   type Ong,
+  type OwnedDonationRecord,
 } from "../../api/donationApi";
 import { UF_REGION, type Region } from "../../api/regions";
 import type { BuildingCustomization } from "../../scene/types";
@@ -47,12 +48,16 @@ export function useDonations() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchDonationSnapshot({
+    // 1ª carga reaproveita a busca disparada no entry (main.tsx); retry busca de novo.
+    loadDonationSnapshot({
       signal: controller.signal,
-      onProgress: ({ loadedBytes, totalBytes }) =>
-        setLoadState({ status: "loading", loadedBytes, totalBytes }),
+      onProgress: ({ loadedBytes, totalBytes }) => {
+        if (!controller.signal.aborted) setLoadState({ status: "loading", loadedBytes, totalBytes });
+      },
     })
       .then((data) => {
+        if (controller.signal.aborted) return;
+        performance.mark("cidoe:dados");
         setDataset(data);
         setLoadState({ status: "ready", count: data.donations.length });
       })
@@ -78,11 +83,14 @@ export function useDonations() {
    * Troca pelo id ou acrescenta (edifícios do usuário, mais novos que o snapshot
    * cacheado). Nada mudou = mesmo dataset: sem rebuild da cidade.
    */
-  const upsertDonations = useCallback((records: readonly DonationRecord[]) => {
+  const upsertDonations = useCallback((records: readonly OwnedDonationRecord[]) => {
     setDataset((prev) => {
       if (!prev) return prev;
       let donations = prev.donations;
-      for (const record of records) {
+      let cities = prev.cities;
+      for (const { city, ...record } of records) {
+        // Snapshot só lista cidades com edifício: a do recém-pago pode ainda não estar lá.
+        if (city && !cities.some((known) => known.id === city.id)) cities = [...cities, city];
         const old = donations.find((donation) => donation.id === record.id);
         if (
           old &&
@@ -94,7 +102,7 @@ export function useDonations() {
           ? donations.map((donation) => (donation.id === record.id ? record : donation))
           : [...donations, record];
       }
-      return donations === prev.donations ? prev : { ...prev, donations };
+      return donations === prev.donations && cities === prev.cities ? prev : { ...prev, donations, cities };
     });
   }, []);
 

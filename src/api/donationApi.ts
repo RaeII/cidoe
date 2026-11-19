@@ -46,12 +46,12 @@ type CustomizationsPayload = [number, BuildingCustomization][];
  * `loaded` conta bytes DESCOMPRIMIDOS — o denominador certo é o header
  * X-Snapshot-Bytes (tamanho do JSON raw), nunca o Content-Length.
  */
-export async function fetchDonationSnapshot(
-  opts: {
-    signal?: AbortSignal;
-    onProgress?: (p: DonationLoadProgress) => void;
-  } = {},
-): Promise<DonationDataset> {
+type SnapshotOptions = {
+  signal?: AbortSignal;
+  onProgress?: (p: DonationLoadProgress) => void;
+};
+
+export async function fetchDonationSnapshot(opts: SnapshotOptions = {}): Promise<DonationDataset> {
   const [response, customizationsResponse] = await Promise.all([
     http.get<SnapshotPayload>("/donation/snapshot", {
       signal: opts.signal,
@@ -88,6 +88,48 @@ export async function fetchDonationSnapshot(
   };
 }
 
+type Prefetch = {
+  promise: Promise<DonationDataset>;
+  last: DonationLoadProgress | null;
+  listener: ((p: DonationLoadProgress) => void) | null;
+};
+let prefetched: Prefetch | null = null;
+
+/**
+ * Home: dispara no entry, em paralelo ao download do chunk da cena (antes só saía
+ * quando o editor montava). Sem abort: quem consome descarta o resultado se desmontou.
+ */
+export function prefetchDonationSnapshot(): void {
+  if (prefetched) return;
+  const entry = { last: null, listener: null } as Omit<Prefetch, "promise"> as Prefetch;
+  entry.promise = fetchDonationSnapshot({
+    onProgress: (p) => {
+      entry.last = p;
+      entry.listener?.(p);
+    },
+  });
+  // Erro chega a quem consome; aqui só evita "unhandled rejection" se ninguém consumir.
+  entry.promise.catch(() => {});
+  prefetched = entry;
+}
+
+/**
+ * 1ª carga da cena: usa a busca antecipada (inclusive o progresso já recebido).
+ * Depois de usada, some — remontar a cena mais tarde busca de novo.
+ */
+export function loadDonationSnapshot(opts: SnapshotOptions = {}): Promise<DonationDataset> {
+  const entry = prefetched;
+  if (!entry) return fetchDonationSnapshot(opts);
+  entry.listener = opts.onProgress ?? null;
+  if (entry.last) opts.onProgress?.(entry.last);
+  // StrictMode remonta antes de resolver e reaproveita; resolvida, a próxima carga é nova.
+  void entry.promise.finally(() => { if (prefetched === entry) prefetched = null; }).catch(() => {});
+  return entry.promise;
+}
+
+/** Registro de `/donation/me`: traz a cidade (o snapshot só lista cidades que já têm edifício). */
+export type OwnedDonationRecord = DonationRecord & { city?: City };
+
 /**
  * Edifícios do usuário logado, sempre atuais (`no-store`). Decidem quais
  * edifícios abrem o painel e entram na cidade mesmo antes do snapshot
@@ -96,8 +138,8 @@ export async function fetchDonationSnapshot(
  */
 export async function fetchMyDonations(
   opts: { signal?: AbortSignal } = {},
-): Promise<DonationRecord[]> {
-  const { data } = await http.get<{ data: DonationRecord[] }>("/donation/me", {
+): Promise<OwnedDonationRecord[]> {
+  const { data } = await http.get<{ data: OwnedDonationRecord[] }>("/donation/me", {
     signal: opts.signal,
   });
   return data.data;

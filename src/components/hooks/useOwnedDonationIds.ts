@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchMyDonations, type DonationRecord } from "../../api/donationApi";
+import { fetchMyDonations, type OwnedDonationRecord } from "../../api/donationApi";
 
 const EMPTY = new Set<number>();
-const EMPTY_RECORDS: DonationRecord[] = [];
+const EMPTY_RECORDS: OwnedDonationRecord[] = [];
 
 /**
  * Doações da sessão atual. Vazio sem login, durante a carga ou em erro — na
@@ -13,13 +13,13 @@ const EMPTY_RECORDS: DonationRecord[] = [];
 export function useOwnedDonationIds(): {
   ids: ReadonlySet<number>;
   /** Registros atuais do banco, para mesclar no snapshot cacheado. */
-  records: readonly DonationRecord[];
+  records: readonly OwnedDonationRecord[];
   /** Pagamento confirmado: relê do banco o edifício novo ou maior. */
   refresh: () => void;
 } {
   const { user } = useAuth();
   const userId = user?.id;
-  const [owned, setOwned] = useState<{ userId: number; ids: Set<number>; records: DonationRecord[] } | null>(null);
+  const [owned, setOwned] = useState<{ userId: number; ids: Set<number>; records: OwnedDonationRecord[] } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {

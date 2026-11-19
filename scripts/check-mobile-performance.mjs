@@ -12,7 +12,7 @@ async function bundleModules(paths, io = {}) {
     define: { "import.meta.env.BASE_URL": '"/"', "import.meta.env.DEV": "true" },
     plugins: [{ name: "io", setup(builder) {
       builder.onResolve({ filter: /^three$/ }, () => ({ path: threeUrl, external: true }));
-      builder.onResolve({ filter: /facadeTextureManifest$|loadImageTexture$/ }, ({ path }) => {
+      builder.onResolve({ filter: /facadeTextureManifest$|loadImageTexture$|screenImageManifest$/ }, ({ path }) => {
         const key = path.split("/").at(-1);
         if (io[key]) return { path: key, namespace: "io" };
       });
@@ -308,7 +308,12 @@ await textureApi.loadFacadeTextureSet("facade", 4, { ...minimal, roughness: true
 assert.equal(globalThis.textureRequests.length, requestCount);
 await textureApi.loadFacadeTextureSet("top", 4, { ...minimal, normal: true, bump: true });
 assert(!globalThis.textureRequests.includes("top/displacement.webp"), "normal ativo carregou bump inutilizado");
-console.log("ok texturas — cache incremental, concorrência, mapas sob demanda e normal/bump");
+// Mapas saem junto com a cor (antes: cor → espera → mapas, 2–3 idas de rede por pasta).
+globalThis.textureRequests = [];
+const parallel = textureApi.loadFacadeTextureSet("par", 4, { ...minimal, normal: true, roughness: true });
+assert.deepEqual(globalThis.textureRequests.sort(), ["par/color.webp", "par/normal.webp", "par/roughness.webp"], "mapas esperaram a cor");
+assert((await parallel).normal, "mapa antecipado não entrou no set");
+console.log("ok texturas — cache incremental, concorrência, mapas sob demanda, normal/bump e mapas junto com a cor");
 const stone = new THREE.MeshStandardMaterial();
 api.setResidentialStoneMaps(stone, { color: base.color, normal: null, roughness: null });
 const stoneVersion = stone.version;
@@ -319,3 +324,48 @@ assert.equal(stone.version, stoneVersion + 1, "mapas tardios da pedra não inval
 api.setResidentialStoneMaps(stone, base);
 assert.equal(stone.version, stoneVersion + 1, "mapas idênticos invalidaram o shader");
 stone.dispose();
+
+// Manager real: rajada de personalizações (fila do runtime) recalcula a cor das instâncias
+// uma vez no fim, não uma por edifício; personalização sem troca de cor não toca a cor.
+const managerApi = await bundleModules([
+  "src/scene/managers/createDonationManager.ts",
+  ...["building", "texture", "blockLayout"].map((name) => `src/scene/config/${name}Config.ts`),
+], {
+  facadeTextureManifest: `export const resolveFacadeFolder = (value) => value ?? ''; export const getFacadeMapUrls = () => ({});`,
+  loadImageTexture: `export const loadImageTexture = async () => { throw new Error("sem rede"); };`,
+  screenImageManifest: `export const getScreenImageUrl = () => null;`,
+});
+const cityScene = new THREE.Scene();
+const manager = managerApi.createDonationManager({
+  scene: cityScene,
+  renderer: { capabilities: { getMaxAnisotropy: () => 4 }, extensions: { has: () => false } },
+  buildingSettings: managerApi.createDefaultBuildingSettings(),
+  textureSettings: { ...managerApi.createDefaultTextureSettings(), enabled: false },
+  blockLayoutSettings: managerApi.createDefaultBlockLayoutSettings(),
+});
+manager.setDonations(Array.from({ length: 60 }, (_, i) => ({ id: i + 1, value: 100 - i })));
+const colorVersions = () => {
+  const versions = [];
+  cityScene.traverse((object) => { if (object.isInstancedMesh && object.instanceColor) versions.push(object.instanceColor.version); });
+  return versions.join();
+};
+const plain = {
+  color: "#d4d4d4", buildingShape: "default", textureKey: null, tilingScale: 1,
+  textureTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }, rooftopType: "none",
+  signText: "", signSides: 1, edgeLightType: "none", hologramImage: null, hologramColor: "#73f2ff",
+  hologramOpacity: 0.78, screenSide: "front", screenImages: [],
+};
+manager.updateDonationCustomization(60, { ...plain, color: "#101010" });
+const before = colorVersions();
+assert.ok(before, "cor de instância não ligou com a 1ª personalização");
+manager.updateDonationCustomization(60, { ...plain, color: "#101010", hologramOpacity: 0.5 });
+assert.equal(colorVersions(), before, "personalização sem troca de cor recalculou as cores");
+manager.setRebuildDeferred(true);
+for (let id = 1; id <= 20; id++) manager.updateDonationCustomization(id, { ...plain, color: "#203040" });
+assert.equal(colorVersions(), before, "fila recalculou cor antes do fim da rajada");
+manager.setRebuildDeferred(false);
+const after = colorVersions();
+assert.notEqual(after, before, "fim da rajada não aplicou as cores");
+assert.ok(after.split(",").every((v, i) => Number(v) - Number(before.split(",")[i]) <= 1), "rajada recalculou cor mais de uma vez");
+manager.dispose();
+console.log("ok personalizações — cor recalculada uma vez por rajada e só quando muda");

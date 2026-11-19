@@ -24,9 +24,9 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `fetchMyDonations()` — `GET /donation/me`, edifícios da sessão completos (`DonationRecord[]`). `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `prefetchDonationSnapshot()` — disparado no `main.tsx` (rota `/`), em paralelo ao chunk da cena. `loadDonationSnapshot()` — 1ª carga reaproveita essa promessa (e o progresso); resolvida, some. `fetchMyDonations()` — `GET /donation/me`, edifícios da sessão completos (`OwnedDonationRecord[]`, com `city`). `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
-| `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
+| `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot (`loadDonationSnapshot`; marca `cidoe:dados`), guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
 | `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` da sessão via `fetchMyDonations`; `refresh()` relê após pagamento. Refaz ao trocar `user.id`; vazio sem login, carregando ou em erro. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
 
 ## Contrato do snapshot
@@ -34,11 +34,10 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 `GET /donation/snapshot` (proxy Vite `/api` → back). Formato compacto por tuplas:
 
 ```json
-{ "v": 5, "total": 100000,
+{ "v": 6, "total": 100000,
   "cities": [[2800308, "Aracaju", "SE"]],
   "ongs": [[1, "Instituto X", null]],
   "data": [[1, 42.5, 3550308, 7]],
-  "custom": [[1, { "color": "#ffd700", "buildingShape": "twisted", "…": "…" }]],
   "beneficiaries": [[1, [7, 8]]] }
 ```
 
@@ -48,9 +47,15 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 
 `ongId` = ONG original, mantida na tupla por compatibilidade. `beneficiaries`: `[donationId, ongIds][]`, só edifícios com várias ONGs. `DonationRecord.ongIds` usa complemento ou `[ongId]` no snapshot antigo/edifício com uma ONG. Edifício aparece no filtro de qualquer ONG apoiada; card/menu mostram todos os nomes. Valor/altura continuam usando total acumulado.
 
-`custom`: cópia cacheada mantida no snapshot por compatibilidade. Não é mais fonte da hidratação porque pode ficar desatualizada por até 30s.
+`cities` (v6): só cidades com edifício ativo. Antes vinha o IBGE inteiro (5.571, 99,7% do payload). Catálogo completo dos formulários = `/location/cities`. Filtro de cidade passa a listar só cidades com edifício.
 
-`GET /donation/customizations`: `[donationId, BuildingCustomization][]`, só dos edifícios personalizados. Resposta `Cache-Control: no-store`, lida direto do banco em cada carga. `fetchDonationSnapshot` dispara as duas requisições em paralelo e usa esta resposta para montar `DonationDataset.customizations` (Map).
+`custom` saiu no v6: front não lia (cópia até 30 s velha). Personalização = `/donation/customizations`.
+
+`GET /donation/customizations`: `[donationId, BuildingCustomization][]`, só dos edifícios personalizados. `Cache-Control: no-cache` + ETag: lida do banco em cada carga, 304 sem corpo quando nada mudou. `fetchDonationSnapshot` dispara as duas requisições em paralelo e usa esta resposta para montar `DonationDataset.customizations` (Map).
+
+**Holograma fora das listas.** `hologramImage` (data URL até 1 MB) não viaja mais na lista: vem `/api/donation/{id}/hologram.{ext}?v=<updated_at>`, cache imutável, baixado só quando o holograma é montado (`createHologramMesh` usa a extensão `.gif` pra decidir animação). PUT que devolve essa URL = "imagem não mudou": banco mantém a gravada.
+
+Nginx: `expires off` no `/api` — cabeçalho de cache da API chega intacto (antes o `expires -1` do server virava tudo `no-cache`).
 
 ## Gotcha: barra de progresso com gzip
 
@@ -74,9 +79,10 @@ Sem filtro → retorna array original (mesma referência, evita rebuild à toa).
 
 ```mermaid
 flowchart LR
-    Hook[useDonations] --> Fetch[fetchDonationSnapshot]
+    Entry[main.tsx prefetch] --> Fetch[fetchDonationSnapshot]
+    Hook[useDonations] --> |1ª carga reaproveita| Fetch
     Fetch --> Snapshot[GET /donation/snapshot cacheado]
-    Fetch --> Current[GET /donation/customizations no-store]
+    Fetch --> Current[GET /donation/customizations no-cache]
     Snapshot --> DS[DonationDataset completo]
     Current --> DS
     DS --> Filter[useMemo filtro AND]
@@ -100,7 +106,7 @@ Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora
 
 `canEdit(id) = isAdmin || ownedDonationIds.has(id)` no `CitySceneEditor`. Clique no prédio abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] (só leitura) pra todos; **Administrar** só aparece se `canEdit`. [[html-components#BuildingManageDialog.tsx|Administração]] também tem gate no render: sessão cai (logout/401) → diálogo some sozinho. Não depende de Pix nem cria cobrança.
 
-`GET /donation/me` (JWT, `no-store`) → `{ data: DonationRecord[] }` (`id`, `value`, `cityId`, `ongId`, `ongIds`), edifícios ativos da sessão. Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Pagamento confirmado → `refresh()` relê lista.
+`GET /donation/me` (JWT, `no-store`) → `{ data: OwnedDonationRecord[] }` (`id`, `value`, `cityId`, `ongId`, `ongIds`, `city`), edifícios ativos da sessão. `upsertDonations` acrescenta `city` ao dataset quando o snapshot ainda não a conhece (edifício pago em cidade nova). Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Pagamento confirmado → `refresh()` relê lista.
 
 ### Edifícios do usuário no login
 

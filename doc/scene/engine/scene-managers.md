@@ -460,6 +460,7 @@ Pontos de integração:
 Runtime drena a rajada de customizações do editor em fatias ([[scene-runtime#Desempenho (TBT e celular)]]). Manager dá duas peças:
 
 - `setRebuildDeferred(true)` → transição de formato não chama `rebuildInstances`, marca `rebuildPending`. Acessórios seguem aplicados na hora. `setRebuildDeferred(false)` → **um** rebuild pra rajada inteira (antes: um por transição, 3–7 ms cada, e cada um recriava todos os letreiros/LEDs via `syncSigns`/`syncEdgeLights`) + `applyFocus`.
+- Cor de instância (`applyInstanceColors`, O(N) + compactação): só quando a cor muda. Na fila marca `colorsPending` e roda **uma** passada no `setRebuildDeferred(false)` (rebuild pendente já recalcula). Antes: uma passada por edifício reaplicado → O(N·C) na troca de filtro/`upsertDonations`. Check: `check-mobile-performance.mjs` (ok personalizações).
 - `shapeDeadline` em `syncCustomShapes`: fora do prazo a doação fica sem malha nova (mantém a antiga, se houver) e `shapesPending = true`. Padrão `Infinity` = cria tudo (todo rebuild comum). O rebuild do `setRebuildDeferred(false)` roda com prazo `-Infinity` (não cria nenhuma). `pumpCustomShapes(budgetMs)` cria até o prazo — sempre ao menos uma — e refaz `syncRooftops` (topo do yachthouse/residencial depende da malha) e foco. 1º build de geometria complexa custa 10–25 ms (Empire, One Trade, Taipei): uma por tarefa.
 - Pendente = sem malha e fora do instancing → invisível até a fatia dela. Runtime não desenha enquanto drena.
 

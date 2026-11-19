@@ -121,6 +121,7 @@ scripts/
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
   check-mobile-performance.mjs ← buffers, GIFs, preparo de shaders e cache incremental; sem navegador/GPU
   measure-building-geometry.mjs ← custo por formato: draws, materiais, triângulos e MB do cache por andar; sem servidor/navegador/GPU → [[relatorio-desempenho-edificios]]
+  measure-city-load.mjs        ← abertura da cidade: FCP/LCP, dados, 1º desenho, cidade pronta, loading sai, bytes por tipo, tarefas longas (desktop frio/quente, mobile CPU 4× + 9 Mbps); pede `vite preview` + API ou `URL=` de produção
   measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
@@ -586,6 +587,7 @@ flowchart LR
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
 | Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
+| Medir tempo até a cidade abrir (antes/depois) | `scripts/measure-city-load.mjs` · marcas `cidoe:dados`, `cidoe:doacoes-aplicadas`, `cidoe:cidade-pronta` · [[html-components#InitialLoading.tsx]] |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
 | Alterar torre Varanda Gourmet (gourmet)          | [[scene-builders#createGourmetBuildingMesh.ts]] |

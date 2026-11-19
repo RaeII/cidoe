@@ -185,8 +185,12 @@ export function CitySceneEditor() {
 
   const getBuildingSelection = useEffectEvent(() => ({ managedId: selectedBuildingId, infoId: infoBuildingId }));
 
+  // Pool de fachadas vem do catálogo: montar antes dele obrigava um 2º rebuild total
+  // (setFacadeTexturePool) assim que o catálogo chegava.
+  const catalogReady = customizationCatalog !== null;
+
   useEffect(() => {
-    if (loadState.status !== "ready") return;
+    if (loadState.status !== "ready" || !catalogReady) return;
     const { managedId, infoId } = getBuildingSelection();
     const keepManagement = managedId !== null && visibleDonations.some((d) => d.id === managedId);
     const retainedInfoId = infoId !== null && visibleDonations.some((d) => d.id === infoId) ? infoId : null;
@@ -208,8 +212,7 @@ export function CitySceneEditor() {
         // setDonations é replace-all: o manager só preserva o que já estava na
         // cena, então o que veio do banco (e o que voltou pelo filtro) precisa
         // ser reaplicado aqui.
-        // ponytail: updateDonationCustomization faz find O(n) por chamada — ok
-        // enquanto prédio personalizado for minoria; indexar por id se crescer.
+        // Runtime enfileira e drena em fatias de 4 ms; o manager acha por id em O(1).
         for (const [id, customization] of customizationsRef.current) {
           canvasRef.current?.updateDonationCustomization(id, customization);
         }
@@ -222,6 +225,7 @@ export function CitySceneEditor() {
           canvasRef.current?.focusOnDonation(focusId);
           if (activeManagedId !== focusId) setInfoBuildingId(focusId);
         }
+        performance.mark("cidoe:doacoes-aplicadas");
         setDonationsApplied(true);
       });
     });
@@ -229,14 +233,17 @@ export function CitySceneEditor() {
       cancelAnimationFrame(rafOuter);
       cancelAnimationFrame(rafInner);
     };
-  }, [visibleDonations, loadState.status]);
+  }, [visibleDonations, loadState.status, catalogReady]);
 
   // Página de loading sai uma vez só, com tudo pronto: doações aplicadas, catálogo (pool de
   // texturas) resolvido e cena sem nada baixando/compilando. Depois disso rebuilds usam o overlay.
   const [booted, setBooted] = useState(false);
   useEffect(() => {
     if (booted || loadState.status !== "ready" || !donationsApplied || !customizationCatalog) return;
-    if (sceneReadyRef.current) setBooted(true);
+    if (sceneReadyRef.current) {
+      performance.mark("cidoe:cidade-pronta");
+      setBooted(true);
+    }
   }, [booted, loadState.status, donationsApplied, customizationCatalog, sceneStats.sceneReady]);
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do

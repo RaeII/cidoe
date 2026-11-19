@@ -74,7 +74,7 @@ function shatter(root: HTMLElement, stack: HTMLElement): Exit {
  * Página de loading da cena (design LoadingInicial): logo se monta, nome letra a letra, cidade sobe do chão
  * conforme a barra em blocos enche; no fim, onda âmbar, faíscas, gato comemora e o papel se desfaz em blocos.
  * Entrada em CSS (`ld-*` em index.css): roda no HTML pré-renderizado, antes do JS. `progress` 0–100 vem do editor;
- * a barra anda no máximo 40 %/s e só depois da entrada. 100 → fim → desmonta.
+ * a barra aparece com a entrada (.9 s) e segue o progresso real (até 250 %/s). 100 → fim (.45 s) → sai → desmonta.
  */
 export function InitialLoading({ progress, error, onRetry }: { progress: number; error?: string; onRetry?: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -99,7 +99,9 @@ export function InitialLoading({ progress, error, onRetry }: { progress: number;
     const tick = (now: number) => {
       const goal = target();
       if (reduce) shown = Math.max(shown, goal);
-      else if (now - introStart! > 1100) shown = Math.max(shown, Math.min(goal, shown + (last ? now - last : 0) * 0.04));
+      // Barra começa quando aparece (entrada em .92 s) e acompanha o progresso real:
+      // 250 %/s só suaviza os saltos, não segura a cidade pronta atrás do papel.
+      else if (now - introStart! > 900) shown = Math.max(shown, Math.min(goal, shown + (last ? now - last : 0) * 0.25));
       last = now;
       const pct = `${String(Math.round(shown)).padStart(3, "0")}%`;
       if (pctRef.current && pctRef.current.textContent !== pct) pctRef.current.textContent = pct;
@@ -114,10 +116,11 @@ export function InitialLoading({ progress, error, onRetry }: { progress: number;
   useEffect(() => {
     if (phase !== "finish") return;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Pausa só pro pulo do gato (.44 s); faíscas e onda terminam durante a saída.
     const timer = setTimeout(() => {
       setExit(shatter(rootRef.current!, stackRef.current!));
       setPhase("exit");
-    }, reduce ? 500 : 1000);
+    }, reduce ? 200 : 450);
     return () => clearTimeout(timer);
   }, [phase]);
 
