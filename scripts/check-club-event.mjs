@@ -82,7 +82,7 @@ const find = (node, predicate) => {
   return [...(predicate(node) ? [node] : []), ...find(node.props.children, predicate)];
 };
 
-function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, initialClub = null, startPicking, reduced = false, choose } = {}) {
+function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, initialClub = null, startPicking, gate, reduced = false, choose } = {}) {
   const slots = [];
   let cursor = 0;
   const calls = { choose: [], chosen: [], retry: 0, close: 0 };
@@ -122,7 +122,7 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
   const Dialog = context.exports.default;
   const render = () => {
     cursor = 0;
-    return Dialog({ initialClub, startPicking, loginPanel: React.createElement("AuthPanel"), onChosen: (club) => calls.chosen.push(club), onClose: () => { calls.close += 1; } });
+    return Dialog({ initialClub, startPicking, gate, loginPanel: React.createElement("AuthPanel"), onChosen: (club) => calls.chosen.push(club), onClose: () => { calls.close += 1; } });
   };
   const ui = {
     tree: render(), calls, mine,
@@ -154,6 +154,13 @@ assert.match(text(ui.tree), /Entre para escolher seu time/);
 ui = mount({ user: null, authLoading: true, initialClub: "gremio" });
 assert.equal(find(ui.tree, (node) => node.type === "AuthPanel").length, 0, "Login antes de saber a sessão");
 console.log("Visitante: login embutido com/sem time do link OK.");
+
+// Etapa obrigatória da conta (reaceite dos termos) vem antes de tudo, inclusive do time carregando.
+ui = mount({ initialClub: "gremio", gate: React.createElement("TermsPanel"), mine: { ready: false } });
+assert.equal(find(ui.tree, (node) => node.type === "TermsPanel").length, 1, "Etapa obrigatória ausente");
+assert.equal(ui.has("Sim"), false, "Escolha antes da etapa obrigatória");
+assert.equal(find(mount({ user: null, gate: React.createElement("TermsPanel") }).tree, (node) => node.type === "TermsPanel").length, 0, "Etapa da conta para visitante");
+console.log("Etapa obrigatória (termos) antes da escolha OK.");
 
 // Carregando e erro do time.
 ui = mount({ mine: { ready: false }, initialClub: "gremio" });

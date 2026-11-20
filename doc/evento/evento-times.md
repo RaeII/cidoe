@@ -70,7 +70,7 @@ Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] 
 | `src/scene/textures/screenImageManifest.ts` | key `"<slug>/<n>"` → `/clubes/<slug>/<n>.webp`; formato fechado, sem lista. Ver [[scene-textures#Imagens do telão]] |
 | `src/api/club/club.routes.ts` | `getMyClub` (`GET /club/me`), `chooseClub` (`PUT /club/me`) |
 | `src/components/hooks/useMyClub.ts` | estado compartilhado por conta: 1 pedido por carregamento, só quando modal ou editor monta. Escolha atualiza telão aberto |
-| `src/components/club/ClubEventDialog.tsx` | modal (lazy): login, carregando, erro, lista, oferta, meu time, conquista |
+| `src/components/club/ClubEventDialog.tsx` | modal (lazy): login, carregando, erro, lista, oferta, meu time, conquista. Prop `gate` (etapa obrigatória da conta antes de escolher): sem uso na beta; na main = reaceite dos termos. Arquivo idêntico nas duas branches |
 | `CitySceneEditor` | `clubEvent` (lê `?time`; `pick` = abrir na lista), `closeClubEvent` (limpa URL), `openClubList` (Trocar time), `handleClubChosen` (migra telões) |
 | `AuthMenu` | monta o modal com `AuthPanel` da indicação; segura indicação/conquistas/onboarding |
 

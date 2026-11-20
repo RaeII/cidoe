@@ -79,7 +79,8 @@ const waitFor = async (expression, label, timeout = 30_000) => {
   for (const start = Date.now(); Date.now() - start < timeout; await sleep(250)) {
     if (await evaluate(expression)) return;
   }
-  throw new Error(`tempo esgotado: ${label}`);
+  const dialogs = await evaluate(`[...document.querySelectorAll('[role="dialog"][data-state="open"]')].map((d) => d.innerText.slice(0, 400))`).catch(() => []);
+  throw new Error(`tempo esgotado: ${label} (diálogos abertos: ${JSON.stringify(dialogs)})`);
 };
 const shot = async (name) => {
   if (!SHOTS) return;

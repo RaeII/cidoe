@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { BlockLoader, ErrorMark, PixelArrow, PixelCheck } from "@/components/ui/pixel-icon";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
-type View = "loading" | "error" | "login" | "list" | "offer" | "mine" | "won";
+type View = "loading" | "error" | "login" | "gate" | "list" | "offer" | "mine" | "won";
 
 /** As 3 imagens do telão: a própria recompensa, sem texto explicando. */
 function ClubImages({ club, animate = false }: { club: Club; animate?: boolean }) {
@@ -40,13 +40,15 @@ function ErrorLine({ children }: { children: ReactNode }) {
  * nada empilha); depois aceita ou escolhe outro e ganha as 3 imagens do telão. Uma troca depois da
  * escolha: usada, o botão some. Montado sob demanda (lazy) pelo AuthMenu.
  */
-export default function ClubEventDialog({ initialClub, startPicking = false, loginPanel, onChosen, onClose }: {
+export default function ClubEventDialog({ initialClub, startPicking = false, loginPanel, gate, onChosen, onClose }: {
   /** Slug do link; ausente ou desconhecido: lista (sem time) ou o time atual. */
   initialClub: string | null;
   /** Abre direto na lista (Trocar time no telão). */
   startPicking?: boolean;
   /** `AuthPanel` com a indicação do link, montado no lugar do conteúdo. */
   loginPanel: ReactNode;
+  /** Etapa obrigatória da conta antes de escolher (ex.: reaceite dos termos), no lugar do conteúdo. */
+  gate?: ReactNode;
   /** Escolha gravada: editor leva os telões montados para o time novo. */
   onChosen: (club: string) => void;
   onClose: () => void;
@@ -65,8 +67,10 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   // Servidor diz se ainda pode escolher (sem time = true). Slug que o front não conhece não destrava a troca.
   const canPick = mine.canChange;
   let view: View;
-  if (isLoading || (user && !mine.ready && !mine.error)) view = "loading";
+  if (isLoading) view = "loading";
   else if (!user) view = "login";
+  else if (gate) view = "gate";
+  else if (!mine.ready && !mine.error) view = "loading";
   else if (!mine.ready) view = "error";
   else if (won && current) view = "won";
   else if (canPick && (picking || (!candidate && !current))) view = "list";
@@ -135,6 +139,8 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
               </p>
               <div className="grid gap-4">{loginPanel}</div>
             </>}
+
+            {view === "gate" && <div className="grid gap-4">{gate}</div>}
 
             {view === "list" && <>
               <div className="space-y-4">
