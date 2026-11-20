@@ -55,6 +55,7 @@ As páginas ficam em pastas que **espelham as pastas do código** — assim voc�
 | `passe/`           | transversal      | Gamificação: liberação de personalização por doação + indicação |
 | `desingn-system/`  | `src/index.css` · `src/components/ui` | Sistema de design: cor, tipo, borda em pixel, componentes, HUD |
 | `legal/`           | `src/pages/legal` · `src/lib/legal.ts` | Termos de Uso, Política de Privacidade e aceite no login |
+| `evento/`          | transversal      | Evento dos times: link, modal, troca única, imagens do telão |
 
 > [!tip] Adicionando uma página nova
 > 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
@@ -93,6 +94,8 @@ scripts/
   check-consent.mjs            ← aviso de cookies: aceitar, recusar, reabrir e persistir; sem navegador
   prerender.mjs                ← gera HTML das quatro páginas públicas, 404 e entrada admin
   submit-indexnow.mjs          ← valida chave publicada e envia URLs; --dry-run sem rede
+  encode-clubs.mjs             ← PNG dos times (`../cidoa-back/clubes`) → `public/clubes/<slug>/{1,2,3,thumb}.webp`, escudo = 1 (`npm run clubs:webp`) → [[evento-times]]
+  check-club-event.mjs         ← evento dos times: lista × arquivos × back, key do telão, busca e todos os estados do modal; sem servidor/navegador
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-reward-notifications.mjs ← requests, sessão, respostas atrasadas e confirmação dos avisos; sem servidor/navegador
   check-reward-examples.mjs    ← exemplos admin: conquista, escolha de dois itens e confirmação local; sem API/navegador
@@ -117,7 +120,7 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
   check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão e ciclo do canvas com GPU simulada; sem servidor/navegador
   check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes), ciclo, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
-  check-led-screen-ui.mjs      ← telão no app (Chrome + CDP, dev server): aba, ordem, lado, gravação e ciclo sem erro; SHOTS=pasta salva telas
+  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, ciclo, Trocar time; API da conta simulada; MOBILE=1, SHOTS=pasta
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
   check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
@@ -127,6 +130,7 @@ scripts/
   measure-scene-performance.mjs ← cena real em órbita: fps, JS, draws e triângulos (tela × captura do cube), perfil de CPU; pede dev server + API + Chrome (`node scripts/measure-scene-performance.mjs 10000 all`) → [[relatorio-desempenho-edificios]]
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
+  clubes/<slug>/               ← 66 times: 1–3.webp (256 px, 1 = escudo) + thumb.webp (96 px); 2,4 MB no total, baixa sob demanda → [[evento-times]]
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
   favicon-32.png               ← logo oficial verde-oliva 32px (aba do navegador)
   favicon-96.png               ← logo oficial verde-oliva 96px, favicon declarado no HTML
@@ -160,6 +164,8 @@ src/
     user/
       user.routes.ts              ← perfil próprio + `completeOnboarding` (sessão da cena)
       user.types.ts               ← usuário público (imagem base64, cidade, origem, onboarding)
+    club/
+      club.routes.ts              ← time do evento: `getMyClub` / `chooseClub` (`/club/me`) → [[evento-times]]
     location/
       location.routes.ts          ← `getCities()`: catálogo IBGE, 1 requisição memoizada por carga
       location.types.ts           ← `City { id, name, uf }`
@@ -183,6 +189,8 @@ src/
     Pass.tsx                    ← página dedicada /dale/passe
     Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
+    club/
+      ClubEventDialog.tsx       ← evento dos times (lazy): login embutido, oferta, lista, meu time, conquista com confete → [[evento-times]]
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
       RewardDialog.tsx          ← conquista em cartões, confete e prévia 3D; delega escolha por indicação → [[passe-front]]
@@ -252,6 +260,7 @@ src/
     googleIdentity.ts              ← `loadGoogleIdentity()`: GSI sob demanda (abre login), promise única
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
+    clubs.ts                       ← 66 times do evento (slug + nome), imagens, busca; só nos chunks lazy → [[evento-times]]
     moneyInput.ts                  ← máscara monetária da contribuição: vírgula/2 casas sempre, milhar e colagem em reais
     pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
@@ -271,6 +280,7 @@ src/
       useDonations.ts
       useCustomizationCatalog.ts   ← catálogo 1×, conquistas atualizadas após pagamento
       useOwnedDonationIds.ts       ← edifícios da sessão (quem pode editar + mescla no snapshot); `refresh()` pós-pagamento
+      useMyClub.ts                 ← time do evento da conta, 1 pedido compartilhado (modal + telão), só sob demanda
     three/
       CitySceneCanvas.tsx
       CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
@@ -322,7 +332,7 @@ src/
       facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). `.low.webp` (mobile) > `.webp` > PNG/JPG > KTX2
       facadeTextureLoader.ts    ← carrega set PBR (lazy + async + cache)
       loadImageTexture.ts       ← ImageBitmap (decode fora da main thread) com fallback TextureLoader
-      screenImageManifest.ts    ← imagens do telão (glob de src/assets/club-images/*.webp, sem THREE)
+      screenImageManifest.ts    ← key do telão `"<time>/<n>"` → `/clubes/<time>/<n>.webp` (sem THREE, sem lista) → [[scene-textures#Imagens do telão]]
     hooks/
       useCityScene.ts
     runtime/
@@ -364,6 +374,8 @@ doc/
   desingn-system/                ← regra visual de toda UI HTML (cena + /dale)
     desingn-system-index.md      ← cor, tipografia, assinatura de jogo, imagem, componentes, HUD, composição de página, desvios, proibido
     Cidoe Design System.html     ← fonte original do DS (bundle; abre no navegador)
+  evento/                        ← evento dos times (transversal: api + lib + modal + telão)
+    evento-times.md              ← link, fluxo, nada por cima, troca única, imagens, desempenho, time novo
   passe/                         ← gamificação (transversal: api + lib + admin + cena)
     passe-front.md               ← índice do módulo: contrato, estado, mapa
     passe-formatacao.md          ← src/lib/unlock.ts — requisito vira texto (fonte única)
@@ -400,6 +412,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
+- `clubEvent` — modal do [[evento-times|evento dos times]] aberto (`?time=` do link ou **Trocar time**); `closeClubEvent` tira `?time` da URL; `handleClubChosen` acompanha a migração dos telões dos edifícios da conta
 - `selectedBuildingId` — edifício em administração; diálogo só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet/loft), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
 - Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
@@ -591,6 +604,8 @@ flowchart LR
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
 | Telão de LED (posição, shader, ciclo, imagens do evento) | [[scene-builders#createLedScreenMesh.ts]] · [[scene-managers#Telões de LED]] · [[scene-textures#Imagens do telão]] |
+| Evento dos times: link `?time=`, modal, troca única, nada por cima | [[evento-times]] · [[html-components#ClubEventDialog.tsx]] · `src/lib/clubs.ts` |
+| Adicionar time / regerar imagens do evento | [[evento-times#Time novo]] · `scripts/encode-clubs.mjs` |
 | Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
 | Medir tempo até a cidade abrir (antes/depois) | `scripts/measure-city-load.mjs` · marcas `cidoe:dados`, `cidoe:doacoes-aplicadas`, `cidoe:cidade-pronta` · [[html-components#InitialLoading.tsx]] |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |

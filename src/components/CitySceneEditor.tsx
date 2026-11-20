@@ -60,6 +60,7 @@ import {
   DEFAULT_HOLOGRAM_OPACITY,
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
+import { getScreenImageUrl, screenImageKey } from "../scene/textures/screenImageManifest";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -150,6 +151,20 @@ export function CitySceneEditor() {
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditId, setProfileEditId] = useState<number | null>(null);
   const [infoProfile, setInfoProfile] = useState<{ id: number; profile: BuildingProfile | null } | null>(null);
+  // Evento dos times: link `?time=<slug>` abre o modal com a cidade pronta (AuthMenu monta no boot);
+  // Trocar time no telão reabre na lista. Slug validado no modal (lista de times fica no chunk dele).
+  const [clubEvent, setClubEvent] = useState<{ club: string | null; pick?: boolean } | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("time") ? { club: params.get("time") } : null;
+  });
+  const closeClubEvent = useCallback(() => {
+    setClubEvent(null);
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("time")) return;
+    url.searchParams.delete("time");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+  const openClubList = useCallback(() => setClubEvent({ club: null, pick: true }), []);
   // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
   const pendingFocusRef = useRef<number | null>(null);
 
@@ -538,6 +553,19 @@ export function CitySceneEditor() {
     [buildingSettings.color, queueSave],
   );
 
+  // Time escolhido: telão montado com imagem de outro time vira a mesma posição do time novo
+  // ("gremio/2" → "flamengo/2"). Servidor já migrou os edifícios da conta na troca (PUT /club/me);
+  // aqui o estado local acompanha e regrava só os próprios (mesmo valor, idempotente).
+  const handleClubChosen = useCallback((club: string) => {
+    for (const [id, customization] of customizationsRef.current) {
+      if (!ownedDonationIds.has(id)) continue;
+      const keys = customization.screenImages ?? [];
+      if (keys.every((key) => key.startsWith(`${club}/`))) continue;
+      const remapped = keys.map((key) => screenImageKey(club, Number(key.split("/")[1])));
+      updateCustomization(id, { screenImages: [...new Set(remapped)].filter((key) => getScreenImageUrl(key)) });
+    }
+  }, [updateCustomization, ownedDonationIds]);
+
   // Painel, geradores de doação e log da câmera são ferramentas de admin.
   const shortcuts: KeyboardShortcut[] = [
     ...(isAdmin && !myBuildingsOpen ? [{
@@ -687,6 +715,9 @@ export function CitySceneEditor() {
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
             onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+            clubEvent={clubEvent}
+            onClubChosen={handleClubChosen}
+            onClubEventClose={closeClubEvent}
           />
         </div>
       </div>
@@ -840,6 +871,8 @@ export function CitySceneEditor() {
           onCustomizationChange={updateCustomization}
           onSaved={(id, profile) => setInfoProfile({ id, profile })}
           onClose={handleCloseManagement}
+          onChangeClub={openClubList}
+          ownBuilding={ownedDonationIds.has(selectedBuildingId)}
         />
       )}
       {!myBuildingsOpen && isAdmin && showControlPanel && (

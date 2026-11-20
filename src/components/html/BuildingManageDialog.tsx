@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BlockLoader, ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { BuildingProfileForm } from "./donate/BuildingProfileForm";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyClub } from "@/components/hooks/useMyClub";
 import { cn } from "@/lib/utils";
 
 const BuildingCustomizer = lazy(() => import("@/components/customization/BuildingCustomizer").then((module) => ({ default: module.BuildingCustomizer })));
@@ -24,6 +26,8 @@ export function BuildingManageDialog({
   onCustomizationChange,
   onSaved,
   onClose,
+  onChangeClub,
+  ownBuilding,
 }: {
   donationId: number;
   initialTab?: "information" | "appearance";
@@ -33,6 +37,10 @@ export function BuildingManageDialog({
   onCustomizationChange: (donationId: number, patch: Partial<BuildingCustomization>) => void;
   onSaved: (donationId: number, profile: BuildingProfile) => void;
   onClose: () => void;
+  /** Abre a lista do evento dos times (aba Telão do dono, enquanto a troca está disponível). */
+  onChangeClub: () => void;
+  /** Edifício da própria conta. Telão usa o time do dono (servidor valida): admin em edifício alheio fica sem a aba. */
+  ownBuilding: boolean;
 }) {
   const profileFormId = useId();
   const [buildingTab, setBuildingTab] = useState<string>(initialTab);
@@ -40,6 +48,9 @@ export function BuildingManageDialog({
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const editBusy = profileEdit.busy || appearanceBusy;
+  // Busca junto com o chunk do personalizador: aba Telão só existe com time do evento.
+  const { user } = useAuth();
+  const myClub = useMyClub(ownBuilding ? user?.id : undefined);
 
   function leaveProfile() {
     if (editBusy) return;
@@ -89,6 +100,8 @@ export function BuildingManageDialog({
                 textureSettings={textureSettings}
                 onChange={(patch) => onCustomizationChange(donationId, patch)}
                 onBusyChange={setAppearanceBusy}
+                club={myClub.club}
+                onChangeClub={myClub.club && myClub.canChange ? onChangeClub : undefined}
               />
             </Suspense>
           </Tabs.Content>

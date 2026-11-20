@@ -56,14 +56,34 @@ export function TermsConsent({
 /**
  * Reaceite: conta anterior aos termos (`terms_version` null) ou com versão
  * antiga. Segura a sessão até aceitar ou sair — sem X, Esc ou clique fora.
+ * `blocked`: o evento dos times mostra o mesmo painel dentro dele (nada empilha).
  */
-export function TermsDialog() {
+export function TermsDialog({ blocked = false }: { blocked?: boolean }) {
+  const { user } = useAuth();
+  const open = !blocked && user !== null && user.terms_version !== LEGAL_VERSION;
+
+  return (
+    <Dialog open={open}>
+      {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
+      <DialogContent
+        showCloseButton={false}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+        className="text-foreground sm:max-w-md"
+      >
+        <TermsPanel />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Corpo do reaceite (título + caixa + Sair/Aceitar), dentro de um `Dialog`. */
+export function TermsPanel() {
   const { user, acceptTerms, logout } = useAuth();
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const open = user !== null && user.terms_version !== LEGAL_VERSION;
   const updated = user?.terms_version != null;
 
   async function handleSubmit(event: FormEvent) {
@@ -81,36 +101,28 @@ export function TermsDialog() {
   }
 
   return (
-    <Dialog open={open}>
-      {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
-      <DialogContent
-        showCloseButton={false}
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
-        className="text-foreground sm:max-w-md"
-      >
-        <DialogHeader>
-          <DialogTitle>{updated ? "Termos atualizados" : "Termos de Uso"}</DialogTitle>
-          <DialogDescription>Para continuar com sua conta, leia e aceite.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <TermsConsent id="terms-accept" checked={checked} onChange={setChecked} />
-          {error && (
-            <p role="alert" className="flex items-start gap-2.5 text-sm text-destructive">
-              <ErrorMark />
-              {error}
-            </p>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="ghost" size="lg" disabled={submitting} onClick={() => void logout()}>
-              Sair
-            </Button>
-            <Button type="submit" size="lg" disabled={!checked || submitting}>
-              {submitting ? "Salvando…" : "Aceitar"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <DialogHeader>
+        <DialogTitle>{updated ? "Termos atualizados" : "Termos de Uso"}</DialogTitle>
+        <DialogDescription>Para continuar com sua conta, leia e aceite.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <TermsConsent id="terms-accept" checked={checked} onChange={setChecked} />
+        {error && (
+          <p role="alert" className="flex items-start gap-2.5 text-sm text-destructive">
+            <ErrorMark />
+            {error}
+          </p>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="ghost" size="lg" disabled={submitting} onClick={() => void logout()}>
+            Sair
+          </Button>
+          <Button type="submit" size="lg" disabled={!checked || submitting}>
+            {submitting ? "Salvando…" : "Aceitar"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
   );
 }

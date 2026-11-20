@@ -173,7 +173,7 @@ Holograma cyberpunk acima do prédio: 1 plano + `ShaderMaterial` (uTime, aberra�
 
 ### `createLedScreenMesh.ts`
 
-Telão de LED numa fachada (`screenSide`) com imagens do evento (`screenImages`, [[scene-textures#Imagens do telão]]). Group na **base** do edifício, igual LED de arestas. 2 draw calls por telão (+1 de noite).
+Telão de LED numa fachada (`screenSide`) com imagens do [[evento-times|evento dos times]] (`screenImages`, [[scene-textures#Imagens do telão]]). Group na **base** do edifício, igual LED de arestas. 2 draw calls por telão (+1 de noite).
 
 - **Posição** (`computeLedScreenPlacement`): faixa entre térreo e letreiro (`getSignBand` de [[#createSignMesh.ts]] — telão não muda de lugar quando letreiro aparece). Térreo dos formatos com andares vem do `*_FLOOR_KIT` (pilotis do Loft, portaria). 40 alturas amostradas: contorno da fachada (`getFacadePolygonAt`: helpers de cada builder, tiers, anéis do One Trade, gourmet com sacada `GOURMET_FRONT_SCALE`/`GOURMET_SIDE_SCALE`). Profundidade também medida na malha unitária (`getEnvelope`, 128 faixas, cache por geometria) nos formatos de malha única — ornamento passa do analítico (diagrid Hearst, base Empire, beirais/pórtico Taipei, facetas One Trade). Janela plana: folga ≤ 6% do lote, torção ≤ 20°, face ≥ lado/0,84. Escolha = tamanho × (1 + altura do centro/altura): caixa vai pro alto, setback pega tier largo, One Trade o embasamento. Quadrado (imagens quadradas), lado mín. 0,16. `null` = fachada sem trecho plano (prédio de 0,6 em formato de torre).
 - **Torcida**: normal gira com a altura (inversa transposta, igual letreiro); afastamento = envoltório ao longo da normal do meio → cantos girados nunca cortam o telão.

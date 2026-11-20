@@ -22,7 +22,7 @@ import { IntroVideoDialog } from "@/components/IntroVideoDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { ShareDialog } from "@/components/referral/ShareDialog";
-import { TermsDialog } from "@/components/TermsDialog";
+import { TermsDialog, TermsPanel } from "@/components/TermsDialog";
 import { NightToggle } from "@/components/ThemeToggle";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { PixelBuilding } from "@/components/ui/pixel-icon";
 
 const RewardDialog = lazy(() => import("@/components/pass/RewardDialog"));
+const ClubEventDialog = lazy(() => import("@/components/club/ClubEventDialog"));
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
@@ -57,6 +58,10 @@ type AuthMenuProps = {
   onAuthOpenChange: (open: boolean) => void;
   /** Segura o onboarding do 1º login enquanto outro fluxo ocupa a tela. */
   onboardingBlocked: boolean;
+  /** Evento dos times aberto (link `?time=` ou Trocar time no telão); `club` = slug do link. */
+  clubEvent: { club: string | null; pick?: boolean } | null;
+  onClubChosen: (club: string) => void;
+  onClubEventClose: () => void;
 };
 
 /** Autenticação, onboarding do primeiro login, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
@@ -74,6 +79,9 @@ export function AuthMenu({
   authOpen,
   onAuthOpenChange,
   onboardingBlocked,
+  clubEvent,
+  onClubChosen,
+  onClubEventClose,
 }: AuthMenuProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
@@ -233,6 +241,35 @@ export function AuthMenu({
     }
   }
 
+  // Evento dos times fica por cima de tudo: indicação, conquistas e onboarding esperam ele fechar.
+  // Mesma `key` nos dois retornos: login dentro do modal troca de ramo sem remontá-lo.
+  const clubEventOpen = clubEvent !== null;
+  // Aceite pendente vem antes de qualquer outro modal da conta; dentro do evento vira a etapa antes da escolha.
+  const needsTerms = !!user && user.terms_version !== LEGAL_VERSION;
+  const clubEventDialog = clubEvent && (
+    <Suspense key="club-event" fallback={null}>
+      <ClubEventDialog
+        initialClub={clubEvent.club}
+        startPicking={clubEvent.pick}
+        onChosen={onClubChosen}
+        onClose={onClubEventClose}
+        loginPanel={
+          <AuthPanel
+            referralCode={referralCode}
+            referralPreview={referralPreview}
+            referralLoading={referralLoading}
+            referralError={referralError}
+            onReferralCodeChange={changeReferralCode}
+            onReferralRemove={clearPendingReferral}
+            onReferralApplied={clearPendingReferral}
+            onDone={() => {}}
+          />
+        }
+        gate={needsTerms ? <TermsPanel /> : undefined}
+      />
+    </Suspense>
+  );
+
   const referralDialogError =
     referralError ??
     applyError ??
@@ -245,11 +282,10 @@ export function AuthMenu({
     // Tela principal mostra o primeiro nome da conta; username só no menu.
     const firstName = user.name?.trim().split(/\s+/)[0] || user.username;
     const visibleName = firstName.length > 18 ? `${firstName.slice(0, 18)}…` : firstName;
-    // Aceite pendente vem antes de qualquer outro modal da conta.
-    const needsTerms = user.terms_version !== LEGAL_VERSION;
 
     return (
       <>
+        {clubEventDialog}
         <div className="flex items-center gap-2 sm:gap-3">
           {showMyBuildingsButton && (
             <Button
@@ -316,7 +352,7 @@ export function AuthMenu({
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
         )}
         <ReferralDialog
-          open={referralCode !== "" && !authOpen && !needsTerms}
+          open={referralCode !== "" && !authOpen && !needsTerms && !clubEventOpen}
           code={referralCode}
           preview={referralPreview}
           summary={summary}
@@ -327,20 +363,21 @@ export function AuthMenu({
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
-        <TermsDialog />
-        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !needsTerms && !authOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
+        <TermsDialog blocked={clubEventOpen} />
+        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !needsTerms && !authOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && !clubEventOpen && (
           <Suspense fallback={null}>
             <RewardDialog key={user.id} rewards={rewards} />
           </Suspense>
         )}
-        {/* Não empilha modal: espera aceite dos termos, indicação pendente, menu e compartilhar fecharem. */}
-        <OnboardingDialog blocked={needsTerms || referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
+        {/* Não empilha modal: espera aceite dos termos, indicação pendente, menu, compartilhar e evento dos times fecharem. */}
+        <OnboardingDialog blocked={needsTerms || referralCode !== "" || menuOpen || shareOpen || onboardingBlocked || clubEventOpen} />
       </>
     );
   }
 
   return (
     <>
+      {clubEventDialog}
       <div hidden={!showMenuButton} className="flex items-center gap-2 sm:gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />

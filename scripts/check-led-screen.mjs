@@ -201,8 +201,8 @@ assert.equal(screens().length, 1, "pedido do painel não virou telão");
 const first = screens()[0];
 assert.ok(Math.abs(first.children[0].rotation.y - Math.PI / 2) < 1e-9);
 assert.ok(Math.abs(manager.getScreenYaw(1) - Math.PI / 2) < 1e-9);
-const box = manager.getDonationBox(1);
-assert.ok(Math.abs(first.position.y - box.min.y) < 1e-9, "telão fora da base do edifício");
+// Edifício nasce no chão (y = 0) e o telão fica na base dele, abaixo do topo.
+assert.ok(Math.abs(first.position.y) < 1e-9 && manager.getDonationWorldPosition(1).y > 0, "telão fora da base do edifício");
 
 manager.updateDonationCustomization(1, { ...base, screenSide: "back", screenImages: ["a"] });
 assert.equal(screens().length, 1, "troca de lado deixou telão velho");
@@ -239,7 +239,7 @@ assert.ok(screens().every((group) => group.visible));
 // Culling: some além de 80u, como os outros acessórios.
 manager.updateDistanceCulling(new THREE.Vector3(500, 10, 500), new THREE.Vector3(0, 0, -1));
 assert.ok(screens().every((group) => !group.visible));
-manager.updateDistanceCulling(box.getCenter(new THREE.Vector3()).add(new THREE.Vector3(0, 0, 12)), new THREE.Vector3(0, 0, -1));
+manager.updateDistanceCulling(manager.getDonationWorldPosition(1).add(new THREE.Vector3(0, 0, 12)), new THREE.Vector3(0, 0, -1));
 assert.ok(screens().every((group) => group.visible));
 
 // Foco sem composição: vizinho esmaece (gabinete por clone, painel por uniform) e volta.

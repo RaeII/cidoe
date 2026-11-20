@@ -142,14 +142,15 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 
 ## Imagens do telão
 
-`src/scene/textures/screenImageManifest.ts` (sem THREE): todo `.webp` de `src/assets/club-images/` vira opção do telão, sem lista manual. `key` = slug do nome do arquivo (`Escudo pixelado do Grêmio` → `escudo-pixelado-do-gremio`, gravada em `screenImages`), `label` = nome (texto alternativo). Só URL (`?url&no-inline`), baixa sob demanda. Glob só casa `.webp`: fonte `.png` fica fora do build.
+Imagens do telão = imagens do [[evento-times|evento dos times]]: `public/clubes/<slug>/{1,2,3}.webp` (256 px: miniatura do painel e fonte dos 64×64 LEDs; 5–20 KB; 1 = escudo) + `thumb.webp` (96 px, lista de times). Geradas por `npm run clubs:webp` (`scripts/encode-clubs.mjs`, `cwebp -q 90 -sharp_yuv -m 6`).
 
-- Imagem nova: soltar o WebP na pasta. Gerar da fonte: `cwebp -q 90 -sharp_yuv -resize 256 256 fonte.png -o "Nome.webp"` (256 px: miniatura do painel e fonte dos 64×64 LEDs; 7–17 KB).
-- Renomear arquivo muda a key: telões salvos com a antiga somem (key sem arquivo é ignorada).
-- Scripts que empacotam manager/prévia com esbuild trocam o módulo por stub (`import.meta.glob` é só do Vite), igual ao manifesto de fachadas.
+`src/scene/textures/screenImageManifest.ts` (sem THREE, sem glob, sem lista): `key` gravada em `screenImages` = `"<slug>/<n>"`; `getScreenImageUrl(key)` → `/clubes/<slug>/<n>.webp`. Formato fechado (`^[a-z0-9-]{1,40}/[1-3]$`): fora dele → `null`, telão ignora (keys antigas dos escudos de teste, dado adulterado). Slug sem pasta passa no formato e dá 404: tela apagada + aviso no console. Nomes dos times ficam em `src/lib/clubs.ts`, só nos chunks da UI — chunk da cena não carrega catálogo.
 
-> [!warning] Teste
-> Imagens atuais são de teste (escudo/mascote em pixel art de clube). Antes de ficar público: licença do clube ou trocar — ver pesquisa de marcas (`pesquisa-torcida`).
+- `public/` sem hash: nginx guarda 30 dias. Trocar imagem = trocar nome do arquivo.
+- Scripts que empacotam manager/prévia com esbuild ainda trocam o módulo por stub (keys de teste `a`, `b`…); módulo é puro, stub virou opcional.
+
+> [!warning] Marcas de clubes
+> Escudos, mascotes e estádios de clubes reais. Sem licença, risco alto — ver [[evento-times#Antes de divulgar]].
 
 ## Fiação na cena
 

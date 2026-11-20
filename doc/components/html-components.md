@@ -321,11 +321,21 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 - Celular (< `md`): painéis lado a lado em `scroll-snap` (`snap-mandatory` + `snap-always`) — deslizar troca uma categoria por vez; `onScroll` sincroniza aba ativa, toque na aba rola até o painel (`scroll-smooth` só com `motion-safe`) e aba ativa entra na vista da lista. Painéis com `forceMount` + `inert` fora da tela; só atual e vizinhas montam itens (miniaturas 3D não renderizam todas de uma vez). Painel usa `overscroll-y-contain`: `overscroll-contain` nos dois eixos bloqueia o deslize horizontal. Desktop esconde inativos (`md:data-[state=inactive]:hidden`).
 - Cartões compactos em grade de 2–4 colunas, com `CustomizationImage` usado pelo [[passe-admin-ui|Passe do admin]] e nome. Miniaturas de 80/96 px com recorte no contêiner evitam sobreposição ao texto. Seleção = fundo verde + check e `aria-pressed`; sem repetir Disponível/Em uso em cada item. Bloqueados ficam desabilitados e mostram cadeado, **Bloqueado** e `formatUnlockCta` inteiro, inclusive regras AND/OR.
 - Fachada oferece **Padrão** para herdar a global. Letreiro mantém texto de até 30 caracteres e 1–4 lados. Holograma mantém upload PNG/JPG/WebP/GIF de até 700 KB (prévia como logo do DS: moldura 3px, `p-2`, `object-contain`), remover, cor e opacidade; valida tipo/tamanho e cancela a leitura no unmount.
+- **Telão** (fora do catálogo do backend; só no edifício da própria conta e com time do [[evento-times|evento dos times]] — props `club` + `onChangeClub` do `BuildingManageDialog`/`useMyClub`): 3 imagens do time em grade de 3 (`aspect-square`, `bg-tinta`, `pixel-thin`) com toggle; selo verde = ordem de exibição; rótulo = nome do time + `N/3`. Lado: 4 rádios nativos (Frente, Direita, Fundos, Esquerda) com cara de botão, foco por dentro. **Remover telão** com imagem salva; **Trocar time** (ghost) só enquanto troca livre — abre o modal do evento na lista. Escolher lado ou ligar o telão gira a câmera até ele (`focusOnDonation(id, lado)` no frame seguinte). Servidor valida as keys pelo time do dono ([[evento-times#Servidor]]).
 - Letreiro/holograma liberados abrem diretamente nos campos, sem cartão de introdução repetindo a categoria. Quando bloqueados, aviso compacto mantém cadeado, requisito completo e campos desabilitados. Teclado reduz a viewport do modal sem esconder prévia, categorias e conclusão.
 - A aparência usa `CitySceneEditor.updateCustomization`: mesma atualização ao vivo e debounce de 500 ms do painel da cidade. Fechar/reabrir preserva as escolhas.
 - `node scripts/check-building-customizer.mjs` verifica render React, categorias, requisitos, bloqueios, seleção e ciclo do canvas com GPU simulada; sem servidor/navegador.
 
 ---
+
+### `ClubEventDialog.tsx`
+
+Modal do [[evento-times|evento dos times]] (`src/components/club/`), lazy, montado pelo `AuthMenu` quando `clubEvent` existe (link `?time=` ou **Trocar time**). Estilo de conquista igual ao `RewardDialog`: faixa âmbar no topo, título centrado, 3 imagens do time em grade (`pixel-thin bg-tinta`), botão `reward`.
+
+- Estados: carregando (`BlockLoader`), erro + **Tentar de novo**, login (imagens + `AuthPanel` embutido), oferta (**"<Time> é seu time?"** → **Sim, é meu time** / **Escolher outro time**; kicker **Seu time: X** quando aceitar é trocar), lista (busca sem acento + grade 2 colunas com escudo 40 px, atual marcado, **Voltar** só com destino), meu time (kicker **Seu time**, **Continuar**, **Trocar time** se troca livre), conquista (**Imagens liberadas**, confete, cartões entram em mola).
+- Foco inicial no próprio modal: busca da lista não abre teclado do celular sozinha. Lista rola dentro do modal (`--viewport-height` desconta teclado).
+- Não fecha durante gravação (X, Esc, fora). Copy enxuta: regra da troca única não aparece em texto.
+- Check: `scripts/check-club-event.mjs` (todos os estados) e `scripts/check-led-screen-ui.mjs` (app real).
 
 ### `BuildingInfoModal.tsx`
 
@@ -468,6 +478,7 @@ Administração do edifício selecionado, independente de contribuição/Pix. Ab
 
 - **Informações** abre por padrão (`initialTab="information"`): [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. Acesso direto de Personalizar usa `initialTab="appearance"`. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
+- **Time do evento**: `useMyClub` só com `ownBuilding` (edifício da conta; admin em edifício alheio fica sem aba Telão, porque o servidor valida pelo time do dono) → `club` e `onChangeClub` (só com troca livre). `onChangeClub` = `openClubList` do editor ([[evento-times]]).
 - **Layout**: até **1152 px**, altura estável até **800 px**, limitada pela viewport visual (inclusive teclado). Barra superior única de 48 px no celular/56 px a partir de `sm`, com abas Aparência/Informações e X de 44 px. Título **Seu edifício** fica só para leitor de tela no mobile e aparece ao lado das abas no desktop. Informações tem rolagem própria; Aparência usa `container-type: size` e mantém prévia/categorias fora da rolagem das opções.
 - **Rodapé compacto**: Aparência mostra **Salvamento automático** + **Concluir**, que retorna ao contexto de origem. **Salvar** só aparece em Informações ou quando o perfil tem alterações pendentes; envia `form={profileFormId}` mesmo após mudar para Aparência. Pendência e erro continuam visíveis. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída. Botões 44 px no celular/40 px no desktop.
 - **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
