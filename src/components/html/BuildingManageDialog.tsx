@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BlockLoader, ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { BuildingProfileForm } from "./donate/BuildingProfileForm";
 import { IS_PRELAUNCH } from "@/lib/legal";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyClub } from "@/components/hooks/useMyClub";
 import { cn } from "@/lib/utils";
 import { SimulationNotice } from "./donate/SimulationNotice";
 
@@ -41,6 +43,7 @@ export function BuildingManageDialog({
   onSaved,
   onClose,
   onViewShiftChange,
+  onChangeClub,
 }: {
   donationId: number;
   initialTab?: "information" | "appearance";
@@ -52,6 +55,8 @@ export function BuildingManageDialog({
   onClose: () => void;
   /** Quanto (px) a cena desliza para a esquerda para o edifício ficar ao lado do painel; 0 ao sair. */
   onViewShiftChange?: (px: number) => void;
+  /** Abre a lista do evento dos times (aba Telão, enquanto a troca está disponível). */
+  onChangeClub: () => void;
 }) {
   const profileFormId = useId();
   const side = useSyncExternalStore(subscribeWide, isWide, () => false);
@@ -62,6 +67,9 @@ export function BuildingManageDialog({
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const editBusy = profileEdit.busy || appearanceBusy;
+  // Busca junto com o chunk do personalizador: aba Telão só existe com time do evento.
+  const { user } = useAuth();
+  const myClub = useMyClub(user?.id);
 
   // offsetLeft ignora o zoom da entrada; resize reposiciona o painel.
   useEffect(() => {
@@ -136,6 +144,8 @@ export function BuildingManageDialog({
                 onChange={(patch) => onCustomizationChange(donationId, patch)}
                 onBusyChange={setAppearanceBusy}
                 side={side}
+                club={myClub.club}
+                onChangeClub={myClub.canChange ? onChangeClub : undefined}
               />
             </Suspense>
           </Tabs.Content>

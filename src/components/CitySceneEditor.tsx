@@ -59,6 +59,7 @@ import {
 import { getLightMetrics } from "../scene/utils/lighting";
 import { SEED_FACADE_TEXTURES } from "@/lib/prelaunchCity";
 import { scheduleProjectStatus } from "@/lib/projectStatus";
+import { getScreenImageUrl, screenImageKey } from "../scene/textures/screenImageManifest";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -139,6 +140,20 @@ export function CitySceneEditor() {
   // Login controlado aqui: o modal de contribuição também pede login.
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditId, setProfileEditId] = useState<number | null>(null);
+  // Evento dos times: link `?time=<slug>` abre o modal com a cidade pronta (AuthMenu monta no boot);
+  // Trocar time no telão reabre na lista. Slug validado no modal (lista de times fica no chunk dele).
+  const [clubEvent, setClubEvent] = useState<{ club: string | null; pick?: boolean } | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("time") ? { club: params.get("time") } : null;
+  });
+  const closeClubEvent = useCallback(() => {
+    setClubEvent(null);
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("time")) return;
+    url.searchParams.delete("time");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+  const openClubList = useCallback(() => setClubEvent({ club: null, pick: true }), []);
   const [infoProfile, setInfoProfile] = useState<{ id: number; userId: number | undefined; profile: BuildingProfile | null } | null>(null);
   // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
   const pendingFocusRef = useRef<number | null>(null);
@@ -510,6 +525,17 @@ export function CitySceneEditor() {
     [buildingSettings.color, queueSave],
   );
 
+  // Time escolhido: telão montado com imagem de outro time vira a mesma posição do time novo
+  // ("gremio/2" → "flamengo/2"). Beta: toda aparência do navegador é de quem está nele.
+  const handleClubChosen = useCallback((club: string) => {
+    for (const [id, customization] of customizationsRef.current) {
+      const keys = customization.screenImages ?? [];
+      if (keys.every((key) => key.startsWith(`${club}/`))) continue;
+      const remapped = keys.map((key) => screenImageKey(club, Number(key.split("/")[1])));
+      updateCustomization(id, { screenImages: [...new Set(remapped)].filter((key) => getScreenImageUrl(key)) });
+    }
+  }, [updateCustomization]);
+
   // Painel é ferramenta de admin.
   const shortcuts: KeyboardShortcut[] = [
     ...(isAdmin && !myBuildingsOpen ? [{
@@ -643,6 +669,9 @@ export function CitySceneEditor() {
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
             onboardingBlocked={statusOpen || myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+            clubEvent={clubEvent}
+            onClubChosen={handleClubChosen}
+            onClubEventClose={closeClubEvent}
           />
         </div>
       </div>
@@ -661,8 +690,9 @@ export function CitySceneEditor() {
         />
         </div>
       )}
-      {booted && <ExitIntentDialog onSignup={() => setAuthOpen(true)} />}
-      {booted && <ProjectStatusDialog open={statusOpen} onClose={() => setStatusOpen(false)} onSignup={() => setAuthOpen(true)} />}
+      {/* Evento dos times pode ainda estar baixando (sem diálogo no DOM): saída e aviso esperam ele fechar. */}
+      {booted && clubEvent === null && <ExitIntentDialog onSignup={() => setAuthOpen(true)} />}
+      {booted && <ProjectStatusDialog open={statusOpen && clubEvent === null} onClose={() => setStatusOpen(false)} onSignup={() => setAuthOpen(true)} />}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
@@ -802,6 +832,7 @@ export function CitySceneEditor() {
           onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
           onClose={handleCloseManagement}
           onViewShiftChange={handleViewShift}
+          onChangeClub={openClubList}
         />
       )}
       {!myBuildingsOpen && isAdmin && showControlPanel && (

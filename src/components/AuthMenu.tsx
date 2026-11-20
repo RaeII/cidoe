@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { PixelBuilding } from "@/components/ui/pixel-icon";
 
 const RewardDialog = lazy(() => import("@/components/pass/RewardDialog"));
+const ClubEventDialog = lazy(() => import("@/components/club/ClubEventDialog"));
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
@@ -55,6 +56,10 @@ type AuthMenuProps = {
   onAuthOpenChange: (open: boolean) => void;
   /** Segura o onboarding do 1º login enquanto outro fluxo ocupa a tela. */
   onboardingBlocked: boolean;
+  /** Evento dos times aberto (link `?time=` ou Trocar time no telão); `club` = slug do link. */
+  clubEvent: { club: string | null; pick?: boolean } | null;
+  onClubChosen: (club: string) => void;
+  onClubEventClose: () => void;
 };
 
 /** Autenticação, onboarding do primeiro login, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
@@ -72,6 +77,9 @@ export function AuthMenu({
   authOpen,
   onAuthOpenChange,
   onboardingBlocked,
+  clubEvent,
+  onClubChosen,
+  onClubEventClose,
 }: AuthMenuProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
@@ -231,6 +239,32 @@ export function AuthMenu({
     }
   }
 
+  // Evento dos times fica por cima de tudo: indicação, conquistas e onboarding esperam ele fechar.
+  // Mesma `key` nos dois retornos: login dentro do modal troca de ramo sem remontá-lo.
+  const clubEventOpen = clubEvent !== null;
+  const clubEventDialog = clubEvent && (
+    <Suspense key="club-event" fallback={null}>
+      <ClubEventDialog
+        initialClub={clubEvent.club}
+        startPicking={clubEvent.pick}
+        onChosen={onClubChosen}
+        onClose={onClubEventClose}
+        loginPanel={
+          <AuthPanel
+            referralCode={referralCode}
+            referralPreview={referralPreview}
+            referralLoading={referralLoading}
+            referralError={referralError}
+            onReferralCodeChange={changeReferralCode}
+            onReferralRemove={clearPendingReferral}
+            onReferralApplied={clearPendingReferral}
+            onDone={() => {}}
+          />
+        }
+      />
+    </Suspense>
+  );
+
   const referralDialogError =
     referralError ??
     applyError ??
@@ -246,6 +280,7 @@ export function AuthMenu({
 
     return (
       <>
+        {clubEventDialog}
         <div className="flex items-center gap-2 sm:gap-3">
           {showMyBuildingsButton && (
             <Button
@@ -312,7 +347,7 @@ export function AuthMenu({
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
         )}
         <ReferralDialog
-          open={referralCode !== "" && !authOpen}
+          open={referralCode !== "" && !authOpen && !clubEventOpen}
           code={referralCode}
           preview={referralPreview}
           summary={summary}
@@ -323,19 +358,20 @@ export function AuthMenu({
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
-        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !authOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
+        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !authOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && !clubEventOpen && (
           <Suspense fallback={null}>
             <RewardDialog key={user.id} rewards={rewards} />
           </Suspense>
         )}
         {/* Não empilha modal: espera indicação pendente, menu e compartilhar fecharem. */}
-        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
+        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen || onboardingBlocked || clubEventOpen} />
       </>
     );
   }
 
   return (
     <>
+      {clubEventDialog}
       <div hidden={!showMenuButton} className="flex items-center gap-2 sm:gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". Mobile esconde dia/noite e vídeo: o espaço em cima empurra o ReferralHud pra baixo. */}
         {!isMobile && <NightToggle night={night} onNightChange={onNightChange} />}

@@ -17,9 +17,6 @@ const bundle = await build({
   plugins: [{ name: "skip-webgl-and-images", setup(api) {
     api.onResolve({ filter: /(?:CustomizationImage|BuildingPreview)$/ }, (args) => ({ path: args.path, namespace: "preview-stub" }));
     api.onLoad({ filter: /.*/, namespace: "preview-stub" }, () => ({ contents: "export const CustomizationImage = () => null; export const BuildingPreview = () => null;" }));
-    // Manifesto usa import.meta.glob (só Vite): 5 imagens de teste.
-    api.onResolve({ filter: /screenImageManifest$/ }, (args) => ({ path: args.path, namespace: "screen-stub" }));
-    api.onLoad({ filter: /.*/, namespace: "screen-stub" }, () => ({ contents: `export const SCREEN_IMAGES = ["a", "b", "c", "d", "e"].map((key) => ({ key, label: "Imagem " + key, url: "/" + key + ".webp" }));` }));
   } }],
 });
 const module = { exports: {} };
@@ -50,21 +47,30 @@ for (const feature of ["sign", "hologram"]) {
   assert.match(unlockedHtml, feature === "sign" ? /Texto do letreiro/ : /Imagem ou GIF/);
 }
 
-// Telão: aba sem catálogo do backend, ordem nos selos, teto de 4, key sem arquivo ignorada.
+// Telão: só com time do evento e só as 3 imagens dele; ordem nos selos; key de outro time (troca)
+// não conta mas ainda deixa remover; Trocar time só enquanto a troca existe.
 const screenCatalog = { ...catalog, shapes: [], colors: [] };
-const emptyScreen = render({ ...props, catalog: screenCatalog });
+for (const club of [undefined, null, "time-inexistente"]) {
+  assert.doesNotMatch(render({ ...props, catalog: screenCatalog, club }), />Telão</, `Aba do telão sem time (${club})`);
+}
+const emptyScreen = render({ ...props, catalog: screenCatalog, club: "gremio" });
 assert.match(emptyScreen, /role="tab"[^>]*>Telão</, "Aba do telão ausente");
-assert.match(emptyScreen, /0\/4/);
-assert.doesNotMatch(emptyScreen, /Remover telão/, "Remover aparece sem telão");
+assert.match(emptyScreen, />Grêmio</, "Nome do time no rótulo");
+assert.match(emptyScreen, /0\/3/);
+assert.equal(emptyScreen.match(/src="\/clubes\/gremio\/[1-3]\.webp"/g)?.length, 3, "Três imagens do time");
+assert.doesNotMatch(emptyScreen, /clubes\/(?!gremio)/, "Imagem de outro time");
+assert.doesNotMatch(emptyScreen, /Remover telão|Trocar time/, "Remover/Trocar sem telão nem troca");
 assert.match(emptyScreen, /checked="" value="front"/, "Lado padrão não é a frente");
-const fullScreen = render({ ...props, catalog: screenCatalog, customization: { ...customization, screenSide: "back", screenImages: ["c", "sumiu", "a", "d", "b"] } });
-assert.match(fullScreen, /4\/4/, "Key sem arquivo contou");
-assert.match(fullScreen, /aria-label="Imagem c, 1ª no telão"/, "Ordem de escolha não vira ordem de exibição");
-assert.match(fullScreen, /aria-label="Imagem a, 2ª no telão"/);
-assert.match(fullScreen, /aria-pressed="false" disabled=""[^>]*aria-label="Imagem e"/, "Passou do teto de 4");
+assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", onChangeClub: () => {} }), /Trocar time/);
+const fullScreen = render({ ...props, catalog: screenCatalog, club: "gremio", customization: { ...customization, screenSide: "back", screenImages: ["gremio/3", "flamengo/1", "gremio/1"] } });
+assert.match(fullScreen, /2\/3/, "Key de outro time contou");
+assert.match(fullScreen, /aria-label="Grêmio, imagem 3, 1ª no telão"/, "Ordem de escolha não vira ordem de exibição");
+assert.match(fullScreen, /aria-label="Grêmio, imagem 1, 2ª no telão"/);
+assert.match(fullScreen, /aria-pressed="false"[^>]*aria-label="Grêmio, imagem 2"/);
 assert.match(fullScreen, /checked="" value="back"/);
 assert.match(fullScreen, /Remover telão/);
-console.log("Telão: aba, ordem, teto, key sem arquivo, lado e remover OK.");
+assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", customization: { ...customization, screenImages: ["flamengo/1"] } }), /Remover telão/, "Telão só com imagem de outro time precisa poder sair");
+console.log("Telão: aba por time, 3 imagens, ordem, troca de time, lado, remover e trocar OK.");
 
 // Executa a seleção real: bloqueado não emite patch; disponível atualiza só o campo escolhido.
 const source = await readFile(new URL("../src/components/customization/BuildingCustomizer.tsx", import.meta.url), "utf8");

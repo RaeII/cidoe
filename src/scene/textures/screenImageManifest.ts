@@ -1,42 +1,21 @@
-// Imagens do telão de LED: todo .webp de src/assets/club-images/ vira opção, sem lista
-// manual. Mesmo padrão de facadeTextureManifest: `eager` + `?url` = só as URLs hasheadas,
-// a imagem só baixa quando um telão (ou a miniatura do painel) pede. Sem THREE: o painel
-// importa sem puxar three pro bundle. A fonte .png fica fora do build (o glob só casa .webp).
+// Imagens do telão de LED = imagens do evento dos times: `public/clubes/<time>/{1,2,3}.webp`
+// (256 px, `npm run clubs:webp`; 1 = escudo). Key gravada em `BuildingCustomization.screenImages`
+// = "<time>/<n>" e a URL sai da própria key: cena não carrega lista de times nem glob (catálogo
+// com nomes fica em src/lib/clubs.ts, só nos chunks da UI). Sem THREE: o painel importa sem puxar
+// three pro bundle. public/ não tem hash: nginx guarda 30 dias — trocar imagem = trocar nome.
 
-const files = import.meta.glob("../../assets/club-images/*.webp", {
-  query: "?url&no-inline",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const KEY = /^[a-z0-9-]{1,40}\/[1-3]$/;
 
-export type ScreenImage = {
-  /** Gravada em `BuildingCustomization.screenImages`: slug do nome do arquivo. */
-  key: string;
-  /** Nome do arquivo, sem extensão: texto alternativo da miniatura. */
-  label: string;
-  url: string;
-};
+/** "gremio", 1 → "gremio/1": valor gravado no telão. */
+export const screenImageKey = (club: string, index: number) => `${club}/${index}`;
 
-/** "Escudo pixelado do Grêmio" → "escudo-pixelado-do-gremio". Estável: é a chave salva. */
-export function slugifyScreenImageName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+/** Miniatura 96 px do escudo (lista de times). */
+export const clubThumbUrl = (club: string) => `/clubes/${club}/thumb.webp`;
 
-export const SCREEN_IMAGES: readonly ScreenImage[] = Object.entries(files)
-  .map(([path, url]) => {
-    const label = path.split("/").at(-1)!.replace(/\.webp$/, "");
-    return { key: slugifyScreenImageName(label), label, url };
-  })
-  .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
-
-const urlByKey = new Map(SCREEN_IMAGES.map((image) => [image.key, image.url]));
-
-/** null = key sem arquivo (imagem removida do evento ou dado adulterado): telão ignora. */
+/**
+ * null = key fora do formato (dado antigo, como os escudos de teste de antes do evento, ou
+ * adulterado): telão ignora. Time sem pasta passa no formato e dá 404: tela apagada + aviso.
+ */
 export function getScreenImageUrl(key: string): string | null {
-  return urlByKey.get(key) ?? null;
+  return KEY.test(key) ? `/clubes/${key}.webp` : null;
 }

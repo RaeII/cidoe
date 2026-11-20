@@ -92,6 +92,7 @@ const bundle = await build({
       const customization = {}, catalog = null, textureSettings = {};
       const setBuildingTab = noop, leaveProfile = noop, setProfileEdit = noop, onClose = noop, onSaved = noop;
       const onCustomizationChange = noop, setAppearanceBusy = noop;
+      const myClub = { club: null, canChange: false }, onChangeClub = noop;
       return (${buildingSection.getText(dialogAst)});
     }
     export const render = (props) => renderToStaticMarkup(createElement(AuthContext.Provider, { value: { user: { id: 1 } } }, createElement(Dialog, { open: true }, createElement(Section, props))));

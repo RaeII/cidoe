@@ -6,7 +6,7 @@ import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi
 import { formatUnlockCta } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
 import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenSide, type TextureSettings } from "@/scene/types";
-import { SCREEN_IMAGES } from "@/scene/textures/screenImageManifest";
+import { clubImages, findClub } from "@/lib/clubs";
 import { CustomizationImage } from "./CustomizationImage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ function OptionCard({ category, option, selected, onSelect }: {
 }
 
 /** Editor de aparência reutilizável: catálogo e persistência pertencem ao chamador. */
-export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange, side = false }: {
+export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange, side = false, club = null, onChangeClub }: {
   catalog: CustomizationCatalog | null;
   customization: BuildingCustomization;
   textureSettings: TextureSettings;
@@ -70,6 +70,10 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   onBusyChange?: (busy: boolean) => void;
   /** Painel lateral sobre a cena: sem prévia (a própria cena mostra), opções em 3 colunas. */
   side?: boolean;
+  /** Time do evento (slug): aba Telão só existe com ele, e só com as 3 imagens dele. */
+  club?: string | null;
+  /** Presente enquanto a troca única de time está disponível. */
+  onChangeClub?: () => void;
 }) {
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -93,7 +97,9 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   useEffect(() => () => settling.current?.stop(), []);
   useMotionValueEvent(pos, "change", (value) => setStep(Math.round(value)));
   const categories = CATEGORIES.filter((item) => (catalog?.[item.field].length ?? 0) > 0);
-  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : []), ...(SCREEN_IMAGES.length ? [{ key: "screen", label: "Telão" }] : [])];
+  const team = findClub(club);
+  const screenImages = team ? clubImages(team) : [];
+  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : []), ...(team ? [{ key: "screen", label: "Telão" }] : [])];
   const screenIds = useId();
   const count = tabs.length;
   const active = count ? ((step % count) + count) % count : 0;
@@ -266,20 +272,21 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
       {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
     </>;
   };
-  // Imagens do evento: escolhe até SCREEN_MAX_IMAGES, na ordem de exibição. Key sem arquivo
-  // (imagem que saiu) não conta e some na próxima gravação.
+  // Imagens do time do evento, na ordem de exibição. Key de outro time (troca de time) não conta
+  // aqui e some na próxima gravação; até lá a cena segue com ela.
   const screenPanel = () => {
-    const chosen = customization.screenImages.filter((key) => SCREEN_IMAGES.some((image) => image.key === key));
-    const full = chosen.length >= SCREEN_MAX_IMAGES;
+    const chosen = customization.screenImages.filter((key) => screenImages.some((image) => image.key === key));
+    const max = Math.min(SCREEN_MAX_IMAGES, screenImages.length);
+    const full = chosen.length >= max;
     const toggle = (key: string) => onChange({ screenImages: chosen.includes(key) ? chosen.filter((item) => item !== key) : [...chosen, key] });
     return <>
       <div className="space-y-2">
         <p className="flex items-baseline justify-between gap-3">
-          <span id={`${screenIds}-images`} className="mono-label">Imagens</span>
-          <span className="font-mono text-[11px] text-muted-foreground">{chosen.length}/{SCREEN_MAX_IMAGES}</span>
+          <span id={`${screenIds}-images`} className="mono-label">{team?.name}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{chosen.length}/{max}</span>
         </p>
-        <div role="group" aria-labelledby={`${screenIds}-images`} className={cn("grid gap-2", side ? "grid-cols-3" : "grid-cols-3 sm:grid-cols-4")}>
-          {SCREEN_IMAGES.map((image) => {
+        <div role="group" aria-labelledby={`${screenIds}-images`} className="grid grid-cols-3 gap-2">
+          {screenImages.map((image) => {
             const order = chosen.indexOf(image.key);
             return (
               <button key={image.key} type="button" aria-pressed={order >= 0} disabled={order < 0 && full} onClick={() => toggle(image.key)}
@@ -304,7 +311,10 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
           ))}
         </div>
       </fieldset>
-      {chosen.length > 0 && <Button type="button" variant="outline" onClick={() => onChange({ screenImages: [] })}>Remover telão</Button>}
+      {(customization.screenImages.length > 0 || onChangeClub) && <div className="flex flex-wrap gap-2">
+        {customization.screenImages.length > 0 && <Button type="button" variant="outline" onClick={() => onChange({ screenImages: [] })}>Remover telão</Button>}
+        {onChangeClub && <Button type="button" variant="ghost" onClick={onChangeClub}>Trocar time</Button>}
+      </div>}
     </>;
   };
   return (

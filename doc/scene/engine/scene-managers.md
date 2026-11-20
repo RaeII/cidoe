@@ -524,7 +524,7 @@ LED some **por completo** da captura do envMap — nem a fita espelhada, nem o c
 `screenMeshes: Map<id, { entry | null, side, images }>` com [[scene-builders#createLedScreenMesh.ts|createLedScreenMesh]].
 
 - **Pedido fica mesmo sem telão** (`entry: null`, fachada sem trecho plano): rebuild tenta de novo se o prédio crescer.
-- `normalizeScreen`: dado do navegador/banco — lado inválido vira frente, key sem arquivo some (`getScreenImageUrl`), teto `SCREEN_MAX_IMAGES` (4). Dado salvo antes do telão (sem campos) = sem telão.
+- `normalizeScreen`: dado do navegador/banco — lado inválido vira frente, key fora do formato `"<time>/<n>"` some (`getScreenImageUrl`), teto `SCREEN_MAX_IMAGES` (4). Dado salvo antes do telão (sem campos) = sem telão.
 - `updateDonationCustomization` recria só se lado ou imagens (ordem inclusa) mudaram. Formato novo passa pelo rebuild.
 - `syncScreens` em todo `rebuildInstances` (posição/tamanho dependem de altura e formato). Barato: textura compartilhada.
 - Foco: camadas na composição; fallback esmaece gabinete por clone e painel por uniform (`setLedScreenOpacity`). Captura do reflexo esconde (imagem troca, reflexo ficaria velho) — `hiddenForCapture` (antes `edgeLightsHiddenForCapture`). Culling de 80u. `setNight` liga clarão. `setDonations` remove ids que saíram. `dispose` libera shared.

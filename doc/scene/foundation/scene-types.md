@@ -397,7 +397,7 @@ type BuildingCustomization = {
   edgeLightType: EdgeLightType; // LED nas arestas ou none
   hologramImage: string | null; hologramColor: string; hologramOpacity: number;
   screenSide: ScreenSide;     // "front" (+Z) | "right" (+X) | "back" (−Z) | "left" (−X)
-  screenImages: string[];     // keys das imagens do telão, na ordem de exibição. [] = sem telão
+  screenImages: string[];     // keys "<time>/<n>" das imagens do telão, na ordem de exibição. [] = sem telão
 }
 // SCREEN_SIDES (ordem do painel) e SCREEN_MAX_IMAGES (4) exportados junto.
 ```
@@ -415,7 +415,7 @@ Armazenada opcionalmente em cada `DonationEntry`. Cada campo controla um aspecto
 | `signText` | Texto da marca/empresa na fachada | `CanvasTexture` + `PlaneGeometry` criados por [[scene-builders#createSignMesh.ts\|createSignMesh]] |
 | `signSides` | Em quantas fachadas o letreiro aparece | 1=frente, 2=+trás, 3=+direita, 4=todos os lados |
 | `edgeLightType` | LED contornando as arestas do edifício | `THREE.Group` criado por [[scene-builders#createEdgeLightMesh.ts\|createEdgeLightMesh]] (core + halo aditivo) |
-| `screenSide` / `screenImages` | Telão de LED numa fachada, alternando as imagens | [[scene-builders#createLedScreenMesh.ts\|createLedScreenMesh]]. Key sem arquivo some; dado salvo antes do telão (sem os campos) = sem telão ([[scene-managers#Telões de LED]]) |
+| `screenSide` / `screenImages` | Telão de LED numa fachada, alternando as imagens | [[scene-builders#createLedScreenMesh.ts\|createLedScreenMesh]]. Key `"<time>/<n>"` ([[evento-times]]); fora do formato some; dado salvo antes do telão (sem os campos) = sem telão ([[scene-managers#Telões de LED]]) |
 
 Todos gerenciados pelo [[scene-managers|DonationManager]]. A customização é propagada pelo pipeline: `CitySceneEditor` → `CitySceneCanvas` → `useCityScene` → `runtime` → `donationManager.updateDonationCustomization()`.
 

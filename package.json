@@ -12,6 +12,7 @@
     "ui:add": "sh scripts/ui-add.sh",
     "textures:ktx2": "node scripts/encode-ktx2.mjs",
     "textures:webp": "node scripts/encode-webp.mjs",
+    "clubs:webp": "node scripts/encode-clubs.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

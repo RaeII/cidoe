@@ -8,7 +8,7 @@
  *   --height <n>                   altura na cena, 0,5–16 (padrão 4)
  *   --width <n>                    largura/profundidade do lote (padrão 2; torre central = 2,3)
  *   --sign <texto>                 letreiro nos 4 lados, como createSignMesh na cena
- *   --screen <lado>                telão (front|right|back|left) com a 1ª imagem de src/assets/club-images;
+ *   --screen <lado>                telão (front|right|back|left) com o escudo do Grêmio (public/clubes/gremio/1.webp);
  *                                  3ª vista vira close dele (LEDs, gabinete, braços)
  *   --screen-image <imagem>        imagem do telão no lugar da padrão
  *   --ref <imagem>                 referência ao lado das vistas
@@ -22,7 +22,7 @@
  * Erro na página sai escrito no próprio PNG.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -254,9 +254,7 @@ if (values.screen && !["front", "right", "back", "left"].includes(values.screen)
   console.error(`--screen inválido: ${values.screen} (front|right|back|left)`);
   process.exit(1);
 }
-const clubImages = join(ROOT, "src/assets/club-images");
-const screenImage = values.screen && resolve(values["screen-image"]
-  ?? join(clubImages, readdirSync(clubImages).filter((name) => name.endsWith(".webp")).sort()[0] ?? ""));
+const screenImage = values.screen && resolve(values["screen-image"] ?? join(ROOT, "public/clubes/gremio/1.webp"));
 if (screenImage && !existsSync(screenImage)) {
   console.error(`imagem do telão não existe: ${screenImage}`);
   process.exit(1);
