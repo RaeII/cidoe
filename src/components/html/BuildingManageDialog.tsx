@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { AlertDialog, Tabs } from "radix-ui";
 import type { BuildingProfile } from "@/api/contributionApi";
 import type { CustomizationCatalog } from "@/api/customizationApi";
@@ -9,6 +9,7 @@ import { BlockLoader, ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { BuildingProfileForm } from "./donate/BuildingProfileForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyClub } from "@/components/hooks/useMyClub";
+import { getDonationClub } from "@/api/club/club.routes";
 import { cn } from "@/lib/utils";
 
 const BuildingCustomizer = lazy(() => import("@/components/customization/BuildingCustomizer").then((module) => ({ default: module.BuildingCustomizer })));
@@ -39,7 +40,7 @@ export function BuildingManageDialog({
   onClose: () => void;
   /** Abre a lista do evento dos times (aba Telão do dono, enquanto a troca está disponível). */
   onChangeClub: () => void;
-  /** Edifício da própria conta. Telão usa o time do dono (servidor valida): admin em edifício alheio fica sem a aba. */
+  /** Edifício da própria conta. Telão usa o time do dono (servidor valida): admin em edifício alheio vê o do dono, sem trocar. */
   ownBuilding: boolean;
 }) {
   const profileFormId = useId();
@@ -49,8 +50,17 @@ export function BuildingManageDialog({
   const [confirmExit, setConfirmExit] = useState(false);
   const editBusy = profileEdit.busy || appearanceBusy;
   // Busca junto com o chunk do personalizador: aba Telão só existe com time do evento.
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const myClub = useMyClub(ownBuilding ? user?.id : undefined);
+  const [ownerClub, setOwnerClub] = useState<{ donationId: number; club: string | null } | null>(null);
+  useEffect(() => {
+    if (ownBuilding || !isAdmin) return;
+    let alive = true;
+    // Falha = sem aba Telão (mesmo caso de dono sem time).
+    getDonationClub(donationId).then((club) => { if (alive) setOwnerClub({ donationId, club }); }, () => {});
+    return () => { alive = false; };
+  }, [donationId, ownBuilding, isAdmin]);
+  const club = ownBuilding ? myClub.club : ownerClub?.donationId === donationId ? ownerClub.club : null;
 
   function leaveProfile() {
     if (editBusy) return;
@@ -100,7 +110,7 @@ export function BuildingManageDialog({
                 textureSettings={textureSettings}
                 onChange={(patch) => onCustomizationChange(donationId, patch)}
                 onBusyChange={setAppearanceBusy}
-                club={myClub.club}
+                club={club}
                 onChangeClub={myClub.club && myClub.canChange ? onChangeClub : undefined}
               />
             </Suspense>

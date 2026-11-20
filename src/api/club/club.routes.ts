@@ -13,3 +13,9 @@ export async function chooseClub(club: string) {
   const { data } = await http.put<{ data: MyClub }>("/club/me", { club });
   return data.data;
 }
+
+/** Time do dono do edifício (admin em edifício alheio: telão usa as imagens dele). */
+export async function getDonationClub(donationId: number) {
+  const { data } = await http.get<{ data: { club: string | null } }>(`/club/donation/${donationId}`);
+  return data.data.club;
+}

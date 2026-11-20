@@ -11,7 +11,9 @@
 //    Confere o PUT da personalização (ordem e lado), uma troca do ciclo e console sem erro.
 // 3. Trocar time pelo telão: modal por cima do editor → Flamengo → telão montado vira as mesmas
 //    posições do Flamengo, aba mostra Flamengo e a troca some.
-// Sessão, login, termos, posse, `/club/me` e o PUT da personalização simulados por interceptação
+// 4. Admin em edifício alheio: recarrega como admin sem a posse → aba Telão com as imagens do time
+//    do dono (`/club/donation/:id`), sem Trocar time e sem ler `/club/me`; PUT leva a imagem do dono.
+// Sessão, login, termos, posse, `/club/me`, time do dono e o PUT da personalização simulados por interceptação
 // (Fetch do CDP): não cria conta, não grava no banco nem manda e-mail; snapshot e catálogo vêm da API real. Câmera e confete: conferir nas telas (SHOTS).
 //
 // Precisa: dev server (http://localhost:5173) + API e Google Chrome. Variáveis: URL, CHROME, ID
@@ -94,10 +96,11 @@ const shot = async (name) => {
 
 // --- API simulada: sessão, login por código, time do evento e rotas "me" da conta ---
 const now = new Date().toISOString();
-const api = { loggedIn: false, onboarded: false, termsOk: false, club: null, changes: 0, saved: null };
+const api = { loggedIn: false, onboarded: false, termsOk: false, club: null, changes: 0, saved: null, admin: false, owner: true };
+const OWNER_CLUB = "palmeiras"; // time do dono quando o edifício é alheio (fase 4)
 const user = () => ({
   id: 4242, username: "torcedor", name: "Torcedor Teste", profile_image: null, email: "torcedor@cidoe.test",
-  is_active: true, is_admin: false, city: null, discovery_source: null, discovery_source_other: null,
+  is_active: true, is_admin: api.admin, city: null, discovery_source: null, discovery_source_other: null,
   onboarding_completed_at: api.onboarded ? now : null, terms_version: api.termsOk ? "2026-10-25" : "2025-01-01", terms_accepted_at: now,
   last_login_at: now, created_at: now, updated_at: now,
 });
@@ -109,9 +112,10 @@ function mockApi(method, path, body) {
   if (path === "/api/user/me/onboarding") { api.onboarded = true; return { data: user() }; }
   if (path === "/api/user/me/terms") { api.termsOk = true; return { data: user() }; }
   if (path === "/api/donation/charges/pending") return { data: null };
-  if (path === "/api/donation/me") return { data: api.loggedIn ? [{ id: ID, value: owned[1], cityId: owned[2], ongId: owned[3], ongIds: [owned[3]] }] : [] };
+  if (path === "/api/donation/me") return { data: api.loggedIn && api.owner ? [{ id: ID, value: owned[1], cityId: owned[2], ongId: owned[3], ongIds: [owned[3]] }] : [] };
   if (path === `/api/donation/${ID}/customization` && method === "PUT") { api.saved = JSON.parse(body); return { data: null }; }
   if (path === "/api/club/me" && method === "GET") return clubState();
+  if (path === `/api/club/donation/${ID}`) return { data: { club: api.owner ? api.club : OWNER_CLUB } };
   if (path === "/api/club/me" && method === "PUT") {
     const { club } = JSON.parse(body);
     if (api.club !== null && club !== api.club) api.changes += 1;
@@ -206,26 +210,30 @@ await clickText("Pular");
 await waitFor(`${openDialogs}.length === 0`, "onboarding fechado");
 console.log("Evento: login no modal, oferta, lista, conquista, URL limpa e onboarding depois OK.");
 
-// Seleciona pelo handler da cena e abre o editor (botão funciona mesmo escondido).
-await evaluate(`(() => {
-  const host = document.querySelector("canvas").parentElement;
-  let fiber = host[Object.keys(host).find((key) => key.startsWith("__reactFiber"))];
-  while (fiber && !fiber.memoizedProps?.onBuildingClick) fiber = fiber.return;
-  if (!fiber) throw new Error("onBuildingClick não encontrado");
-  fiber.memoizedProps.onBuildingClick(${ID});
-})()`);
-await waitFor(`!!document.querySelector('[aria-label="Administrar edifício"]')`, "botão Administrar");
-await evaluate(`document.querySelector('[aria-label="Administrar edifício"]').click()`);
-await waitFor(`!!${top}?.querySelector('[role="tab"]')`, "administração do edifício");
 // Abas Radix da main ativam no mousedown.
 const pressTab = (scope, label) => evaluate(`(() => {
   const tab = [...${scope}.querySelectorAll('[role="tab"]')].find((item) => item.textContent === ${JSON.stringify(label)});
+  if (!tab) throw new Error("aba ausente: " + ${JSON.stringify(label)});
   tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
   tab.click();
 })()`);
-await pressTab(top, "Aparência");
 const editor = `document.querySelector('section[aria-label="Personalizar seu edifício"]')`;
-await waitFor(`!!${editor}?.querySelector('[role="tab"]')`, "editor de aparência");
+// Seleciona pelo handler da cena e abre Administrar → Aparência (botão funciona mesmo escondido).
+async function openEditor() {
+  await evaluate(`(() => {
+    const host = document.querySelector("canvas").parentElement;
+    let fiber = host[Object.keys(host).find((key) => key.startsWith("__reactFiber"))];
+    while (fiber && !fiber.memoizedProps?.onBuildingClick) fiber = fiber.return;
+    if (!fiber) throw new Error("onBuildingClick não encontrado");
+    fiber.memoizedProps.onBuildingClick(${ID});
+  })()`);
+  await waitFor(`!!document.querySelector('[aria-label="Administrar edifício"]')`, "botão Administrar");
+  await evaluate(`document.querySelector('[aria-label="Administrar edifício"]').click()`);
+  await waitFor(`!!${top}?.querySelector('[role="tab"]')`, "administração do edifício");
+  await pressTab(top, "Aparência");
+  await waitFor(`!!${editor}?.querySelector('[role="tab"]')`, "editor de aparência");
+}
+await openEditor();
 await pressTab(editor, "Telão");
 await waitFor(`${editor}.querySelector('[role="tab"][data-state="active"]')?.textContent === "Telão"`, "aba Telão");
 await sleep(600);
@@ -276,6 +284,25 @@ assert.deepEqual(api.saved.screenImages, ["flamengo/1", "flamengo/2"], "PUT não
 assert.equal(await evaluate(`[...${screenPanel}.querySelectorAll("button")].some((b) => b.textContent.trim() === "Trocar time")`), false, "troca usada ainda aparece");
 assert.equal(api.club, "flamengo");
 assert.equal(api.changes, 1);
+console.log("Trocar time: modal sobre o editor, troca única, telão migrado OK.");
+
+// --- 4. Admin em edifício alheio: telão com o time do dono, sem troca ---
+Object.assign(api, { admin: true, owner: false, onboarded: true, saved: null });
+apiCalls.length = 0;
+await send("Page.navigate", { url: URL });
+await waitFor(`!!document.querySelector("canvas")`, "canvas da cena (admin)");
+await waitFor(`!document.querySelector(".ld")`, "loading (admin)", 60_000);
+await openEditor();
+await pressTab(editor, "Telão");
+await waitFor(`${editor}.querySelector('[role="tab"][data-state="active"]')?.textContent === "Telão"`, "aba Telão (admin)");
+await waitFor(`${screenPanel}?.querySelector('[role="group"] button')?.getAttribute("aria-label")?.startsWith("Palmeiras, imagem 1")`, "telão com o time do dono");
+assert.equal(await evaluate(`[...${screenPanel}.querySelectorAll("button")].some((b) => b.textContent.trim() === "Trocar time")`), false, "admin vê Trocar time em edifício alheio");
+await evaluate(`${screenPanel}.querySelector('[role="group"] button').click()`);
+await sleep(1200); // debounce de 500 ms da gravação
+await shot("7-admin-telao-dono");
+assert.deepEqual(api.saved?.screenImages, [`${OWNER_CLUB}/1`], "PUT do admin sem a imagem do time do dono");
+assert.ok(apiCalls.includes(`GET /api/club/donation/${ID}`), "time do dono não foi pedido");
+assert.ok(!apiCalls.includes("GET /api/club/me"), "admin leu o próprio time em edifício alheio");
 assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
-console.log("Trocar time: modal sobre o editor, troca única, telão migrado e console sem erro OK.");
+console.log("Admin em edifício alheio: telão com o time do dono, sem troca, gravação e console sem erro OK.");
 process.exit(0);

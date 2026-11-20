@@ -59,17 +59,18 @@ Cadastro dentro do modal → onboarding aparece **depois** que o evento fecha. `
 
 ## Telão
 
-Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] só existe no edifício da própria conta (`ownBuilding`) e com time: 3 imagens dele, rótulo = nome do time, `N/3`. Admin editando edifício alheio não vê a aba (servidor valida pelo time do **dono**). `Trocar time` ao lado de `Remover telão` enquanto troca livre. Troca gravada → `handleClubChosen` (editor) leva todo telão montado para as mesmas posições do time novo (`gremio/2` → `flamengo/2`, ordem mantida) e salva. Telão nunca mistura times.
+Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] só existe com time: 3 imagens dele, rótulo = nome do time, `N/3`. Próprio edifício (`ownBuilding`) = time da conta. Admin editando edifício alheio = time do **dono** (`GET /club/donation/:id`; servidor valida por ele), sem `Trocar time`; dono sem time = sem aba. `Trocar time` ao lado de `Remover telão` enquanto troca livre. Troca gravada → `handleClubChosen` (editor) leva todo telão montado para as mesmas posições do time novo (`gremio/2` → `flamengo/2`, ordem mantida) e salva. Telão nunca mistura times.
 
 Troca na `main`: servidor já reescreve os telões de todos os edifícios da conta na mesma transação do `PUT /club/me`; `handleClubChosen` só acompanha no estado local (edifícios próprios) e regrava o mesmo valor.
 
-`BuildingManageDialog` chama `useMyClub` ao montar (junto com o chunk do personalizador) e passa `club` + `onChangeClub`.
+`BuildingManageDialog` busca o time ao montar (junto com o chunk do personalizador): `useMyClub` no próprio edifício, `getDonationClub` para admin em edifício alheio. Passa `club` + `onChangeClub`.
 
 ## Servidor
 
 - `PUT /donation/:id/customization` aceita `screenSide` e `screenImages` (opcionais; até 4 keys `"<time>/<n>"`, sem repetir). Key de outro time que não o do dono, ou dono sem time → `400 "Imagem do telão indisponível."`. Lê o time do dono com `FOR SHARE`: troca concorrente espera a gravação.
 - `PUT /club/me` (escolha ou troca) reescreve `customization->'screenImages'` dos edifícios do usuário para o time novo, mesma posição e ordem, na mesma transação.
 - `GET /donation/customizations` devolve os campos como gravados. Dado antigo sem os campos = sem telão.
+- `GET /club/donation/:id` → `{ data: { club } }`: time do dono (dono ou admin; resto `404`).
 - Detalhe no vault do back: `doc/modulos/club/club.md` e `doc/modulos/personalizacoes/personalizacoes.md`.
 
 ## Peças
@@ -104,7 +105,9 @@ Troca na `main`: servidor já reescreve os telões de todos os edifícios da con
 
 - `node scripts/check-club-event.mjs` — lista × arquivos × back, key do telão, busca e todos os estados do modal real; sem servidor/navegador.
 - `node scripts/check-building-customizer.mjs` — aba Telão por time.
-- `node scripts/check-led-screen-ui.mjs` (dev server + API + Chrome; `MOBILE=1`, `SHOTS=pasta`) — evento inteiro no app: login no modal, termos dentro do evento, oferta, lista, conquista, onboarding depois, telão do maior edifício (posse simulada), PUT da aparência, Trocar time por cima do editor. API da conta simulada por interceptação: não cria conta, não grava no banco nem manda e-mail.
+- `node scripts/check-led-screen-ui.mjs` (dev server + API + Chrome; `MOBILE=1`, `SHOTS=pasta`) — evento inteiro no app: login no modal, termos dentro do evento, oferta, lista, conquista, onboarding depois, telão do maior edifício (posse simulada), PUT da aparência, Trocar time por cima do editor, admin em edifício alheio com o time do dono (sem troca, sem `/club/me`). API da conta simulada por interceptação: não cria conta, não grava no banco nem manda e-mail.
 
-> [!warning] Antes de divulgar
+## Antes de divulgar
+
+> [!warning] Licença
 > Imagens são escudos, mascotes e estádios de clubes reais, servidos pelo Cidoe. Risco de marca/direito autoral alto sem licença (Lei Geral do Esporte arts. 168–170, LPI, LDA). Termos sem cláusula de marcas de terceiros. Decisão do dono antes de publicar.

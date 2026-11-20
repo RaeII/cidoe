@@ -120,7 +120,7 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
   check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão e ciclo do canvas com GPU simulada; sem servidor/navegador
   check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes), ciclo, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
-  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, ciclo, Trocar time; API da conta simulada; MOBILE=1, SHOTS=pasta
+  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, ciclo, Trocar time, admin em edifício alheio (time do dono); API da conta simulada; MOBILE=1, SHOTS=pasta
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
   check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
