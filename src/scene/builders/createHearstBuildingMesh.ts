@@ -411,7 +411,7 @@ function buildHearstGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getHearstGeometry(): THREE.BufferGeometry {
+export function getHearstGeometry(): THREE.BufferGeometry {
   if (!sharedHearstGeometry) {
     sharedHearstGeometry = buildHearstGeometry();
   }

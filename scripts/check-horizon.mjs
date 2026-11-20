@@ -79,6 +79,9 @@ const mocks = {
     export const resolveFacadeFolder = (value) => value;
     export const getFacadeMapUrls = () => null;
   `,
+  screenImageManifest: `
+    export const getScreenImageUrl = () => null;
+  `,
 };
 const bundle = await build({
   stdin: {
@@ -95,7 +98,7 @@ const bundle = await build({
   plugins: [{
     name: "headless-io",
     setup(builder) {
-      builder.onResolve({ filter: /three$|OrbitControls|loadEnvironment|facadeTexture(Loader|Manifest)/ }, ({ path }) => {
+      builder.onResolve({ filter: /three$|OrbitControls|loadEnvironment|facadeTexture(Loader|Manifest)|screenImageManifest/ }, ({ path }) => {
         const key = path === "three" ? path : path.split("/").at(-1).replace(/\.js$/, "");
         return key in mocks ? { path: key, namespace: "headless" } : undefined;
       });

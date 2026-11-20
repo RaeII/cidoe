@@ -64,7 +64,7 @@ createCitySceneRuntime({mount, settings...})   // async
 
 A cada tick do rAF, também no modo leve, sem limitador artificial de FPS. A frequência segue o navegador, inclusive quando ele reduz a taxa por economia de energia. **Render sob demanda**: tick sem mudança sai cedo e o canvas segura o último frame.
 
-0. Gate: evento `change` do OrbitControls (`handleControlsChange`) com câmera em movimento → frame. Não usar retorno do `controls.update()` do loop: zoom (roda/pinça) aplica inteiro no `update()` do handler do evento → loop vê `false`, câmera anda sem redesenhar e "teleporta". Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível (`tickAnimations` → `true`). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
+0. Gate: evento `change` do OrbitControls (`handleControlsChange`) com câmera em movimento → frame. Não usar retorno do `controls.update()` do loop: zoom (roda/pinça) aplica inteiro no `update()` do handler do evento → loop vê `false`, câmera anda sem redesenhar e "teleporta". Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível ou troca de telão (`tickAnimations` → `true`, chamado **antes** do teste "nada mudou": telão troca com a cena parada). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
 1. `controls.update()` — aplica damping do OrbitControls com fator `1-(1-f)^(elapsed*60)`. `f` é a referência a 60 Hz; `elapsed` usa tempo real, preservando a inércia em 30/60/90/120 Hz e em frames lentos.
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
@@ -135,7 +135,7 @@ type CitySceneRuntime = {
 
   // Personalização individual
   updateDonationCustomization(donationId: number, customization: BuildingCustomization): void // enfileira; drena em fatias
-  focusOnDonation(donationId: number): void  // destaque visual no edifício
+  focusOnDonation(donationId: number, facing?: ScreenSide): void  // destaque visual no edifício; `facing` gira a câmera até o telão (yaw real via getScreenYaw, ~20° pro lado onde a câmera já está)
   clearFocus(): void                          // remove destaque
 
   dispose(): void

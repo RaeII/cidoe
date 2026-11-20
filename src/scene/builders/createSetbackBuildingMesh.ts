@@ -328,7 +328,7 @@ function buildSetbackGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getSetbackGeometry(): THREE.BufferGeometry {
+export function getSetbackGeometry(): THREE.BufferGeometry {
   if (!sharedSetbackGeometry) {
     sharedSetbackGeometry = buildSetbackGeometry();
   }

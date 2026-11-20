@@ -4,7 +4,8 @@ import { Tabs } from "radix-ui";
 import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import { formatUnlockCta } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
-import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType, TextureSettings } from "@/scene/types";
+import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenSide, type TextureSettings } from "@/scene/types";
+import { clubImages, findClub } from "@/lib/clubs";
 import { CustomizationImage } from "./CustomizationImage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,12 @@ const CATEGORIES = [
   { key: "rooftop", label: "Topo", field: "rooftops" },
   { key: "edge_light", label: "LED", field: "edgeLights" },
 ] as const;
+const SCREEN_SIDE_OPTIONS: ReadonlyArray<{ value: ScreenSide; label: string }> = [
+  { value: "front", label: "Frente" },
+  { value: "right", label: "Direita" },
+  { value: "back", label: "Fundos" },
+  { value: "left", label: "Esquerda" },
+];
 
 function OptionCard({ category, option, selected, onSelect }: {
   category: string;
@@ -49,12 +56,16 @@ function OptionCard({ category, option, selected, onSelect }: {
 }
 
 /** Editor de aparência reutilizável: catálogo e persistência pertencem ao chamador. */
-export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange }: {
+export function BuildingCustomizer({ catalog, customization, textureSettings, onChange, onBusyChange, club = null, onChangeClub }: {
   catalog: CustomizationCatalog | null;
   customization: BuildingCustomization;
   textureSettings: TextureSettings;
   onChange: (patch: Partial<BuildingCustomization>) => void;
   onBusyChange?: (busy: boolean) => void;
+  /** Time do evento do DONO (slug): aba Telão só existe com ele, e só com as 3 imagens dele. */
+  club?: string | null;
+  /** Presente enquanto a troca única de time está disponível (só o dono). */
+  onChangeClub?: () => void;
 }) {
   const [category, setCategory] = useState("shape");
   const [imageBusy, setImageBusy] = useState(false);
@@ -65,8 +76,11 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   useEffect(() => { onBusyChange?.(imageBusy); }, [imageBusy, onBusyChange]);
   useEffect(() => () => { readerRef.current?.abort(); onBusyChange?.(false); }, [onBusyChange]);
   const categories = CATEGORIES.filter((item) => (catalog?.[item.field].length ?? 0) > 0);
-  const activeCategory = categories.some((item) => item.key === category) || catalog?.features[category as "sign" | "hologram"] ? category : categories[0]?.key ?? (catalog?.features.sign ? "sign" : "hologram");
-  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : [])];
+  const team = findClub(club);
+  const screenImages = team ? clubImages(team) : [];
+  const screenIds = useId();
+  const activeCategory = categories.some((item) => item.key === category) || catalog?.features[category as "sign" | "hologram"] || (category === "screen" && team) ? category : categories[0]?.key ?? (catalog?.features.sign ? "sign" : catalog?.features.hologram ? "hologram" : "screen");
+  const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : []), ...(team ? [{ key: "screen", label: "Telão" }] : [])];
   const tabIndex = (key: string) => tabs.findIndex((item) => item.key === key);
   // Celular: painéis lado a lado com scroll-snap; deslizar troca a aba. Só a atual e vizinhas montam itens.
   const near = (key: string) => Math.abs(tabIndex(key) - tabIndex(activeCategory)) <= 1;
@@ -174,8 +188,52 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
                   {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
                 </Tabs.Content>;
               })}
+              {team && (() => {
+                // Imagens do time do evento, na ordem de exibição. Troca de time migra os telões (editor + servidor).
+                const chosen = customization.screenImages.filter((key) => screenImages.some((image) => image.key === key));
+                const max = Math.min(SCREEN_MAX_IMAGES, screenImages.length);
+                const full = chosen.length >= max;
+                const toggle = (key: string) => onChange({ screenImages: chosen.includes(key) ? chosen.filter((item) => item !== key) : [...chosen, key] });
+                return <Tabs.Content key="screen" value="screen" forceMount inert={activeCategory !== "screen"} className={cn(slideClass, "space-y-3")}>
+                  <div className="space-y-2">
+                    <p className="flex items-baseline justify-between gap-3">
+                      <span id={`${screenIds}-images`} className="mono-label">{team.name}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{chosen.length}/{max}</span>
+                    </p>
+                    <div role="group" aria-labelledby={`${screenIds}-images`} className="grid grid-cols-3 gap-2">
+                      {screenImages.map((image) => {
+                        const order = chosen.indexOf(image.key);
+                        return (
+                          <button key={image.key} type="button" aria-pressed={order >= 0} disabled={order < 0 && full} onClick={() => toggle(image.key)}
+                            aria-label={order >= 0 ? `${image.label}, ${order + 1}ª no telão` : image.label}
+                            className={cn("focus-inset relative aspect-square overflow-hidden pixel pixel-thin bg-tinta p-1.5 transition-opacity disabled:cursor-not-allowed disabled:opacity-40", order >= 0 && "pixel-ink-verde")}>
+                            <img src={image.url} alt="" loading="lazy" className="size-full object-contain" />
+                            {order >= 0 && <span aria-hidden className="absolute right-1 top-1 grid size-5 place-items-center bg-primary font-mono text-[11px] font-semibold text-primary-foreground">{order + 1}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs leading-5 text-muted-foreground">Com mais de uma, o telão alterna nessa ordem.</p>
+                  </div>
+                  <fieldset className="space-y-2">
+                    <legend className="mono-label">Lado</legend>
+                    <div className="grid grid-cols-4 gap-2">
+                      {SCREEN_SIDE_OPTIONS.map(({ value, label }) => (
+                        <label key={value} className={cn("grid h-10 cursor-pointer place-items-center pixel pixel-thin text-sm font-semibold transition-colors has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-[-3px]", customization.screenSide === value ? "pixel-ink-verde bg-secondary" : "bg-card hover:bg-accent")}>
+                          <input type="radio" name={`${screenIds}-side`} value={value} checked={customization.screenSide === value} onChange={() => onChange({ screenSide: value })} className="sr-only" />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  {(customization.screenImages.length > 0 || onChangeClub) && <div className="flex flex-wrap gap-2">
+                    {customization.screenImages.length > 0 && <Button type="button" variant="outline" onClick={() => onChange({ screenImages: [] })}>Remover telão</Button>}
+                    {onChangeClub && <Button type="button" variant="ghost" onClick={onChangeClub}>Trocar time</Button>}
+                  </div>}
+                </Tabs.Content>;
+              })()}
             </div>
-            {!categories.length && !catalog.features.sign && !catalog.features.hologram && <p className="py-8 text-sm text-muted-foreground">Nenhuma personalização disponível.</p>}
+            {!categories.length && !catalog.features.sign && !catalog.features.hologram && !team && <p className="py-8 text-sm text-muted-foreground">Nenhuma personalização disponível.</p>}
           </Tabs.Root>
         )}
       </div>

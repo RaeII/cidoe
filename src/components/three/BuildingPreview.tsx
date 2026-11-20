@@ -81,9 +81,10 @@ export function BuildingPreview({ customization, textureSettings }: {
       const delta = Math.min(now - lastFrame, 100);
       lastFrame = now;
       controls.update(delta / 1000);
-      if (!runtime.renderNeeded && !runtime.view.hasAnimation()) return;
+      // Holograma anima sempre; telão só pede frame na troca de imagem.
+      const animated = runtime.view.tick(now / 1000, delta);
+      if (!runtime.renderNeeded && !animated) return;
       runtime.renderNeeded = false;
-      runtime.view.tick(now / 1000, delta);
       renderer.render(runtime.view.scene, runtime.view.camera);
     };
     raf = requestAnimationFrame(tick);
@@ -107,7 +108,7 @@ export function BuildingPreview({ customization, textureSettings }: {
     const previous = runtime.appearance;
     // Cor/tint/opacidade não recriam o modelo nem decodificam o GIF novamente.
     if (runtime.view && previous && runtime.textureSettings === textureSettings && runtime.texturesReady &&
-      (["buildingShape", "rooftopType", "edgeLightType", "signText", "signSides", "textureKey", "tilingScale", "textureTransform", "hologramImage"] as const)
+      (["buildingShape", "rooftopType", "edgeLightType", "signText", "signSides", "textureKey", "tilingScale", "textureTransform", "hologramImage", "screenSide", "screenImages"] as const)
         .every((key) => previous[key] === customization[key])) {
       runtime.view.updateStyle(customization);
       runtime.renderNeeded = true;
@@ -120,7 +121,9 @@ export function BuildingPreview({ customization, textureSettings }: {
     const show = (facadeTextures: FacadeTextureSet | null, topTextures: FacadeTextureSet | null, ready = true) => {
       if (canceled) return;
       const position = runtime.view?.camera.position.clone();
-      const reset = !previous || previous.buildingShape !== customization.buildingShape || previous.rooftopType !== customization.rooftopType || previous.hologramImage !== customization.hologramImage;
+      // Lado novo ou telão ligado agora: câmera volta pra frente dele.
+      const reset = !previous || previous.buildingShape !== customization.buildingShape || previous.rooftopType !== customization.rooftopType || previous.hologramImage !== customization.hologramImage ||
+        previous.screenSide !== customization.screenSide || (!previous.screenImages?.length && customization.screenImages?.length > 0);
       runtime.view?.dispose();
       const view = createPreviewScene({ kind: "shape", shape: customization.buildingShape }, {
         customization, facadeTextures, topTextures,

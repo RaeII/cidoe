@@ -571,7 +571,7 @@ function buildEmpireGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getEmpireGeometry(): THREE.BufferGeometry {
+export function getEmpireGeometry(): THREE.BufferGeometry {
   if (!sharedEmpireGeometry) {
     sharedEmpireGeometry = buildEmpireGeometry();
   }

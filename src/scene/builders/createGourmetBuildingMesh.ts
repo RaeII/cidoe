@@ -83,6 +83,10 @@ const BACK_WINDOWS: Array<[number, number, WindowKind]> = [
 export const GOURMET_ROOFTOP_SCALE = TANK / HALF;
 // Letreiro e LED seguem a face da torre, não o embasamento.
 export const GOURMET_TOWER_SCALE = TOWER / HALF;
+// Contorno saliente da torre (telão não pode cortar): sacada curva na frente (+Z),
+// pilastra bege nas outras três faces.
+export const GOURMET_FRONT_SCALE = (TOWER + SAG) / HALF;
+export const GOURMET_SIDE_SCALE = (TOWER + PILASTER_OUT) / HALF;
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 

@@ -704,7 +704,7 @@ function buildOneTradeGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-function getOneTradeGeometry(): THREE.BufferGeometry {
+export function getOneTradeGeometry(): THREE.BufferGeometry {
   if (!sharedOneTradeGeometry) {
     sharedOneTradeGeometry = buildOneTradeGeometry();
   }

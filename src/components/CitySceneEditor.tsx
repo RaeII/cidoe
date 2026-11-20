@@ -428,6 +428,8 @@ export function CitySceneEditor() {
         hologramImage: existing?.hologramImage ?? null,
         hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
         hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
+        screenSide: existing?.screenSide ?? "front",
+        screenImages: existing?.screenImages ?? [],
       };
     },
     [buildingCustomizations, buildingSettings.color],
@@ -516,6 +518,8 @@ export function CitySceneEditor() {
           hologramImage: existing?.hologramImage ?? null,
           hologramColor: existing?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR,
           hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
+          screenSide: existing?.screenSide ?? "front",
+          screenImages: existing?.screenImages ?? [],
           ...patch,
         };
         next.set(donationId, updated);
@@ -523,6 +527,13 @@ export function CitySceneEditor() {
         queueSave(donationId, updated);
         return next;
       });
+      // Lado novo ou telão ligado agora: câmera vai até a fachada dele. No frame seguinte,
+      // quando a cena já recriou o telão (yaw real, inclusive na torre torcida).
+      const previous = customizationsRef.current.get(donationId);
+      if (patch.screenSide !== undefined || (patch.screenImages?.length && !previous?.screenImages?.length)) {
+        const facing = patch.screenSide ?? previous?.screenSide ?? "front";
+        requestAnimationFrame(() => canvasRef.current?.focusOnDonation(donationId, facing));
+      }
     },
     [buildingSettings.color, queueSave],
   );

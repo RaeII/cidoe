@@ -17,6 +17,9 @@ const bundle = await build({
   plugins: [{ name: "skip-webgl-and-images", setup(api) {
     api.onResolve({ filter: /(?:CustomizationImage|BuildingPreview)$/ }, (args) => ({ path: args.path, namespace: "preview-stub" }));
     api.onLoad({ filter: /.*/, namespace: "preview-stub" }, () => ({ contents: "export const CustomizationImage = () => null; export const BuildingPreview = () => null;" }));
+    // Manifesto usa import.meta.glob (só Vite): 5 imagens de teste.
+    api.onResolve({ filter: /screenImageManifest$/ }, (args) => ({ path: args.path, namespace: "screen-stub" }));
+    api.onLoad({ filter: /.*/, namespace: "screen-stub" }, () => ({ contents: `export const SCREEN_IMAGES = ["a", "b", "c", "d", "e"].map((key) => ({ key, label: "Imagem " + key, url: "/" + key + ".webp" }));` }));
   } }],
 });
 const module = { exports: {} };
@@ -28,7 +31,7 @@ const catalog = {
   colors: [{ ...option(3, "red", "Vermelho", true), value: "#ff0000" }],
   textures: [], rooftops: [], edgeLights: [], features: { sign: null, hologram: null },
 };
-const customization = { color: "#d4d4d4", buildingShape: "default", rooftopType: "none", edgeLightType: "none", textureKey: null, signText: "", signSides: 1, hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78 };
+const customization = { color: "#d4d4d4", buildingShape: "default", rooftopType: "none", edgeLightType: "none", textureKey: null, signText: "", signSides: 1, hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78, screenSide: "front", screenImages: [] };
 const props = { catalog, customization, textureSettings: {}, onChange: () => {} };
 const html = render(props);
 assert.match(html, /Formato livre/);
@@ -46,6 +49,22 @@ for (const feature of ["sign", "hologram"]) {
   assert.doesNotMatch(unlockedHtml, /fieldset disabled=""/, "Recurso liberado mantém os campos disponíveis");
   assert.match(unlockedHtml, feature === "sign" ? /Texto do letreiro/ : /Imagem ou GIF/);
 }
+
+// Telão: aba sem catálogo do backend, ordem nos selos, teto de 4, key sem arquivo ignorada.
+const screenCatalog = { ...catalog, shapes: [], colors: [] };
+const emptyScreen = render({ ...props, catalog: screenCatalog });
+assert.match(emptyScreen, /role="tab"[^>]*>Telão</, "Aba do telão ausente");
+assert.match(emptyScreen, /0\/4/);
+assert.doesNotMatch(emptyScreen, /Remover telão/, "Remover aparece sem telão");
+assert.match(emptyScreen, /checked="" value="front"/, "Lado padrão não é a frente");
+const fullScreen = render({ ...props, catalog: screenCatalog, customization: { ...customization, screenSide: "back", screenImages: ["c", "sumiu", "a", "d", "b"] } });
+assert.match(fullScreen, /4\/4/, "Key sem arquivo contou");
+assert.match(fullScreen, /aria-label="Imagem c, 1ª no telão"/, "Ordem de escolha não vira ordem de exibição");
+assert.match(fullScreen, /aria-label="Imagem a, 2ª no telão"/);
+assert.match(fullScreen, /aria-pressed="false" disabled=""[^>]*aria-label="Imagem e"/, "Passou do teto de 4");
+assert.match(fullScreen, /checked="" value="back"/);
+assert.match(fullScreen, /Remover telão/);
+console.log("Telão: aba, ordem, teto, key sem arquivo, lado e remover OK.");
 
 // Executa a seleção real: bloqueado não emite patch; disponível atualiza só o campo escolhido.
 const source = await readFile(new URL("../src/components/customization/BuildingCustomizer.tsx", import.meta.url), "utf8");
@@ -105,7 +124,7 @@ orbit.update();
 assert.equal(orbit.getPolarAngle(), Math.PI / 2, "Câmera deve parar no horizonte");
 assert.ok(camera.position.y >= orbit.target.y, "Não permite olhar o edifício por baixo");
 assert.ok(Math.abs(camera.position.distanceTo(orbit.target) - distance) < 1e-10, "Limite vertical preserva o zoom");
-runtimeRef.current.view = { scene: {}, camera: {}, tick() {}, hasAnimation: () => false, dispose() { counts.view += 1; } };
+runtimeRef.current.view = { scene: {}, camera: {}, tick: () => false, dispose() { counts.view += 1; } };
 frame(40);
 assert.equal(counts.render, 1);
 mocks.document.hidden = true;
@@ -123,10 +142,10 @@ assert.equal(counts.render, 2, "Prévia estática repetiu render");
 runtimeRef.current.controls.dispatchEvent({ type: "change" });
 frame(240);
 assert.equal(counts.render, 3, "Controle não pediu render");
-runtimeRef.current.view.hasAnimation = () => true;
+runtimeRef.current.view.tick = () => true;
 frame(280);
 frame(320);
-assert.equal(counts.render, 5, "Holograma deixou de animar");
+assert.equal(counts.render, 5, "Holograma/troca do telão deixou de animar");
 cleanup();
 assert.equal(runtimeRef.current, null);
 assert.deepEqual(counts, { render: 5, renderer: 1, context: 1, controls: 1, observers: 2, view: 1, canceled: 1 });

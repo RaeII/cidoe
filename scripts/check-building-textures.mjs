@@ -21,11 +21,13 @@ const bundle = await build({
     name: "texture-io",
     setup(builder) {
       builder.onResolve({ filter: /^three$/ }, () => ({ path: threeUrl, external: true }));
-      builder.onResolve({ filter: /facadeTexture(Loader|Manifest)$/ }, ({ path }) => ({
+      builder.onResolve({ filter: /facadeTexture(Loader|Manifest)$|screenImageManifest$/ }, ({ path }) => ({
         path, namespace: "texture-io",
       }));
       builder.onLoad({ filter: /.*/, namespace: "texture-io" }, ({ path }) => ({
-        contents: path.endsWith("Manifest") ? `
+        contents: path.endsWith("screenImageManifest") ? `
+          export const getScreenImageUrl = (key) => key === "sem-arquivo" ? null : "/" + key + ".webp";
+        ` : path.endsWith("Manifest") ? `
           export const resolveFacadeFolder = (value) => value?.replace(/^texture\\//, '') ?? '';
           export const getFacadeMapUrls = () => ({});
         ` : `
