@@ -94,5 +94,7 @@ Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] 
 - `node scripts/check-building-customizer.mjs` — aba Telão por time.
 - `node scripts/check-led-screen-ui.mjs` (dev server + API + Chrome; `MOBILE=1`, `SHOTS=pasta`) — evento inteiro no app: login no modal, oferta, lista, conquista, onboarding depois, telão, Trocar time por cima do editor. API da conta simulada por interceptação: não cria conta nem manda e-mail.
 
-> [!warning] Antes de divulgar
+## Antes de divulgar
+
+> [!warning] Licença
 > Imagens são escudos, mascotes e estádios de clubes reais, servidos pelo Cidoe. Risco de marca/direito autoral alto sem licença (Lei Geral do Esporte arts. 168–170, LPI, LDA). Termos sem cláusula de marcas de terceiros. Decisão do dono antes de publicar.
