@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { domAnimation, LazyMotion, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
 import { ApiError } from "@/api/http";
 import { useAuth } from "@/hooks/useAuth";
+import { useClubCatalog } from "@/components/hooks/useClubCatalog";
 import { useMyClub } from "@/components/hooks/useMyClub";
-import { clubImages, clubThumb, findClub, searchClubs, type Club } from "@/lib/clubs";
+import { clubImages, findClub, remapScreenImages, searchClubs, type Club } from "@/lib/clubs";
 import { cn } from "@/lib/utils";
 import { RewardConfetti } from "@/components/pass/RewardConfetti";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 type View = "loading" | "error" | "login" | "gate" | "list" | "offer" | "mine" | "won";
 
-/** As 3 imagens do telão: a própria recompensa, sem texto explicando. */
+/** As imagens do telão: a própria recompensa, sem texto explicando. */
 function ClubImages({ club, animate = false }: { club: Club; animate?: boolean }) {
   const reducedMotion = useReducedMotion();
   return (
@@ -37,11 +38,12 @@ function ErrorLine({ children }: { children: ReactNode }) {
 
 /**
  * Evento dos times. Link `?time=<slug>` propõe o time; visitante entra aqui mesmo (login embutido,
- * nada empilha); depois aceita ou escolhe outro e ganha as 3 imagens do telão. Uma troca depois da
- * escolha: usada, o botão some. Montado sob demanda (lazy) pelo AuthMenu.
+ * nada empilha); depois aceita ou escolhe outro e ganha as imagens do telão. Uma troca depois da
+ * escolha: usada, o botão some. Times e imagens vêm do catálogo (admin em /dale/times); evento
+ * desligado fecha sem aparecer. Montado sob demanda (lazy) pelo AuthMenu.
  */
 export default function ClubEventDialog({ initialClub, startPicking = false, loginPanel, gate, onChosen, onClose }: {
-  /** Slug do link; ausente ou desconhecido: lista (sem time) ou o time atual. */
+  /** Slug do link; ausente, desconhecido ou time inativo: lista (sem time) ou o time atual. */
   initialClub: string | null;
   /** Abre direto na lista (Trocar time no telão). */
   startPicking?: boolean;
@@ -49,25 +51,35 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   loginPanel: ReactNode;
   /** Etapa obrigatória da conta antes de escolher (ex.: reaceite dos termos), no lugar do conteúdo. */
   gate?: ReactNode;
-  /** Escolha gravada: editor leva os telões montados para o time novo. */
-  onChosen: (club: string) => void;
+  /** Escolha gravada: editor passa os telões montados por `remap` (mesma posição no time novo). */
+  onChosen: (remap: (keys: readonly string[]) => string[]) => void;
   onClose: () => void;
 }) {
   const { user, isLoading } = useAuth();
+  const catalog = useClubCatalog();
   const mine = useMyClub(user?.id);
   const reducedMotion = useReducedMotion();
-  const [candidate, setCandidate] = useState(() => findClub(initialClub));
+  const [candidateSlug, setCandidateSlug] = useState(initialClub);
   const [picking, setPicking] = useState(startPicking);
   const [query, setQuery] = useState("");
   const [won, setWon] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const current = findClub(mine.club);
+  const clubs = catalog.catalog?.clubs ?? [];
+  const eventOff = catalog.catalog?.isActive === false;
+  // Evento desligado pelo admin: link não faz nada.
+  useEffect(() => { if (eventOff) onClose(); }, [eventOff, onClose]);
+
+  // Só time ativo é oferecido; o atual aparece mesmo inativo (quem torce mantém as imagens).
+  const found = findClub(clubs, candidateSlug);
+  const candidate = found?.isActive ? found : null;
+  const current = findClub(clubs, mine.club);
   // Servidor diz se ainda pode escolher (sem time = true). Slug que o front não conhece não destrava a troca.
   const canPick = mine.canChange;
   let view: View;
-  if (isLoading) view = "loading";
+  if (catalog.error) view = "error";
+  else if (isLoading) view = "loading";
   else if (!user) view = "login";
   else if (gate) view = "gate";
   else if (!mine.ready && !mine.error) view = "loading";
@@ -84,7 +96,8 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
     setError(null);
     try {
       await mine.choose(candidate.slug);
-      onChosen(candidate.slug);
+      const slug = candidate.slug;
+      onChosen((keys) => remapScreenImages(clubs, keys, slug));
       setWon(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Não foi possível salvar. Tente de novo.");
@@ -94,7 +107,7 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   }
 
   function pick(club: Club) {
-    setCandidate(club);
+    setCandidateSlug(club.slug);
     setPicking(false);
     setQuery("");
     setError(null);
@@ -105,8 +118,12 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
     setError(null);
   }
 
-  const results = view === "list" ? searchClubs(query) : [];
+  const results = view === "list" ? searchClubs(clubs, query) : [];
   const shown = view === "offer" ? candidate! : current!;
+
+  // Catálogo carregando (ou evento desligado, fechando): nada na tela, sem piscar o modal.
+  // O editor segue segurando os outros modais enquanto o evento está aberto.
+  if ((!catalog.catalog && !catalog.error) || eventOff) return null;
 
   return (
     <LazyMotion features={domAnimation} strict>
@@ -128,8 +145,8 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
 
             {view === "error" && <>
               <DialogTitle>Seu time</DialogTitle>
-              <DialogDescription role="alert" className="flex gap-2 text-destructive"><ErrorMark />{mine.error}</DialogDescription>
-              <Button className="w-full" onClick={mine.retry}>Tentar de novo</Button>
+              <DialogDescription role="alert" className="flex gap-2 text-destructive"><ErrorMark />{catalog.error ?? mine.error}</DialogDescription>
+              <Button className="w-full" onClick={catalog.error ? catalog.retry : mine.retry}>Tentar de novo</Button>
             </>}
 
             {view === "login" && <>
@@ -157,7 +174,7 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
                       <li key={club.slug}>
                         <button type="button" onClick={() => pick(club)} aria-current={isCurrent || undefined}
                           className={cn("focus-inset flex w-full items-center gap-2.5 pixel pixel-thin p-1.5 pr-2.5 text-left text-sm leading-tight font-semibold transition-colors", isCurrent ? "pixel-ink-verde bg-secondary" : "bg-card hover:bg-accent")}>
-                          <img src={clubThumb(club)} alt="" width={96} height={96} loading="lazy" decoding="async" className="size-10 shrink-0 bg-tinta" />
+                          <img src={club.thumbUrl} alt="" width={96} height={96} loading="lazy" decoding="async" className="size-10 shrink-0 bg-tinta" />
                           <span className="min-w-0 break-words">{club.name}</span>
                           {isCurrent && <PixelCheck aria-hidden className="ml-auto size-3 shrink-0 text-primary" />}
                         </button>

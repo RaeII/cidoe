@@ -142,9 +142,9 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 
 ## Imagens do telão
 
-Imagens do telão = imagens do [[evento-times|evento dos times]]: `public/clubes/<slug>/{1,2,3}.webp` (256 px: miniatura do painel e fonte dos 64×64 LEDs; 5–20 KB; 1 = escudo) + `thumb.webp` (96 px, lista de times). Geradas por `npm run clubs:webp` (`scripts/encode-clubs.mjs`, `cwebp -q 90 -sharp_yuv -m 6`).
+Imagens do telão = imagens do [[evento-times|evento dos times]], no banco (admin em `/dale/times`, [[evento-times-admin]]) e servidas pela API: `/api/club/images/<slug>/<n>` (256 px quadrado: miniatura do painel e fonte dos 64×64 LEDs; 5–20 KB; 1ª = escudo) + `/thumb` (96 px, lista de times). Cache 5 min + ETag. Painel recorta e codifica no navegador (`encodeClubImage`).
 
-`src/scene/textures/screenImageManifest.ts` (sem THREE, sem glob, sem lista): `key` gravada em `screenImages` = `"<slug>/<n>"`; `getScreenImageUrl(key)` → `/clubes/<slug>/<n>.webp`. Formato fechado (`^[a-z0-9-]{1,40}/[1-3]$`): fora dele → `null`, telão ignora (keys antigas dos escudos de teste, dado adulterado). Slug sem pasta passa no formato e dá 404: tela apagada + aviso no console. Nomes dos times ficam em `src/lib/clubs.ts`, só nos chunks da UI — chunk da cena não carrega catálogo.
+`src/scene/textures/screenImageManifest.ts` (sem THREE, sem glob, sem lista): `key` gravada em `screenImages` = `"<slug>/<n>"` (`n` = número estável da imagem, 1–999); `getScreenImageUrl(key)` → `/api/club/images/<slug>/<n>` (sem `?v=`: troca de imagem chega em ≤5 min). Formato fechado (`^[a-z0-9-]{1,40}/[1-9][0-9]{0,2}$`, igual ao back): fora dele → `null`, telão ignora (keys antigas dos escudos de teste, dado adulterado). Imagem removida passa no formato e dá 404: tela apagada + aviso no console. Nomes e versões ficam no catálogo (`useClubCatalog`), só nos chunks da UI — chunk da cena não carrega catálogo.
 
 - `public/` sem hash: nginx guarda 30 dias. Trocar imagem = trocar nome do arquivo.
 - Scripts que empacotam manager/prévia com esbuild ainda trocam o módulo por stub (keys de teste `a`, `b`…); módulo é puro, stub virou opcional.

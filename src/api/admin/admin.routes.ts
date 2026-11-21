@@ -16,6 +16,10 @@ import type {
   AdminOng,
   OngInput,
   OngPage,
+  AdminClub,
+  ClubEventOverview,
+  ClubImageInput,
+  CreateClubInput,
 } from "./admin.types";
 
 // Rotas /admin do backend — todas exigem sessão admin (cookie httpOnly
@@ -86,6 +90,52 @@ export async function updateOng(id: number, input: Partial<OngInput>) {
 
 export async function deleteOng(id: number) {
   await http.delete(`/admin/ongs/${id}`);
+}
+
+// ─── Evento dos times ───────────────────────────────────────────
+
+export async function getClubEvent() {
+  const { data } = await http.get<{ data: ClubEventOverview }>("/admin/club-event");
+  return data.data;
+}
+
+/** Desligado: link `?time=` não abre e ninguém escolhe/troca; quem já tem time mantém as imagens. */
+export async function setClubEventActive(isActive: boolean) {
+  const { data } = await http.put<{ data: { isActive: boolean } }>("/admin/club-event", { isActive });
+  return data.data.isActive;
+}
+
+/** Slug vira o link (`?time=<slug>`) e a chave do telão: não muda depois. */
+export async function createClub(input: CreateClubInput) {
+  const { data } = await http.post<{ data: AdminClub }>("/admin/club-event/clubs", input);
+  return data.data;
+}
+
+export async function updateClub(slug: string, input: Partial<Pick<CreateClubInput, "name" | "isActive">>) {
+  const { data } = await http.put<{ data: AdminClub }>(`/admin/club-event/clubs/${slug}`, input);
+  return data.data;
+}
+
+/** Definitivo: imagens saem dos telões e quem torcia volta a escolher. */
+export async function deleteClub(slug: string) {
+  await http.delete(`/admin/club-event/clubs/${slug}`);
+}
+
+export async function addClubImage(slug: string, input: ClubImageInput) {
+  const { data } = await http.post<{ data: AdminClub }>(`/admin/club-event/clubs/${slug}/images`, input);
+  return data.data;
+}
+
+/** Mesmo número: telões que usam a imagem passam a mostrar a nova. */
+export async function replaceClubImage(slug: string, number: number, input: ClubImageInput) {
+  const { data } = await http.put<{ data: AdminClub }>(`/admin/club-event/clubs/${slug}/images/${number}`, input);
+  return data.data;
+}
+
+/** A imagem sai de todos os telões que a usam. */
+export async function deleteClubImage(slug: string, number: number) {
+  const { data } = await http.delete<{ data: AdminClub }>(`/admin/club-event/clubs/${slug}/images/${number}`);
+  return data.data;
 }
 
 // ─── Primeiros inscritos ────────────────────────────────────────

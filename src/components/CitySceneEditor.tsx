@@ -60,7 +60,6 @@ import {
   DEFAULT_HOLOGRAM_OPACITY,
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
-import { getScreenImageUrl, screenImageKey } from "../scene/textures/screenImageManifest";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -553,16 +552,15 @@ export function CitySceneEditor() {
     [buildingSettings.color, queueSave],
   );
 
-  // Time escolhido: telão montado com imagem de outro time vira a mesma posição do time novo
-  // ("gremio/2" → "flamengo/2"). Servidor já migrou os edifícios da conta na troca (PUT /club/me);
-  // aqui o estado local acompanha e regrava só os próprios (mesmo valor, idempotente).
-  const handleClubChosen = useCallback((club: string) => {
+  // Time escolhido: telão montado vira a imagem da mesma posição no time novo (`remap` vem do modal,
+  // que tem o catálogo). Servidor já migrou os edifícios da conta na troca (PUT /club/me), com a mesma
+  // regra; aqui o estado local acompanha e regrava só os próprios (mesmo valor, idempotente).
+  const handleClubChosen = useCallback((remap: (keys: readonly string[]) => string[]) => {
     for (const [id, customization] of customizationsRef.current) {
       if (!ownedDonationIds.has(id)) continue;
       const keys = customization.screenImages ?? [];
-      if (keys.every((key) => key.startsWith(`${club}/`))) continue;
-      const remapped = keys.map((key) => screenImageKey(club, Number(key.split("/")[1])));
-      updateCustomization(id, { screenImages: [...new Set(remapped)].filter((key) => getScreenImageUrl(key)) });
+      const next = remap(keys);
+      if (next.length !== keys.length || next.some((key, index) => key !== keys[index])) updateCustomization(id, { screenImages: next });
     }
   }, [updateCustomization, ownedDonationIds]);
 

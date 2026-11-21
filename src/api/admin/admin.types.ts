@@ -136,3 +136,42 @@ export interface UpdateCategoryInput extends UnlockInput {
   sortOrder?: number;
   isActive?: boolean;
 }
+
+// ─── Evento dos times ───────────────────────────────────────────
+
+/** Imagem do telão. `number` é estável (chave "<slug>/<number>" nos edifícios); URLs com versão. */
+export interface AdminClubImage {
+  number: number;
+  url: string;
+  thumbUrl: string;
+}
+
+export interface AdminClub {
+  slug: string;
+  name: string;
+  isActive: boolean;
+  /** Quantos escolheram este time. */
+  fans: number;
+  createdAt: string;
+  images: AdminClubImage[];
+}
+
+/** GET /admin/club-event: evento ligado, participantes, trocas usadas e todos os times. */
+export interface ClubEventOverview {
+  isActive: boolean;
+  participants: number;
+  changesUsed: number;
+  clubs: AdminClub[];
+}
+
+export interface CreateClubInput {
+  slug: string;
+  name: string;
+  isActive: boolean;
+}
+
+/** Imagem 256 px + miniatura 96 px, data URL (src/lib/image.ts encodeClubImage). */
+export interface ClubImageInput {
+  image: string;
+  thumb: string;
+}

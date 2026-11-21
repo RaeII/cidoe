@@ -17,6 +17,9 @@ const bundle = await build({
   plugins: [{ name: "skip-webgl-and-images", setup(api) {
     api.onResolve({ filter: /(?:CustomizationImage|BuildingPreview)$/ }, (args) => ({ path: args.path, namespace: "preview-stub" }));
     api.onLoad({ filter: /.*/, namespace: "preview-stub" }, () => ({ contents: "export const CustomizationImage = () => null; export const BuildingPreview = () => null;" }));
+    // Catálogo do evento vem da API: aqui, do globalThis (null = carregando).
+    api.onResolve({ filter: /useClubCatalog$/ }, (args) => ({ path: args.path, namespace: "club-catalog-stub" }));
+    api.onLoad({ filter: /.*/, namespace: "club-catalog-stub" }, () => ({ contents: "export const useClubCatalog = (enabled) => ({ catalog: enabled ? globalThis.clubCatalog : null, error: null, retry() {} });" }));
   } }],
 });
 const module = { exports: {} };
@@ -47,21 +50,35 @@ for (const feature of ["sign", "hologram"]) {
   assert.match(unlockedHtml, feature === "sign" ? /Texto do letreiro/ : /Imagem ou GIF/);
 }
 
-// Telão: só com time do evento e só as 3 imagens dele; ordem nos selos; key de outro time (troca)
-// não conta mas ainda deixa remover; Trocar time só enquanto a troca existe.
+// Telão: só com time do evento e só as imagens dele (catálogo da API); ordem nos selos; key de
+// outro time (troca) não conta mas ainda deixa remover; Trocar time só com troca e evento ligado.
+const team = (slug, name, count, isActive = true) => ({ slug, name, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
+  images: Array.from({ length: count }, (_, i) => ({ key: `${slug}/${i + 1}`, url: `/api/club/images/${slug}/${i + 1}?v=1` })) });
+const clubCatalog = { isActive: true, clubs: [team("gremio", "Grêmio", 3), team("flamengo", "Flamengo", 3), team("bahia", "Bahia", 6), team("santos", "Santos", 2, false)] };
+globalThis.clubCatalog = clubCatalog;
 const screenCatalog = { ...catalog, shapes: [], colors: [] };
 for (const club of [undefined, null, "time-inexistente"]) {
   assert.doesNotMatch(render({ ...props, catalog: screenCatalog, club }), />Telão</, `Aba do telão sem time (${club})`);
 }
+globalThis.clubCatalog = null;
+assert.doesNotMatch(render({ ...props, catalog: screenCatalog, club: "gremio" }), />Telão</, "Aba do telão antes do catálogo");
+globalThis.clubCatalog = clubCatalog;
 const emptyScreen = render({ ...props, catalog: screenCatalog, club: "gremio" });
 assert.match(emptyScreen, /role="tab"[^>]*>Telão</, "Aba do telão ausente");
 assert.match(emptyScreen, />Grêmio</, "Nome do time no rótulo");
 assert.match(emptyScreen, /0\/3/);
-assert.equal(emptyScreen.match(/src="\/clubes\/gremio\/[1-3]\.webp"/g)?.length, 3, "Três imagens do time");
-assert.doesNotMatch(emptyScreen, /clubes\/(?!gremio)/, "Imagem de outro time");
+assert.equal(emptyScreen.match(/src="\/api\/club\/images\/gremio\/[1-3]\?v=1"/g)?.length, 3, "Três imagens do time");
+assert.doesNotMatch(emptyScreen, /club\/images\/(?!gremio)/, "Imagem de outro time");
 assert.doesNotMatch(emptyScreen, /Remover telão|Trocar time/, "Remover/Trocar sem telão nem troca");
 assert.match(emptyScreen, /checked="" value="front"/, "Lado padrão não é a frente");
 assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", onChangeClub: () => {} }), /Trocar time/);
+const many = render({ ...props, catalog: screenCatalog, club: "bahia" });
+assert.equal(many.match(/aria-label="Bahia, imagem \d"/g)?.length, 6, "Time com mais imagens mostra todas");
+assert.match(many, /0\/4/, "Teto do telão (4) com time de 6 imagens");
+assert.match(render({ ...props, catalog: screenCatalog, club: "santos" }), />Telão</, "Time desativado: quem torce mantém as imagens");
+globalThis.clubCatalog = { ...clubCatalog, isActive: false };
+assert.doesNotMatch(render({ ...props, catalog: screenCatalog, club: "gremio", onChangeClub: () => {} }), /Trocar time/, "Trocar time com evento desligado");
+globalThis.clubCatalog = clubCatalog;
 const fullScreen = render({ ...props, catalog: screenCatalog, club: "gremio", customization: { ...customization, screenSide: "back", screenImages: ["gremio/3", "flamengo/1", "gremio/1"] } });
 assert.match(fullScreen, /2\/3/, "Key de outro time contou");
 assert.match(fullScreen, /aria-label="Grêmio, imagem 3, 1ª no telão"/, "Ordem de escolha não vira ordem de exibição");
@@ -70,7 +87,7 @@ assert.match(fullScreen, /aria-pressed="false"[^>]*aria-label="Grêmio, imagem 2
 assert.match(fullScreen, /checked="" value="back"/);
 assert.match(fullScreen, /Remover telão/);
 assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", customization: { ...customization, screenImages: ["flamengo/1"] } }), /Remover telão/, "Telão só com imagem de outro time precisa poder sair");
-console.log("Telão: aba por time, 3 imagens, ordem, troca de time, lado, remover e trocar OK.");
+console.log("Telão: aba por time do catálogo, imagens, teto, ordem, troca de time, lado, remover, trocar e evento desligado OK.");
 
 // Executa a seleção real: bloqueado não emite patch; disponível atualiza só o campo escolhido.
 const source = await readFile(new URL("../src/components/customization/BuildingCustomizer.tsx", import.meta.url), "utf8");

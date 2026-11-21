@@ -1,4 +1,4 @@
-import { Blocks, Boxes, Gift, HeartHandshake, LayoutDashboard, MapPinned, Palette, Trophy, Users, type LucideIcon } from "lucide-react";
+import { Blocks, Boxes, Gift, HeartHandshake, LayoutDashboard, MapPinned, Palette, Shirt, Trophy, Users, type LucideIcon } from "lucide-react";
 
 // Fonte única de navegação da área /dale (admin): AppSidebar (desktop) e MobileNav
 // (bottom bar) leem daqui. `to` presente = navega e marca ativo.
@@ -14,6 +14,7 @@ export const navItems: NavItem[] = [
   { title: "Personalizações", icon: Palette, to: "/dale/personalizacoes" },
   { title: "Passe", icon: Trophy, to: "/dale/passe" },
   { title: "Primeiros inscritos", icon: Gift, to: "/dale/primeiros-inscritos" },
+  { title: "Evento dos times", icon: Shirt, to: "/dale/times" },
   { title: "IBGE", icon: MapPinned, to: "/dale/ibge" },
   { title: "Usuários", icon: Users, to: "/dale/usuarios" },
   { title: "ONGs", icon: HeartHandshake, to: "/dale/ongs" },
