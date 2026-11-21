@@ -1,10 +1,11 @@
 // node scripts/check-club-event.mjs — evento dos times, sem servidor/navegador.
-// Confere: lista de times (src/lib/clubs.ts) = pastas de public/clubes com 1/2/3/thumb.webp
-// = CLUB_SLUGS do back (se ../cidoa-back existir); key do telão; busca sem acento; e o modal real
-// (ClubEventDialog) em todos os estados: login, carregando, erro, oferta, lista, meu time,
-// conquista, troca usada, 409 e fechar durante o salvamento.
+// Confere: contrato com o back (formato do slug e da key do telão, teto de imagens, se ../cidoa-back
+// existir); key do telão → URL da API; catálogo (lib/clubs.ts): busca sem acento só com ativos, time
+// do link, troca por posição; e o modal real (ClubEventDialog) em todos os estados: catálogo
+// carregando/erro, evento desligado, login, carregando, erro, oferta, lista, meu time, conquista,
+// troca usada, time inativo, 409 e fechar durante o salvamento.
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import * as React from "react";
@@ -21,47 +22,71 @@ async function bundle(path) {
 const clubs = await bundle("src/lib/clubs.ts");
 const manifest = await bundle("src/scene/textures/screenImageManifest.ts");
 
-// --- Catálogo × arquivos × back ---
-const slugs = clubs.CLUBS.map((club) => club.slug);
-assert.equal(new Set(slugs).size, slugs.length, "Slug repetido");
-assert.equal(new Set(clubs.CLUBS.map((club) => club.name)).size, slugs.length, "Nome repetido");
-const folders = readdirSync("public/clubes").filter((name) => !name.startsWith("."));
-assert.deepEqual([...folders].sort(), [...slugs].sort(), "Pastas de public/clubes ≠ lista de times");
-for (const slug of slugs) {
-  for (const file of ["1.webp", "2.webp", "3.webp", "thumb.webp"]) {
-    assert.ok(existsSync(`public/clubes/${slug}/${file}`), `Falta public/clubes/${slug}/${file}`);
-  }
-}
-const backSchema = "../cidoa-back/src/modules/club/schema/club.schema.ts";
-if (existsSync(backSchema)) {
-  const list = readFileSync(backSchema, "utf8").match(/CLUB_SLUGS = \[([^\]]*)\]/)?.[1] ?? "";
-  const back = [...list.matchAll(/"([a-z0-9-]+)"/g)].map((match) => match[1]);
-  assert.deepEqual([...back].sort(), [...slugs].sort(), "CLUB_SLUGS do back ≠ lista do front");
-} else console.log("(back ausente: comparação com CLUB_SLUGS pulada)");
-assert.deepEqual(clubs.CLUBS.map((club) => club.name), [...clubs.CLUBS.map((club) => club.name)].sort((a, b) => a.localeCompare(b, "pt-BR")), "Lista fora da ordem alfabética");
-console.log(`Catálogo: ${slugs.length} times, 4 arquivos cada, igual ao back OK.`);
+// --- Contrato com o back: mesmo formato de slug, de key do telão e mesmo teto de imagens ---
+const regexIn = (file, name) => {
+  const found = readFileSync(file, "utf8").match(new RegExp(`${name} = (/.+/);`))?.[1];
+  assert.ok(found, `${name} não encontrado em ${file}`);
+  return found;
+};
+const frontSlug = regexIn("src/pages/admin/Clubs.tsx", "SLUG");
+const frontKey = regexIn("src/scene/textures/screenImageManifest.ts", "KEY");
+const back = "../cidoa-back";
+if (existsSync(back)) {
+  assert.equal(regexIn(`${back}/src/modules/club/schema/club.schema.ts`, "CLUB_SLUG"), frontSlug, "Formato do slug: painel ≠ back");
+  assert.ok(readFileSync(`${back}/migrations/0033_club_catalog.sql`, "utf8").includes(`slug ~ '${frontSlug.slice(1, -1)}'`), "Formato do slug: painel ≠ CHECK do banco");
+  assert.equal(regexIn(`${back}/src/modules/donation/schema/donation.schema.ts`, "SCREEN_IMAGE_KEY"), frontKey, "Key do telão: cena ≠ back");
+  const max = (file, name) => {
+    const found = readFileSync(file, "utf8").match(new RegExp(`${name} = (\\d+)`))?.[1];
+    assert.ok(found, `${name} não encontrado em ${file}`);
+    return found;
+  };
+  assert.equal(max("src/pages/admin/Clubs.tsx", "MAX_IMAGES"), max(`${back}/src/modules/admin/club-event/schema/admin-club-event.schema.ts`, "CLUB_MAX_IMAGES"), "Teto de imagens: painel ≠ back");
+  console.log("Contrato com o back: slug, key do telão e teto de imagens OK.");
+} else console.log("(back ausente: contrato com o back pulado)");
 
-// --- Key do telão: formato fechado, nada de caminho ---
-assert.equal(manifest.getScreenImageUrl("gremio/1"), "/clubes/gremio/1.webp");
-assert.equal(manifest.getScreenImageUrl(manifest.screenImageKey("sao-paulo", 3)), "/clubes/sao-paulo/3.webp");
-for (const bad of ["gremio/4", "gremio/0", "../gremio/1", "gremio/1/../../x", "GREMIO/1", "escudo-pixelado-do-gremio", "", "gremio/1.webp", "/gremio/1"]) {
+// --- Key do telão: formato fechado, nada de caminho; URL da API sem versão ---
+assert.equal(manifest.getScreenImageUrl("gremio/1"), "/api/club/images/gremio/1");
+assert.equal(manifest.getScreenImageUrl("sao-paulo/12"), "/api/club/images/sao-paulo/12");
+for (const bad of ["gremio/0", "gremio/01", "gremio/1000", "../gremio/1", "gremio/1/../../x", "GREMIO/1", "escudo-pixelado-do-gremio", "", "gremio/1.webp", "/gremio/1", "gremio/1?v=2"]) {
   assert.equal(manifest.getScreenImageUrl(bad), null, `Key aceita: ${bad}`);
 }
-assert.deepEqual(clubs.clubImages(clubs.findClub("gremio")).map((image) => image.url), [1, 2, 3].map((n) => `/clubes/gremio/${n}.webp`));
-assert.equal(clubs.findClub(" Gremio "), clubs.findClub("gremio"), "Slug do link normaliza caixa/espaço");
-assert.equal(clubs.findClub("time-inexistente"), null);
-assert.equal(clubs.findClub(null), null);
-console.log("Key do telão: formato, URL e slug do link OK.");
+console.log("Key do telão: formato e URL da API OK.");
 
-// --- Busca ---
-const names = (query) => clubs.searchClubs(query).map((club) => club.name);
-assert.equal(names("").length, slugs.length);
+// --- Catálogo: time do link, imagens, busca (só ativos), troca por posição ---
+const team = (slug, name, numbers = [1, 2, 3], isActive = true) => ({
+  slug, name, isActive, thumbUrl: `/api/club/images/${slug}/${numbers[0]}/thumb?v=1`,
+  images: numbers.map((n) => ({ key: `${slug}/${n}`, url: `/api/club/images/${slug}/${n}?v=1` })),
+});
+const fixture = [
+  team("chapecoense", "Chapecoense"), team("flamengo", "Flamengo"), team("gremio", "Grêmio"),
+  team("ponte-preta", "Ponte Preta"), team("santos", "Santos", [1, 2, 3], false), team("sao-bernardo", "São Bernardo"),
+  team("sao-caetano", "São Caetano"), team("sao-jose-rs", "São José-RS"), team("sao-luiz-ijui", "São Luiz"),
+  team("sao-paulo", "São Paulo", [2, 5, 9]), team("vasco", "Vasco", [1, 2]),
+];
+const activeCount = fixture.filter((club) => club.isActive).length;
+assert.equal(clubs.findClub(fixture, " Gremio "), fixture[2], "Slug do link normaliza caixa/espaço");
+assert.equal(clubs.findClub(fixture, "santos")?.isActive, false, "Inativo segue achável (quem torce mantém)");
+assert.equal(clubs.findClub(fixture, "time-inexistente"), null);
+assert.equal(clubs.findClub(fixture, null), null);
+assert.deepEqual(clubs.clubImages(clubs.findClub(fixture, "sao-paulo")).map((image) => [image.key, image.label]),
+  [["sao-paulo/2", "São Paulo, imagem 1"], ["sao-paulo/5", "São Paulo, imagem 2"], ["sao-paulo/9", "São Paulo, imagem 3"]], "Rótulo pela posição, não pelo número");
+const names = (query) => clubs.searchClubs(fixture, query).map((club) => club.name);
+assert.equal(names("").length, activeCount);
+assert.ok(!names("").includes("Santos") && !names("santos").length, "Time inativo na lista");
 assert.deepEqual(names("sao").slice(0, 5), ["São Bernardo", "São Caetano", "São José-RS", "São Luiz", "São Paulo"], "Sem acento e prefixo primeiro");
 assert.ok(names("preta").includes("Ponte Preta"), "Prefixo de palavra do meio");
 assert.equal(names("GRÊMIO")[0], "Grêmio");
 assert.deepEqual(names("zzz"), []);
 assert.ok(names("ense").includes("Chapecoense"), "Trecho no meio entra depois");
-console.log("Busca: acento, caixa, prefixo de palavra e trecho OK.");
+const remap = (keys, slug) => clubs.remapScreenImages(fixture, keys, slug);
+assert.deepEqual(remap(["gremio/3", "gremio/1"], "flamengo"), ["flamengo/3", "flamengo/1"], "Mesma posição, ordem mantida");
+assert.deepEqual(remap(["gremio/3", "gremio/2"], "sao-paulo"), ["sao-paulo/9", "sao-paulo/5"], "Posição, não número (buracos)");
+assert.deepEqual(remap(["sao-paulo/9", "sao-paulo/2"], "gremio"), ["gremio/3", "gremio/1"]);
+assert.deepEqual(remap(["gremio/3", "gremio/1"], "vasco"), ["vasco/1"], "Time novo com menos imagens perde a posição");
+assert.deepEqual(remap(["gremio/7", "time-inexistente/1", "gremio/2"], "flamengo"), ["flamengo/2"], "Imagem fora do catálogo sai");
+assert.deepEqual(remap(["flamengo/2", "flamengo/1"], "flamengo"), ["flamengo/2", "flamengo/1"], "Idempotente");
+assert.deepEqual(remap([], "flamengo"), []);
+console.log("Catálogo: link, rótulos, busca só com ativos, troca por posição OK.");
 
 // --- Modal real ---
 const jsx = nativeRequire("react/jsx-runtime");
@@ -82,10 +107,11 @@ const find = (node, predicate) => {
   return [...(predicate(node) ? [node] : []), ...find(node.props.children, predicate)];
 };
 
-function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, initialClub = null, startPicking, gate, reduced = false, choose } = {}) {
+function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, initialClub = null, startPicking, gate, reduced = false, choose,
+  catalog = { isActive: true, clubs: fixture }, catalogError = null } = {}) {
   const slots = [];
   let cursor = 0;
-  const calls = { choose: [], chosen: [], retry: 0, close: 0 };
+  const calls = { choose: [], chosen: [], retry: 0, close: 0, catalogRetry: 0 };
   const mine = { club: null, canChange: true, ready: true, error: null, ...mineInit,
     retry: () => { calls.retry += 1; },
     async choose(slug) {
@@ -100,13 +126,14 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
         const index = cursor++;
         if (!(index in slots)) slots[index] = typeof initial === "function" ? initial() : initial;
         return [slots[index], (value) => { slots[index] = typeof value === "function" ? value(slots[index]) : value; }];
-      } },
+      }, useEffect: (effect) => { effect(); } },
       "react/jsx-runtime": jsx,
       "motion/react": { domAnimation: {}, LazyMotion: "LazyMotion", useReducedMotion: () => reduced },
       "motion/react-m": { li: "m.li" },
       "@/api/http": { ApiError },
       "@/hooks/useAuth": { useAuth: () => ({ user, isLoading: authLoading }) },
       "@/components/hooks/useMyClub": { useMyClub: () => mine },
+      "@/components/hooks/useClubCatalog": { useClubCatalog: () => ({ catalog, error: catalogError, retry: () => { calls.catalogRetry += 1; } }) },
       "@/lib/clubs": clubs,
       "@/lib/utils": { cn: (...classes) => classes.filter(Boolean).join(" ") },
       "@/components/pass/RewardConfetti": { RewardConfetti: "RewardConfetti" },
@@ -122,7 +149,7 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
   const Dialog = context.exports.default;
   const render = () => {
     cursor = 0;
-    return Dialog({ initialClub, startPicking, gate, loginPanel: React.createElement("AuthPanel"), onChosen: (club) => calls.chosen.push(club), onClose: () => { calls.close += 1; } });
+    return Dialog({ initialClub, startPicking, gate, loginPanel: React.createElement("AuthPanel"), onChosen: (remap) => calls.chosen.push(remap), onClose: () => { calls.close += 1; } });
   };
   const ui = {
     tree: render(), calls, mine,
@@ -143,8 +170,23 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
   return ui;
 }
 
+// Catálogo carregando: nada na tela (sem piscar). Erro: tentar de novo. Evento desligado: fecha sozinho.
+let ui = mount({ catalog: null, initialClub: "gremio" });
+assert.equal(ui.tree, null, "Modal antes do catálogo");
+assert.equal(ui.calls.close, 0);
+ui = mount({ catalog: null, catalogError: "Sem rede", initialClub: "gremio" });
+assert.match(text(ui.tree), /Sem rede/);
+ui.button("Tentar de novo").props.onClick();
+assert.equal(ui.calls.catalogRetry, 1, "Tentar de novo não releu o catálogo");
+for (const user of [null, { id: 7 }]) {
+  ui = mount({ user, catalog: { isActive: false, clubs: fixture }, initialClub: "gremio" });
+  assert.equal(ui.tree, null, "Evento desligado mostrou o modal");
+  assert.equal(ui.calls.close, 1, "Evento desligado não fechou (limpa ?time)");
+}
+console.log("Catálogo: carregando sem modal, erro com tentar de novo, evento desligado fecha OK.");
+
 // Visitante: login embutido, com as imagens do time do link.
-let ui = mount({ user: null, initialClub: "gremio" });
+ui = mount({ user: null, initialClub: "gremio" });
 assert.equal(find(ui.tree, (node) => node.type === "AuthPanel").length, 1, "Login embutido ausente");
 assert.deepEqual(ui.images(), ["gremio"]);
 assert.match(text(ui.tree), /Entre para ganhar estas imagens/);
@@ -181,7 +223,8 @@ ui.button("Sim, é meu time").props.onClick();
 await settle();
 ui.render();
 assert.deepEqual(ui.calls.choose, ["gremio"]);
-assert.deepEqual(ui.calls.chosen, ["gremio"], "Editor não soube da escolha");
+assert.equal(ui.calls.chosen.length, 1, "Editor não soube da escolha");
+assert.deepEqual(ui.calls.chosen[0](["flamengo/3", "flamengo/1"]), ["gremio/3", "gremio/1"], "Editor recebeu a troca por posição do time escolhido");
 assert.doesNotMatch(text(ui.tree), /Seu time:/, "Kicker sem time anterior");
 assert.equal(ui.title(), "Imagens liberadas");
 assert.ok(ui.confetti(), "Conquista sem confete");
@@ -199,7 +242,7 @@ ui = mount({ initialClub: "gremio" });
 ui.button("Escolher outro time").props.onClick();
 ui.render();
 assert.equal(ui.title(), "Escolha seu time");
-assert.equal(ui.clubButtons().length, slugs.length);
+assert.equal(ui.clubButtons().length, activeCount, "Lista só com times ativos");
 assert.ok(ui.has("Voltar"));
 const search = find(ui.tree, (node) => node.type === "Input")[0];
 search.props.onChange({ target: { value: "flam" } });
@@ -217,6 +260,12 @@ assert.equal(ui.title(), "Escolha seu time", "Link sem time válido abre a lista
 assert.equal(ui.has("Voltar"), false);
 assert.equal(mount({ mine: { club: "gremio", canChange: true }, initialClub: "nao-existe" }).title(), "Grêmio", "Com time, link inválido mostra o time");
 assert.equal(mount({ mine: { club: "gremio", canChange: true }, startPicking: true }).title(), "Escolha seu time", "Trocar time abre na lista");
+ui = mount({ initialClub: "santos" });
+assert.equal(ui.title(), "Escolha seu time", "Link de time inativo ofereceu o time");
+assert.equal(mount({ user: null, initialClub: "santos" }).images().length, 0, "Visitante viu imagens de time inativo");
+ui = mount({ mine: { club: "santos", canChange: true }, initialClub: "santos" });
+assert.equal(ui.title(), "Santos", "Quem torce por time inativo perdeu o time");
+assert.deepEqual(ui.images(), ["santos"]);
 console.log("Lista: busca, vazio, escolha vira oferta, voltar só com destino OK.");
 
 // Já tem time: mesmo link mostra o time; troca disponível = Trocar time; usada = sem opção.

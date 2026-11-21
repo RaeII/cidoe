@@ -58,7 +58,7 @@ type AuthMenuProps = {
   onboardingBlocked: boolean;
   /** Evento dos times aberto (link `?time=` ou Trocar time no telão); `club` = slug do link. */
   clubEvent: { club: string | null; pick?: boolean } | null;
-  onClubChosen: (club: string) => void;
+  onClubChosen: (remap: (keys: readonly string[]) => string[]) => void;
   onClubEventClose: () => void;
 };
 

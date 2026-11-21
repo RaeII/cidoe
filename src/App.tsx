@@ -48,6 +48,7 @@ const EarlySignups = lazy(() => import("./pages/admin/EarlySignups"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const Ongs = lazy(() => import("./pages/admin/Ongs"));
+const Clubs = lazy(() => import("./pages/admin/Clubs"));
 
 function PageFallback() {
   return (
@@ -131,6 +132,7 @@ export function AppContent() {
               <Route path="/dale/ibge" element={<Ibge />} />
               <Route path="/dale/usuarios" element={<Users />} />
               <Route path="/dale/ongs" element={<Ongs />} />
+              <Route path="/dale/times" element={<Clubs />} />
             </Route>
           </Route>
 

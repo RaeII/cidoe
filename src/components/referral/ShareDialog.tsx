@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PixelCheck } from "@/components/ui/pixel-icon";
 import { LinkedInIcon } from "@/components/ui/social-icons";
 import { toast } from "@/components/ui/toast";
+import { copyText } from "@/lib/clipboard";
 
 // lucide 1.x não tem ícones de marca; glifos de simple-icons (CC0) e Feather (MIT, Facebook).
 // Cor de fundo = cor da marca (dado, não estilo); X usa tinta no lugar do preto.
@@ -35,24 +36,6 @@ const networks = [
   },
 ];
 
-/** Cópia sem Clipboard API. `host` fica dentro do modal: a trava de foco do Radix rouba o foco de fora. */
-function copyWithTextarea(text: string, host: HTMLElement) {
-  const area = document.createElement("textarea");
-  area.value = text;
-  area.readOnly = true;
-  area.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
-  host.append(area);
-  area.select();
-  area.setSelectionRange(0, text.length); // iOS ignora select() sozinho
-  try {
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    area.remove();
-  }
-}
-
 /** Compartilhamento inline: redes sociais + link com botão de copiar. */
 export function SharePanel({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -65,15 +48,8 @@ export function SharePanel({ url }: { url: string }) {
   }, [copied]);
 
   async function copyLink(event: React.MouseEvent<HTMLButtonElement>) {
-    const host = event.currentTarget.parentElement ?? document.body;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-    } catch {
-      // `navigator.clipboard` só existe em HTTPS/localhost; IP da rede local (http://192.168…) cai aqui.
-      if (copyWithTextarea(url, host)) setCopied(true);
-      else toast.error("Não foi possível copiar o link.");
-    }
+    if (await copyText(url, event.currentTarget.parentElement ?? document.body)) setCopied(true);
+    else toast.error("Não foi possível copiar o link.");
   }
 
   return (

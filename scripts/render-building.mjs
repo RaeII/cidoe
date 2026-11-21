@@ -8,7 +8,7 @@
  *   --height <n>                   altura na cena, 0,5–16 (padrão 4)
  *   --width <n>                    largura/profundidade do lote (padrão 2; torre central = 2,3)
  *   --sign <texto>                 letreiro nos 4 lados, como createSignMesh na cena
- *   --screen <lado>                telão (front|right|back|left) com o escudo do Grêmio (public/clubes/gremio/1.webp);
+ *   --screen <lado>                telão (front|right|back|left) com o escudo do Grêmio (scripts/fixtures/telao.webp);
  *                                  3ª vista vira close dele (LEDs, gabinete, braços)
  *   --screen-image <imagem>        imagem do telão no lugar da padrão
  *   --ref <imagem>                 referência ao lado das vistas
@@ -254,7 +254,7 @@ if (values.screen && !["front", "right", "back", "left"].includes(values.screen)
   console.error(`--screen inválido: ${values.screen} (front|right|back|left)`);
   process.exit(1);
 }
-const screenImage = values.screen && resolve(values["screen-image"] ?? join(ROOT, "public/clubes/gremio/1.webp"));
+const screenImage = values.screen && resolve(values["screen-image"] ?? join(ROOT, "scripts/fixtures/telao.webp"));
 if (screenImage && !existsSync(screenImage)) {
   console.error(`imagem do telão não existe: ${screenImage}`);
   process.exit(1);

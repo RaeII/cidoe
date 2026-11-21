@@ -6,6 +6,7 @@ import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi
 import { formatUnlockCta } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
 import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenSide, type TextureSettings } from "@/scene/types";
+import { useClubCatalog } from "@/components/hooks/useClubCatalog";
 import { clubImages, findClub } from "@/lib/clubs";
 import { CustomizationImage } from "./CustomizationImage";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,7 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   onBusyChange?: (busy: boolean) => void;
   /** Painel lateral sobre a cena: sem prévia (a própria cena mostra), opções em 3 colunas. */
   side?: boolean;
-  /** Time do evento (slug): aba Telão só existe com ele, e só com as 3 imagens dele. */
+  /** Time do evento (slug): aba Telão só existe com ele, e só com as imagens dele (catálogo da API). */
   club?: string | null;
   /** Presente enquanto a troca única de time está disponível. */
   onChangeClub?: () => void;
@@ -97,8 +98,11 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   useEffect(() => () => settling.current?.stop(), []);
   useMotionValueEvent(pos, "change", (value) => setStep(Math.round(value)));
   const categories = CATEGORIES.filter((item) => (catalog?.[item.field].length ?? 0) > 0);
-  const team = findClub(club);
+  const clubCatalog = useClubCatalog(club !== null);
+  const team = club ? findClub(clubCatalog.catalog?.clubs ?? [], club) : null;
   const screenImages = team ? clubImages(team) : [];
+  // Evento desligado pelo admin: ninguém troca de time (o servidor recusaria).
+  const changeClub = clubCatalog.catalog?.isActive ? onChangeClub : undefined;
   const tabs = [...categories, ...(catalog?.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog?.features.hologram ? [{ key: "hologram", label: "Holograma" }] : []), ...(team ? [{ key: "screen", label: "Telão" }] : [])];
   const screenIds = useId();
   const count = tabs.length;
@@ -311,9 +315,9 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
           ))}
         </div>
       </fieldset>
-      {(customization.screenImages.length > 0 || onChangeClub) && <div className="flex flex-wrap gap-2">
+      {(customization.screenImages.length > 0 || changeClub) && <div className="flex flex-wrap gap-2">
         {customization.screenImages.length > 0 && <Button type="button" variant="outline" onClick={() => onChange({ screenImages: [] })}>Remover telão</Button>}
-        {onChangeClub && <Button type="button" variant="ghost" onClick={onChangeClub}>Trocar time</Button>}
+        {changeClub && <Button type="button" variant="ghost" onClick={changeClub}>Trocar time</Button>}
       </div>}
     </>;
   };

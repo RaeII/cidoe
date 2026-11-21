@@ -10,8 +10,10 @@
 //    gravação (ordem e lado), uma troca do ciclo e console sem erro.
 // 3. Trocar time pelo telão: modal por cima do editor → Flamengo → telão montado vira as mesmas
 //    posições do Flamengo, aba mostra Flamengo e a troca some.
-// Sessão, login e `/club/me` simulados por interceptação (Fetch do CDP): não cria conta nem manda
-// e-mail; snapshot e catálogo vêm da API real. Câmera e confete: conferir nas telas (SHOTS).
+// 4. Evento desligado pelo admin: `?time=` não abre nada e sai da URL.
+// Sessão, login, `/club/me`, catálogo do evento e imagens dos times simulados por interceptação
+// (Fetch do CDP; imagem = scripts/fixtures/telao.webp): não cria conta nem manda e-mail; snapshot e
+// catálogo de personalização vêm da API real. Câmera e confete: conferir nas telas (SHOTS).
 //
 // Precisa: dev server (http://localhost:5173) + API e Google Chrome. Variáveis: URL, CHROME, ID
 // (edifício; padrão = maior seed do pré-lançamento), MOBILE=1 (390×844 com toque: editor vira modal
@@ -19,7 +21,7 @@
 // depois).
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -88,9 +90,14 @@ const shot = async (name) => {
   writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(data, "base64"));
 };
 
-// --- API simulada: sessão, login por código, time do evento e rotas "me" da conta ---
+// --- API simulada: sessão, login por código, catálogo e time do evento e rotas "me" da conta ---
 const now = new Date().toISOString();
-const api = { loggedIn: false, onboarded: false, club: null, changes: 0 };
+const api = { loggedIn: false, onboarded: false, club: null, changes: 0, eventActive: true };
+const team = (slug, name, isActive = true) => ({ slug, name, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
+  images: [1, 2, 3].map((n) => ({ key: `${slug}/${n}`, url: `/api/club/images/${slug}/${n}?v=1` })) });
+const CLUBS = [team("flamengo", "Flamengo"), team("gremio", "Grêmio"), team("palmeiras", "Palmeiras"), team("santos", "Santos", false), team("vasco", "Vasco")];
+const ACTIVE_CLUBS = CLUBS.filter((club) => club.isActive).length;
+const IMAGE = readFileSync(new globalThis.URL("./fixtures/telao.webp", import.meta.url));
 const user = () => ({
   id: 4242, username: "torcedor", name: "Torcedor Teste", profile_image: null, email: "torcedor@cidoe.test",
   is_active: true, is_admin: false, city: null, discovery_source: null, discovery_source_other: null,
@@ -103,6 +110,7 @@ function mockApi(method, path, body) {
   if (path === "/api/auth/login/request-code") return { challengeId: "c1", expiresAt: now, resendAvailableAt: now, debugCode: "123456" };
   if (path === "/api/auth/login/verify-code") { api.loggedIn = true; return { status: "authenticated", data: user(), expiresIn: 3600 }; }
   if (path === "/api/user/me/onboarding") { api.onboarded = true; return { data: user() }; }
+  if (path === "/api/club/catalog") return { data: { isActive: api.eventActive, clubs: CLUBS } };
   if (path === "/api/club/me" && method === "GET") return clubState();
   if (path === "/api/club/me" && method === "PUT") {
     const { club } = JSON.parse(body);
@@ -120,6 +128,12 @@ ws.addEventListener("message", (message) => {
   if (data.method !== "Fetch.requestPaused") return;
   const { requestId, request } = data.params;
   const path = new globalThis.URL(request.url).pathname;
+  if (path.startsWith("/api/club/images/")) {
+    apiCalls.push(`${request.method} ${path}`);
+    return void send("Fetch.fulfillRequest", {
+      requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: "image/webp" }], body: IMAGE.toString("base64"),
+    }).catch(() => {});
+  }
   const reply = mockApi(request.method, path, request.postData);
   if (!reply) return void send("Fetch.continueRequest", { requestId }).catch(() => {});
   apiCalls.push(`${request.method} ${path}`);
@@ -158,11 +172,11 @@ const typeInto = (selector, value) => evaluate(`(() => {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, ${JSON.stringify(value)});
   input.dispatchEvent(new Event("input", { bubbles: true }));
 })()`);
-const clubTiles = `[...${top}.querySelectorAll('img[src^="/clubes/"]')].map((img) => img.getAttribute("src"))`;
+const clubTiles = `[...${top}.querySelectorAll('img[src^="/api/club/images/"]')].map((img) => img.getAttribute("src"))`;
 const assertAlone = async (step) => assert.equal(await evaluate(`${openDialogs}.length`), 1, `outro modal aberto junto (${step})`);
 
 await waitFor(`${title} === "Entrar"`, "modal do evento com login");
-assert.deepEqual(await evaluate(clubTiles), [1, 2, 3].map((n) => `/clubes/gremio/${n}.webp`), "imagens do time do link no login");
+assert.deepEqual(await evaluate(clubTiles), [1, 2, 3].map((n) => `/api/club/images/gremio/${n}?v=1`), "imagens do time do link no login");
 await assertAlone("login");
 await shot("0-evento-login");
 await typeInto("#auth-email", "torcedor@cidoe.test");
@@ -174,7 +188,8 @@ await assertAlone("oferta (onboarding do 1º login espera)");
 await shot("1-evento-oferta");
 await clickText("Escolher outro time");
 await waitFor(`${title} === "Escolha seu time"`, "lista de times");
-assert.equal(await evaluate(`${top}.querySelectorAll("ul[aria-label='Times'] button").length`), 66, "66 times na lista");
+assert.equal(await evaluate(`${top}.querySelectorAll("ul[aria-label='Times'] button").length`), ACTIVE_CLUBS, "lista só com os times ativos");
+await waitFor(`${top}.querySelector("ul[aria-label='Times'] img")?.complete`, "miniatura da lista");
 await shot("2-evento-lista");
 await clickText("Voltar");
 await waitFor(`${title} === "Grêmio é seu time?"`, "voltar para a oferta");
@@ -256,6 +271,19 @@ assert.deepEqual(resaved.screenImages, ["flamengo/1", "flamengo/2"]);
 assert.equal(await evaluate(`[...${screenPanel}.querySelectorAll("button")].some((b) => b.textContent.trim() === "Trocar time")`), false, "troca usada ainda aparece");
 assert.equal(api.club, "flamengo");
 assert.equal(api.changes, 1);
+assert.ok(apiCalls.some((call) => /^GET \/api\/club\/images\/flamengo\/1$/.test(call)), "cena não pediu a imagem do telão pela key");
 assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
 console.log("Trocar time: modal sobre o editor, troca única, telão migrado e console sem erro OK.");
+
+// --- 4. Evento desligado pelo admin: link não abre nada e sai da URL ---
+api.eventActive = false;
+await send("Page.navigate", { url: `${URL}?time=palmeiras` });
+await waitFor(`!!document.querySelector("canvas")`, "canvas da cena (evento desligado)");
+await waitFor(`!document.querySelector(".ld")`, "loading inicial (evento desligado)", 60_000);
+await waitFor(`!new URL(location.href).searchParams.has("time")`, "?time saiu da URL");
+await sleep(1500);
+assert.deepEqual(await evaluate(`${openDialogs}.map((dialog) => dialog.querySelector("h2")?.textContent)`), [], "modal abriu com o evento desligado");
+assert.equal(api.club, "flamengo", "evento desligado mexeu no time");
+assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
+console.log("Evento desligado: link não abre e sai da URL OK.");
 process.exit(0);
