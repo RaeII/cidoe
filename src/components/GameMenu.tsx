@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import type { RewardNotifications } from "@/components/hooks/useCustomizationCatalog";
 import { Building2, Lock, LogOut, MapPin, Palette, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
@@ -17,6 +18,9 @@ import { BlockBar } from "@/components/ui/block-bar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { BlockLoader, ErrorMark, PixelBuilding, PixelCheck, PixelCoin } from "@/components/ui/pixel-icon";
+
+// Time do evento: chunk próprio, só com a aba Personalizações aberta (boot sem bytes do evento).
+const MyClubImages = lazy(() => import("@/components/club/MyClubImages"));
 
 /** Edifício próprio já resolvido para exibição. */
 export type MyDonation = {
@@ -210,6 +214,7 @@ export function GameMenu({
                     </p>
                     <BlockBar value={unlockedCount} max={itemCount} label="Personalizações liberadas" className="flex-1" />
                   </div>
+                  <Suspense fallback={null}><MyClubImages /></Suspense>
                   {groups.map((group) => (
                     <section key={group.title}>
                       <h3 className="mb-3 text-sm font-semibold">{group.title}</h3>

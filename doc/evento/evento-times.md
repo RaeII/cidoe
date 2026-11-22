@@ -32,17 +32,23 @@ flowchart TD
     O -->|Escolher outro time| LS[Lista + busca]
     LS --> O
     O -->|Sim, é meu time| W["Imagens liberadas + confete"]
-    A -->|já tem time| M["Seu time + Trocar time (se troca livre)"]
-    M --> LS
+    A -->|tem outro time, troca livre| S["Deseja trocar seu time? (atual → novo)"]
+    LS -->|com time| S
+    S -->|Trocar para X| W
+    S -->|Manter Y| F
+    A -->|mesmo time ou troca usada| M["X já é seu time"]
+    M -->|Ver personalizações| P["Menu da conta, aba Personalizações (Seu time)"]
+    M -->|Trocar time, se troca livre| LS
     W -->|Continuar| F["Fecha, tira ?time da URL"]
 ```
 
 - **Link**: `https://cidoe.com.br/?time=<slug>` (slug do catálogo; painel copia). Slug inválido, time inativo ou `?time` vazio → lista (sem time) ou time atual (com time). Modal abre com cidade pronta (AuthMenu monta no boot), por cima de tudo.
 - **Catálogo** (`GET /club/catalog`, `useClubCatalog`): carregando → modal não aparece (sem piscar; editor segue segurando os outros modais). Erro → tela de erro + Tentar de novo. **Evento desligado** → `onClose` sem aparecer (limpa `?time`).
 - **Visitante**: mesmo modal mostra as imagens + `AuthPanel` (Google ou e-mail, indicação do `?ref=` preservada). Login/cadastro dentro dele → segue pra oferta, sem trocar de modal. AuthMenu passa o modal com a mesma `key` nos dois ramos (logado/visitante): login não remonta.
-- **Oferta** (`"<Time> é seu time?"`): `Sim, é meu time` (âmbar = conquista) grava; `Escolher outro time` abre lista. Escolha da lista volta pra oferta do time escolhido. Já tem time → kicker `Seu time: <atual>` acima: aceitar = trocar, sem texto explicando.
+- **Oferta** (sem time, `"<Time> é seu time?"`): `Sim, é meu time` (âmbar = conquista) grava; `Escolher outro time` abre lista. Escolha da lista volta pra oferta do time escolhido.
+- **Troca** (tem time, troca livre, link ou lista com outro time): `Deseja trocar seu time?` + "O telão passa a mostrar o novo time. Esta é sua única troca." Lado a lado: **Seu time** (escudo apagado/cinza) → **Novo time** (moldura verde). `Trocar para <novo>` (verde, não âmbar: é troca) grava → conquista; `Manter <atual>` fecha; `Escolher outro time` abre lista.
 - **Conquista**: confete (`RewardConfetti`, some com movimento reduzido), `Imagens liberadas`, `Continuar` fecha.
-- **Já tem time**: mesmo link mostra o time. Troca livre → `Trocar time`. Troca usada → só `Continuar`; link de outro time também mostra o time atual. Nada explica a regra: botão some. `canChange` do servidor decide sozinho (slug desconhecido no front não destrava). Time desativado pelo admin segue aparecendo pra quem torce (só não é oferecido).
+- **Já tem time** (mesmo link, link sem time/inválido ou troca usada): `<Time> já é seu time` + "As imagens já estão nas suas personalizações." + imagens. `Ver personalizações` (principal) fecha o modal (limpa `?time`) e abre o menu da conta na aba **Personalizações**, onde `MyClubImages` mostra **Seu time: X** com as imagens. Troca livre → `Trocar time`. Troca usada → link de outro time também cai aqui, sem opção de troca (botão some). `canChange` do servidor decide sozinho (slug desconhecido no front não destrava). Time desativado pelo admin segue aparecendo pra quem torce (só não é oferecido).
 - **Fechar** (X, Esc, fora): fecha e tira `?time` da URL (recarregar não reabre). Durante gravação não fecha.
 - **409** (troca usada em outra aba): mensagem da API na tela, estado relido.
 
@@ -88,15 +94,17 @@ Troca na `main`: servidor já reescreve os telões de todos os edifícios da con
 | `src/scene/textures/screenImageManifest.ts` | key `"<slug>/<n>"` → `/api/club/images/<slug>/<n>`; formato fechado, sem catálogo. Ver [[scene-textures#Imagens do telão]] |
 | `src/api/club/club.routes.ts` | `getClubCatalog`, `getMyClub` (`GET /club/me`), `chooseClub` (`PUT /club/me`) |
 | `src/components/hooks/useMyClub.ts` | estado compartilhado por conta: 1 pedido por carregamento, só quando modal ou editor monta. Escolha atualiza telão aberto |
-| `src/components/club/ClubEventDialog.tsx` | modal (lazy): login, carregando, erro, lista, oferta, meu time, conquista |
+| `src/components/club/ClubEventDialog.tsx` | modal (lazy): login, carregando, erro, lista, oferta, troca, já é seu time, conquista. Prop `gate` (etapa obrigatória da conta antes de escolher): sem uso na beta; na main = reaceite dos termos. `onViewMine` = atalho Ver personalizações. Arquivo idêntico nas duas branches |
+| `src/components/club/MyClubImages.tsx` | seção **Seu time: X** na aba Personalizações do `GameMenu` (lazy; `useMyClub` + catálogo só com time) |
 | `CitySceneEditor` | `clubEvent` (lê `?time`; `pick` = abrir na lista), `closeClubEvent` (limpa URL), `openClubList` (Trocar time), `handleClubChosen` (migra telões) |
-| `AuthMenu` | monta o modal com `AuthPanel` da indicação; segura indicação/conquistas/onboarding |
+| `AuthMenu` | monta o modal com `AuthPanel` da indicação; segura indicação/conquistas/onboarding; `onViewMine` fecha o evento e abre o `GameMenu` na aba `customizations` |
 
 ## Desempenho
 
 - Boot da cidade: zero bytes e zero pedido do evento. Sem `?time`, modal nem baixa.
 - Modal: chunk próprio + catálogo (~23 KB JSON, cache 60 s) + imagens do time (~35 KB). Lista: miniaturas `loading="lazy"` (~3 KB cada).
 - Telão: `GET /club/me` + catálogo só ao abrir o editor. Cena resolve URL pela key (sem catálogo no chunk da cena).
+- Menu da conta: aba Personalizações baixa `MyClubImages` (chunk próprio) + `GET /club/me`; catálogo só se tiver time.
 - Imagens pela API (rate limit global por IP, como o holograma): cena sem `?v=` (≤5 min pra ver troca), modais/painel com `?v=` (na hora). 304 por ETag.
 
 ## Time novo
@@ -107,7 +115,7 @@ Painel `/dale/times` → **Adicionar time** (nome + link) → **Adicionar imagem
 
 - `node scripts/check-club-event.mjs` — contrato com o back (slug, key do telão, teto de imagens), key → URL, catálogo (busca só ativos, troca por posição) e todos os estados do modal real (catálogo carregando/erro, evento desligado, time inativo); sem servidor/navegador.
 - `node scripts/check-building-customizer.mjs` — aba Telão pelo catálogo (antes do catálogo, time com 6 imagens, time inativo, evento desligado sem Trocar time).
-- `node scripts/check-led-screen-ui.mjs` (dev server + API + Chrome; `MOBILE=1`, `SHOTS=pasta`) — evento inteiro no app: login no modal, termos dentro do evento, oferta, lista, conquista, onboarding depois, telão do maior edifício (posse simulada), PUT da aparência, Trocar time por cima do editor, admin em edifício alheio com o time do dono (sem troca, sem `/club/me`), evento desligado. Conta, catálogo e imagens simulados por interceptação (`scripts/fixtures/telao.webp`): não cria conta, não grava no banco nem manda e-mail.
+- `node scripts/check-led-screen-ui.mjs` (dev server + API + Chrome; `MOBILE=1`, `SHOTS=pasta`) — evento inteiro no app: login no modal, termos dentro do evento, oferta, lista, conquista, onboarding depois, telão do maior edifício (posse simulada), PUT da aparência, Trocar time por cima do editor (confirmação atual → novo), link do próprio time → Ver personalizações (menu na aba com o time), admin em edifício alheio com o time do dono (sem troca, sem `/club/me`), evento desligado. Conta, catálogo e imagens simulados por interceptação (`scripts/fixtures/telao.webp`): não cria conta, não grava no banco nem manda e-mail.
 - `node scripts/check-admin-clubs-ui.mjs` — painel ([[evento-times-admin#Verificação]]).
 
 ## Antes de divulgar
