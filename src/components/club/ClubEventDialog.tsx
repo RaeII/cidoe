@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { BlockLoader, ErrorMark, PixelArrow, PixelCheck } from "@/components/ui/pixel-icon";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
-type View = "loading" | "error" | "login" | "gate" | "list" | "offer" | "mine" | "won";
+type View = "loading" | "error" | "login" | "gate" | "list" | "offer" | "switch" | "mine" | "won";
 
 /** As imagens do telão: a própria recompensa, sem texto explicando. */
 function ClubImages({ club, animate = false }: { club: Club; animate?: boolean }) {
@@ -32,6 +32,21 @@ function ClubImages({ club, animate = false }: { club: Club; animate?: boolean }
   );
 }
 
+/** Escudo + nome; `next` = time que entra na troca (moldura verde), senão o que sai (apagado). */
+function ClubCard({ club, label, next = false }: { club: Club; label: string; next?: boolean }) {
+  return (
+    <figure className="min-w-0 flex-1 text-center">
+      <div className={cn("mx-auto aspect-square w-full max-w-28 pixel pixel-thin bg-tinta p-1.5", next ? "pixel-ink-verde" : "opacity-60 grayscale")}>
+        <img src={club.images[0].url} alt="" width={256} height={256} decoding="async" className="size-full object-contain" />
+      </div>
+      <figcaption className="mt-2">
+        <span className={cn("mono-label block", next ? "text-primary" : "text-muted-foreground")}>{label}</span>
+        <span className="mt-0.5 block leading-tight font-semibold break-words">{club.name}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
 function ErrorLine({ children }: { children: ReactNode }) {
   return <p role="alert" className="flex gap-2 text-sm text-destructive"><ErrorMark />{children}</p>;
 }
@@ -39,10 +54,12 @@ function ErrorLine({ children }: { children: ReactNode }) {
 /**
  * Evento dos times. Link `?time=<slug>` propõe o time; visitante entra aqui mesmo (login embutido,
  * nada empilha); depois aceita ou escolhe outro e ganha as imagens do telão. Uma troca depois da
- * escolha: usada, o botão some. Times e imagens vêm do catálogo (admin em /dale/times); evento
- * desligado fecha sem aparecer. Montado sob demanda (lazy) pelo AuthMenu.
+ * escolha: usada, o botão some. Já tem time: link de outro time pede confirmação da troca (atual →
+ * novo); mesmo time mostra que já é dele, com atalho para as personalizações. Times e imagens vêm
+ * do catálogo (admin em /dale/times); evento desligado fecha sem aparecer. Montado sob demanda
+ * (lazy) pelo AuthMenu.
  */
-export default function ClubEventDialog({ initialClub, startPicking = false, loginPanel, gate, onChosen, onClose }: {
+export default function ClubEventDialog({ initialClub, startPicking = false, loginPanel, gate, onChosen, onViewMine, onClose }: {
   /** Slug do link; ausente, desconhecido ou time inativo: lista (sem time) ou o time atual. */
   initialClub: string | null;
   /** Abre direto na lista (Trocar time no telão). */
@@ -53,6 +70,8 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   gate?: ReactNode;
   /** Escolha gravada: editor passa os telões montados por `remap` (mesma posição no time novo). */
   onChosen: (remap: (keys: readonly string[]) => string[]) => void;
+  /** Ver personalizações: fecha o modal e abre o menu da conta na aba Personalizações. */
+  onViewMine: () => void;
   onClose: () => void;
 }) {
   const { user, isLoading } = useAuth();
@@ -86,7 +105,7 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   else if (!mine.ready) view = "error";
   else if (won && current) view = "won";
   else if (canPick && (picking || (!candidate && !current))) view = "list";
-  else if (canPick && candidate && candidate.slug !== current?.slug) view = "offer";
+  else if (canPick && candidate && candidate.slug !== current?.slug) view = current ? "switch" : "offer";
   else if (current) view = "mine";
   else view = "list";
 
@@ -119,7 +138,7 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
   }
 
   const results = view === "list" ? searchClubs(clubs, query) : [];
-  const shown = view === "offer" ? candidate! : current!;
+  const shown = view === "offer" || view === "switch" ? candidate! : current!;
 
   // Catálogo carregando (ou evento desligado, fechando): nada na tela, sem piscar o modal.
   // O editor segue segurando os outros modais enquanto o evento está aberto.
@@ -190,8 +209,6 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
 
             {view === "offer" && <>
               <div className="text-center">
-                {/* Já tem time: aceitar troca. O kicker mostra isso sem explicar a regra. */}
-                {current && <p className="mono-label mb-2 text-primary">Seu time: {current.name}</p>}
                 <DialogTitle className="text-[28px] sm:text-[32px]">{shown.name} é seu time?</DialogTitle>
                 <DialogDescription className="mt-2">Imagens para o telão do seu edifício.</DialogDescription>
               </div>
@@ -201,6 +218,26 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
                 <Button className="w-full" size="lg" variant="reward" disabled={saving} onClick={() => void accept()}>
                   {saving ? <><BlockLoader />Salvando…</> : "Sim, é meu time"}
                 </Button>
+                <Button className="w-full" variant="ghost" disabled={saving} onClick={openList}>Escolher outro time</Button>
+              </div>
+            </>}
+
+            {view === "switch" && <>
+              <div className="text-center">
+                <DialogTitle className="text-[28px] sm:text-[32px]">Deseja trocar seu time?</DialogTitle>
+                <DialogDescription className="mt-2">O telão passa a mostrar o novo time. Esta é sua única troca.</DialogDescription>
+              </div>
+              <div className="flex items-center gap-3 sm:gap-4">
+                <ClubCard club={current!} label="Seu time" />
+                <PixelArrow aria-hidden className="size-4 shrink-0 text-primary" />
+                <ClubCard club={shown} label="Novo time" next />
+              </div>
+              {error && <ErrorLine>{error}</ErrorLine>}
+              <div className="space-y-2">
+                <Button className="w-full" size="lg" disabled={saving} onClick={() => void accept()}>
+                  {saving ? <><BlockLoader />Salvando…</> : <span className="min-w-0 truncate">Trocar para {shown.name}</span>}
+                </Button>
+                <Button className="w-full" variant="outline" disabled={saving} onClick={onClose}><span className="min-w-0 truncate">Manter {current!.name}</span></Button>
                 <Button className="w-full" variant="ghost" disabled={saving} onClick={openList}>Escolher outro time</Button>
               </div>
             </>}
@@ -216,14 +253,13 @@ export default function ClubEventDialog({ initialClub, startPicking = false, log
 
             {view === "mine" && <>
               <div className="text-center">
-                <p className="mono-label text-primary">Seu time</p>
-                <DialogTitle className="mt-2 text-[28px] sm:text-[32px]">{shown.name}</DialogTitle>
-                <DialogDescription className="mt-2">Imagens do telão do seu edifício.</DialogDescription>
+                <DialogTitle className="text-[28px] sm:text-[32px]">{shown.name} já é seu time</DialogTitle>
+                <DialogDescription className="mt-2">As imagens já estão nas suas personalizações.</DialogDescription>
               </div>
               <ClubImages club={shown} />
               {error && <ErrorLine>{error}</ErrorLine>}
               <div className="space-y-2">
-                <Button className="w-full" size="lg" onClick={onClose}>Continuar</Button>
+                <Button className="w-full" size="lg" onClick={onViewMine}>Ver personalizações</Button>
                 {mine.canChange && <Button className="w-full" variant="ghost" onClick={openList}>Trocar time</Button>}
               </div>
             </>}

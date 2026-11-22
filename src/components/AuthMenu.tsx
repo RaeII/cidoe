@@ -248,6 +248,11 @@ export function AuthMenu({
         initialClub={clubEvent.club}
         startPicking={clubEvent.pick}
         onChosen={onClubChosen}
+        onViewMine={() => {
+          onClubEventClose();
+          setMenuTab("customizations");
+          changeMenuOpen(true);
+        }}
         onClose={onClubEventClose}
         loginPanel={
           <AuthPanel

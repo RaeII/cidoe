@@ -8,9 +8,11 @@
 // 2. Telão: seleciona um edifício (fibra do React: clique na cena não funciona headless), abre
 //    "Editar edifício", aba Telão só com as 3 imagens do Grêmio, escolhe 2 e o lado Direita. Confere
 //    gravação (ordem e lado), uma troca do ciclo e console sem erro.
-// 3. Trocar time pelo telão: modal por cima do editor → Flamengo → telão montado vira as mesmas
-//    posições do Flamengo, aba mostra Flamengo e a troca some.
-// 4. Evento desligado pelo admin: `?time=` não abre nada e sai da URL.
+// 3. Trocar time pelo telão: modal por cima do editor → Flamengo → "Deseja trocar seu time?" (Grêmio →
+//    Flamengo) → telão montado vira as mesmas posições do Flamengo, aba mostra Flamengo e a troca some.
+// 4. Link do próprio time: "Flamengo já é seu time" → Ver personalizações abre o menu da conta na aba
+//    Personalizações com as imagens do time.
+// 5. Evento desligado pelo admin: `?time=` não abre nada e sai da URL.
 // Sessão, login, `/club/me`, catálogo do evento e imagens dos times simulados por interceptação
 // (Fetch do CDP; imagem = scripts/fixtures/telao.webp): não cria conta nem manda e-mail; snapshot e
 // catálogo de personalização vêm da API real. Câmera e confete: conferir nas telas (SHOTS).
@@ -256,14 +258,20 @@ await waitFor(`${title} === "Escolha seu time"`, "lista por cima do editor");
 await typeInto(`[role="dialog"] input[type="search"]`, "flamengo");
 await waitFor(`${top}.querySelectorAll("ul[aria-label='Times'] button").length === 1`, "busca");
 await evaluate(`${top}.querySelector("ul[aria-label='Times'] button").click()`);
-await waitFor(`${title} === "Flamengo é seu time?"`, "oferta da troca");
-await clickText("Sim, é meu time");
+await waitFor(`${title} === "Deseja trocar seu time?"`, "confirmação da troca");
+assert.deepEqual(await evaluate(`[...${top}.querySelectorAll("figcaption")].map((caption) => caption.innerText.replace(/\\s+/g, " ").trim())`),
+  ["Seu time Grêmio", "Novo time Flamengo"], "troca sem atual → novo");
+assert.ok(await evaluate(`${top}.scrollWidth <= ${top}.clientWidth`), "confirmação da troca com rolagem lateral");
+await waitFor(`[...${top}.querySelectorAll("figure img")].every((img) => img.complete)`, "escudos da troca");
+await sleep(400); // entrada do modal
+await shot("6-troca-confirmar");
+await clickText("Trocar para Flamengo");
 await waitFor(`${title} === "Imagens liberadas"`, "conquista da troca");
 await clickText("Continuar");
 await waitFor(`!${openDialogs}.some((dialog) => dialog.querySelector("h2")?.textContent === "Imagens liberadas")`, "modal da troca fechado");
 await waitFor(`${screenPanel}?.querySelector('[role="group"] button')?.getAttribute("aria-label")?.startsWith("Flamengo, imagem 1")`, "telão com o time novo");
 await sleep(1200); // debounce de 500 ms da gravação
-await shot("6-telao-flamengo");
+await shot("7-telao-flamengo");
 const remapped = await evaluate(`[...${screenPanel}.querySelectorAll('[role="group"] button[aria-pressed="true"]')].map((b) => b.getAttribute("aria-label"))`);
 assert.deepEqual(remapped, ["Flamengo, imagem 1, 1ª no telão", "Flamengo, imagem 2, 2ª no telão"], "telão não migrou para o time novo");
 const resaved = await evaluate(`JSON.parse(localStorage.getItem("cidoe:prelaunch:v1:guest:customizations") ?? "{}")[${JSON.stringify(String(ID))}]`);
@@ -275,7 +283,29 @@ assert.ok(apiCalls.some((call) => /^GET \/api\/club\/images\/flamengo\/1$/.test(
 assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
 console.log("Trocar time: modal sobre o editor, troca única, telão migrado e console sem erro OK.");
 
-// --- 4. Evento desligado pelo admin: link não abre nada e sai da URL ---
+// --- 4. Link do próprio time: já é dele; atalho abre o menu da conta na aba Personalizações ---
+await send("Page.navigate", { url: `${URL}?time=flamengo` });
+await waitFor(`!!document.querySelector("canvas")`, "canvas da cena (próprio time)");
+await waitFor(`!document.querySelector(".ld")`, "loading inicial (próprio time)", 60_000);
+await waitFor(`${title} === "Flamengo já é seu time"`, "modal do próprio time");
+await assertAlone("próprio time");
+await waitFor(`[...${top}.querySelectorAll("li img")].every((img) => img.complete)`, "imagens do próprio time");
+await shot("8-proprio-time");
+await clickText("Ver personalizações");
+await waitFor(`${openDialogs}.length === 1 && !!document.querySelector('[role="tab"][title="Personalizações"][data-state="active"]')`, "menu na aba Personalizações");
+const mySection = `[...document.querySelectorAll('[role="tabpanel"][data-state="active"] section')].find((section) => section.querySelector("h3")?.textContent === "Seu time: Flamengo")`;
+await waitFor(`!!${mySection}`, "time nas personalizações");
+assert.deepEqual(await evaluate(`[...${mySection}.querySelectorAll("img")].map((img) => img.getAttribute("src"))`),
+  [1, 2, 3].map((n) => `/api/club/images/flamengo/${n}?v=1`), "imagens do time nas personalizações");
+assert.equal(new globalThis.URL(await evaluate("location.href")).searchParams.has("time"), false, "?time continua na URL");
+await waitFor(`[...${mySection}.querySelectorAll("img")].every((img) => img.complete)`, "imagens nas personalizações");
+await shot("9-menu-personalizacoes");
+await evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+await waitFor(`${openDialogs}.length === 0`, "menu fechado");
+assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
+console.log("Próprio time: já é seu, atalho abre as personalizações com o time OK.");
+
+// --- 5. Evento desligado pelo admin: link não abre nada e sai da URL ---
 api.eventActive = false;
 await send("Page.navigate", { url: `${URL}?time=palmeiras` });
 await waitFor(`!!document.querySelector("canvas")`, "canvas da cena (evento desligado)");

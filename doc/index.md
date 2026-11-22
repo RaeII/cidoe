@@ -227,7 +227,8 @@ src/
     Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
     club/
-      ClubEventDialog.tsx       ← evento dos times (lazy): login embutido, oferta, lista, meu time, conquista com confete → [[evento-times]]
+      ClubEventDialog.tsx       ← evento dos times (lazy): login embutido, oferta, troca (atual → novo), lista, já é seu time (atalho Ver personalizações), conquista com confete → [[evento-times]]
+      MyClubImages.tsx          ← aba Personalizações do GameMenu: "Seu time: X" + imagens do telão (lazy, só com time) → [[evento-times]]
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
       RewardDialog.tsx          ← conquista em cartões, confete e prévia 3D; delega escolha por indicação → [[passe-front]]
@@ -253,7 +254,7 @@ src/
     AuthMenu.tsx                  ← Entrar, Meus edifícios e menu do usuário na cena; fluxo de indicação; monta o onboarding
     OnboardingDialog.tsx          ← 1º login: cidade + como conheceu, opcional, uma vez por conta, "Pular"
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
-    GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
+    GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações (+ seu time)/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos. `AuthPanel` = corpo reusável
     IntroVideoDialog.tsx          ← vídeo sob demanda (mudo, loop, sem controles); mobile + "Acessar Cidoe", desktop + login à direita
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade

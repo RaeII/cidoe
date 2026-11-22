@@ -111,7 +111,7 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
   catalog = { isActive: true, clubs: fixture }, catalogError = null } = {}) {
   const slots = [];
   let cursor = 0;
-  const calls = { choose: [], chosen: [], retry: 0, close: 0, catalogRetry: 0 };
+  const calls = { choose: [], chosen: [], retry: 0, close: 0, catalogRetry: 0, viewMine: 0 };
   const mine = { club: null, canChange: true, ready: true, error: null, ...mineInit,
     retry: () => { calls.retry += 1; },
     async choose(slug) {
@@ -149,7 +149,7 @@ function mount({ user = { id: 7 }, authLoading = false, mine: mineInit = {}, ini
   const Dialog = context.exports.default;
   const render = () => {
     cursor = 0;
-    return Dialog({ initialClub, startPicking, gate, loginPanel: React.createElement("AuthPanel"), onChosen: (remap) => calls.chosen.push(remap), onClose: () => { calls.close += 1; } });
+    return Dialog({ initialClub, startPicking, gate, loginPanel: React.createElement("AuthPanel"), onChosen: (remap) => calls.chosen.push(remap), onViewMine: () => { calls.viewMine += 1; }, onClose: () => { calls.close += 1; } });
   };
   const ui = {
     tree: render(), calls, mine,
@@ -258,41 +258,66 @@ assert.match(text(ui.render().tree), /Nenhum time encontrado/);
 ui = mount({ initialClub: "nao-existe" });
 assert.equal(ui.title(), "Escolha seu time", "Link sem time válido abre a lista");
 assert.equal(ui.has("Voltar"), false);
-assert.equal(mount({ mine: { club: "gremio", canChange: true }, initialClub: "nao-existe" }).title(), "Grêmio", "Com time, link inválido mostra o time");
+assert.equal(mount({ mine: { club: "gremio", canChange: true }, initialClub: "nao-existe" }).title(), "Grêmio já é seu time", "Com time, link inválido mostra o time");
 assert.equal(mount({ mine: { club: "gremio", canChange: true }, startPicking: true }).title(), "Escolha seu time", "Trocar time abre na lista");
 ui = mount({ initialClub: "santos" });
 assert.equal(ui.title(), "Escolha seu time", "Link de time inativo ofereceu o time");
 assert.equal(mount({ user: null, initialClub: "santos" }).images().length, 0, "Visitante viu imagens de time inativo");
 ui = mount({ mine: { club: "santos", canChange: true }, initialClub: "santos" });
-assert.equal(ui.title(), "Santos", "Quem torce por time inativo perdeu o time");
+assert.equal(ui.title(), "Santos já é seu time", "Quem torce por time inativo perdeu o time");
 assert.deepEqual(ui.images(), ["santos"]);
 console.log("Lista: busca, vazio, escolha vira oferta, voltar só com destino OK.");
 
-// Já tem time: mesmo link mostra o time; troca disponível = Trocar time; usada = sem opção.
+// Já tem time: mesmo link mostra que já é dele + atalho para as personalizações; troca disponível = Trocar time; usada = sem opção.
 ui = mount({ mine: { club: "gremio", canChange: true }, initialClub: "gremio" });
-assert.equal(ui.title(), "Grêmio");
+assert.equal(ui.title(), "Grêmio já é seu time");
+assert.match(text(ui.tree), /As imagens já estão nas suas personalizações\./);
+assert.deepEqual(ui.images(), ["gremio"]);
 assert.equal(ui.confetti(), false);
+assert.equal(ui.buttons()[0], ui.button("Ver personalizações"), "Atalho não é a ação principal");
+ui.button("Ver personalizações").props.onClick();
+assert.deepEqual([ui.calls.viewMine, ui.calls.close], [1, 0], "Atalho não abriu as personalizações");
 ui.button("Trocar time").props.onClick();
 ui.render();
 const current = ui.clubButtons().find((node) => node.props["aria-current"]);
 assert.equal(text(current.props.children), "Grêmio", "Time atual marcado na lista");
 ui.clubButtons().find((node) => text(node.props.children) === "Grêmio").props.onClick();
-assert.equal(ui.render().title(), "Grêmio", "Escolher o próprio time não oferece troca");
+assert.equal(ui.render().title(), "Grêmio já é seu time", "Escolher o próprio time não oferece troca");
+console.log("Meu time: já é seu time, atalho para as personalizações, Trocar time OK.");
+
+// Link de outro time com troca livre: confirmação com atual → novo, manter fecha, trocar grava.
 ui = mount({ mine: { club: "gremio", canChange: true }, initialClub: "flamengo" });
-assert.equal(ui.title(), "Flamengo é seu time?", "Link de outro time oferece a troca");
-assert.match(text(ui.tree), /Seu time: Grêmio/, "Oferta de troca sem o time atual");
+assert.equal(ui.title(), "Deseja trocar seu time?", "Link de outro time não pediu confirmação da troca");
+assert.match(text(ui.tree), /Esta é sua única troca\./);
+const cards = find(ui.tree, (node) => node.type?.name === "ClubCard").map((node) => [node.props.label, node.props.club.slug, !!node.props.next]);
+assert.deepEqual(cards, [["Seu time", "gremio", false], ["Novo time", "flamengo", true]], "Troca sem atual → novo");
+assert.equal(ui.has("Sim"), false, "Troca com cara de primeira escolha");
+assert.ok(ui.has("Escolher outro time"));
+ui.button("Manter Grêmio").props.onClick();
+assert.deepEqual([ui.calls.close, ui.calls.choose.length], [1, 0], "Manter não fechou ou gravou");
+ui = mount({ mine: { club: "gremio", canChange: true }, initialClub: "flamengo" });
+ui.button("Trocar para Flamengo").props.onClick();
+await settle();
+ui.render();
+assert.deepEqual(ui.calls.choose, ["flamengo"]);
+assert.deepEqual(ui.calls.chosen[0](["gremio/2"]), ["flamengo/2"], "Editor recebeu a troca por posição");
+assert.equal(ui.title(), "Imagens liberadas");
+ui = mount({ mine: { club: "gremio", canChange: true }, startPicking: true });
+ui.clubButtons().find((node) => text(node.props.children) === "Flamengo").props.onClick();
+assert.equal(ui.render().title(), "Deseja trocar seu time?", "Escolha na lista (Trocar time) sem confirmação");
 ui = mount({ mine: { club: "time-que-o-front-nao-conhece", canChange: false }, initialClub: "flamengo" });
-assert.notEqual(ui.title(), "Flamengo é seu time?", "Slug desconhecido destravou a troca");
+assert.notEqual(ui.title(), "Deseja trocar seu time?", "Slug desconhecido destravou a troca");
 for (const link of ["flamengo", null, "gremio"]) {
   ui = mount({ mine: { club: "gremio", canChange: false }, initialClub: link });
-  assert.equal(ui.title(), "Grêmio", `Troca usada mostra o time (link ${link})`);
-  assert.equal(ui.has("Trocar time") || ui.has("Escolher outro time") || ui.has("Sim"), false, "Troca usada ainda oferece troca");
+  assert.equal(ui.title(), "Grêmio já é seu time", `Troca usada mostra o time (link ${link})`);
+  assert.ok(ui.has("Ver personalizações"));
+  assert.equal(ui.has("Trocar") || ui.has("Escolher outro time") || ui.has("Sim"), false, "Troca usada ainda oferece troca");
 }
-console.log("Meu time: troca disponível, troca usada sem opção, link de outro time OK.");
+console.log("Troca: confirmação atual → novo, manter, trocar, escolha da lista, troca usada sem opção OK.");
 
 // 409 (troca usada em outra aba): erro na tela, sem conquista. Fechar durante o salvamento não fecha.
 ui = mount({ mine: { club: "gremio", canChange: true }, initialClub: "flamengo", choose: async () => { throw new ApiError(409, "Você já trocou de time."); } });
-ui.button("Sim, é meu time").props.onClick();
+ui.button("Trocar para Flamengo").props.onClick();
 ui.render();
 assert.equal(ui.button("Salvando").props.disabled, true, "Botão livre durante o salvamento");
 ui.content().props.onEscapeKeyDown({ preventDefault: () => { ui.blockedEscape = true; } });
@@ -303,7 +328,7 @@ await settle();
 ui.render();
 assert.match(text(ui.tree), /Você já trocou de time\./);
 assert.deepEqual(ui.calls.chosen, [], "409 avisou o editor");
-assert.equal(ui.title(), "Flamengo é seu time?");
+assert.equal(ui.title(), "Deseja trocar seu time?");
 find(ui.tree, (node) => node.type === "Dialog")[0].props.onOpenChange(false);
 assert.equal(ui.calls.close, 1);
 console.log("409 e fechar durante o salvamento OK.");
