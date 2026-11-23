@@ -6,8 +6,8 @@
 //    entra por código (dentro do modal) → "Grêmio é seu time?" → lista e volta → aceita → conquista →
 //    Continuar tira `?time` da URL. Nenhum outro modal abre por cima (onboarding do 1º login espera).
 // 2. Telão: seleciona um edifício (fibra do React: clique na cena não funciona headless), abre
-//    "Editar edifício", aba Telão só com as 3 imagens do Grêmio, escolhe 2 e o lado Direita. Confere
-//    gravação (ordem e lado), uma troca do ciclo e console sem erro.
+//    "Editar edifício", aba Telão só com as 3 imagens do Grêmio, escolhe 2, o lado Direita e o apelido
+//    na faixa do nome. Confere gravação (ordem, lado e faixa), uma troca do ciclo e console sem erro.
 // 3. Trocar time pelo telão: modal por cima do editor → Flamengo → "Deseja trocar seu time?" (Grêmio →
 //    Flamengo) → telão montado vira as mesmas posições do Flamengo, aba mostra Flamengo e a troca some.
 // 4. Link do próprio time: "Flamengo já é seu time" → Ver personalizações abre o menu da conta na aba
@@ -95,9 +95,9 @@ const shot = async (name) => {
 // --- API simulada: sessão, login por código, catálogo e time do evento e rotas "me" da conta ---
 const now = new Date().toISOString();
 const api = { loggedIn: false, onboarded: false, club: null, changes: 0, eventActive: true };
-const team = (slug, name, isActive = true) => ({ slug, name, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
+const team = (slug, name, isActive = true, nickname = null) => ({ slug, name, nickname, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
   images: [1, 2, 3].map((n) => ({ key: `${slug}/${n}`, url: `/api/club/images/${slug}/${n}?v=1` })) });
-const CLUBS = [team("flamengo", "Flamengo"), team("gremio", "Grêmio"), team("palmeiras", "Palmeiras"), team("santos", "Santos", false), team("vasco", "Vasco")];
+const CLUBS = [team("flamengo", "Flamengo"), team("gremio", "Grêmio", true, "Tricolor"), team("palmeiras", "Palmeiras"), team("santos", "Santos", false), team("vasco", "Vasco")];
 const ACTIVE_CLUBS = CLUBS.filter((club) => club.isActive).length;
 const IMAGE = readFileSync(new globalThis.URL("./fixtures/telao.webp", import.meta.url));
 const user = () => ({
@@ -235,6 +235,10 @@ for (const index of [0, 1]) {
 }
 await sleep(300);
 await evaluate(`[...${editor}.querySelectorAll('input[type="radio"]')].find((input) => input.value === "right").click()`);
+await sleep(300);
+assert.deepEqual(await evaluate(`[...${editor}.querySelectorAll('input[name$="-label"]')].map((input) => input.parentElement.innerText.trim())`),
+  ["Nenhum", "Grêmio", "Tricolor"], "faixa do nome: nenhum, nome e apelido");
+await evaluate(`[...${editor}.querySelectorAll('input[type="radio"]')].find((input) => input.value === "nickname").click()`);
 // Câmera gira (0,8 s) e o salvamento tem debounce de 500 ms.
 await sleep(1600);
 await shot("4-telao-direita");
@@ -245,11 +249,12 @@ const saved = await evaluate(`JSON.parse(localStorage.getItem("cidoe:prelaunch:v
 assert.ok(saved, "personalização não foi gravada no navegador");
 assert.equal(saved.screenSide, "right");
 assert.deepEqual(saved.screenImages, ["gremio/1", "gremio/2"]);
+assert.equal(saved.screenLabel, "nickname");
 
 // Uma troca do ciclo (7 s por imagem): a tela muda sozinha, com a cena parada.
 await sleep(7600);
 await shot("5-telao-troca");
-console.log(`Telão no app: aba do time, ${images.length} imagens, ordem, lado Direita, gravação e ciclo OK.`);
+console.log(`Telão no app: aba do time, ${images.length} imagens, ordem, lado Direita, apelido na faixa, gravação e ciclo OK.`);
 
 // --- 3. Trocar time pelo telão: modal por cima do editor (último aberto), troca única ---
 const screenPanel = `${editor}.querySelector('[role="tabpanel"][data-state="active"]')`;
@@ -276,6 +281,9 @@ const remapped = await evaluate(`[...${screenPanel}.querySelectorAll('[role="gro
 assert.deepEqual(remapped, ["Flamengo, imagem 1, 1ª no telão", "Flamengo, imagem 2, 2ª no telão"], "telão não migrou para o time novo");
 const resaved = await evaluate(`JSON.parse(localStorage.getItem("cidoe:prelaunch:v1:guest:customizations") ?? "{}")[${JSON.stringify(String(ID))}]`);
 assert.deepEqual(resaved.screenImages, ["flamengo/1", "flamengo/2"]);
+// Flamengo sem apelido: escolha gravada fica, painel e cena mostram o nome.
+assert.equal(resaved.screenLabel, "nickname");
+assert.equal(await evaluate(`${screenPanel}.querySelector('input[name$="-label"]:checked')?.value`), "name", "time sem apelido não mostrou o nome");
 assert.equal(await evaluate(`[...${screenPanel}.querySelectorAll("button")].some((b) => b.textContent.trim() === "Trocar time")`), false, "troca usada ainda aparece");
 assert.equal(api.club, "flamengo");
 assert.equal(api.changes, 1);

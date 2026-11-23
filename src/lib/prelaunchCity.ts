@@ -118,6 +118,7 @@ export function createSeedCustomizations(seeds: readonly LocalBuilding[]): Map<n
       hologramOpacity: 0.78,
       screenSide: "front",
       screenImages: [] as string[],
+      screenLabel: "none",
     }] as const];
   }));
 }

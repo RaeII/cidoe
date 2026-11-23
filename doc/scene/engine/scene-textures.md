@@ -142,7 +142,7 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 
 ## Imagens do telão
 
-Imagens do telão = imagens do [[evento-times|evento dos times]], no banco (admin em `/dale/times`, [[evento-times-admin]]) e servidas pela API: `/api/club/images/<slug>/<n>` (256 px quadrado: miniatura do painel e fonte dos 64×64 LEDs; 5–20 KB; 1ª = escudo) + `/thumb` (96 px, lista de times). Cache 5 min + ETag. Painel recorta e codifica no navegador (`encodeClubImage`).
+Imagens do telão = imagens do [[evento-times|evento dos times]], no banco (admin em `/dale/times`, [[evento-times-admin]]) e servidas pela API: `/api/club/images/<slug>/<n>` (256 px quadrado: miniatura do painel e fonte dos 128×128 LEDs, 2×2 px por LED; 5–20 KB; 1ª = escudo) + `/thumb` (96 px, lista de times). Cache 5 min + ETag. Painel recorta e codifica no navegador (`encodeClubImage`).
 
 `src/scene/textures/screenImageManifest.ts` (sem THREE, sem glob, sem lista): `key` gravada em `screenImages` = `"<slug>/<n>"` (`n` = número estável da imagem, 1–999); `getScreenImageUrl(key)` → `/api/club/images/<slug>/<n>` (sem `?v=`: troca de imagem chega em ≤5 min). Formato fechado (`^[a-z0-9-]{1,40}/[1-9][0-9]{0,2}$`, igual ao back): fora dele → `null`, telão ignora (keys antigas dos escudos de teste, dado adulterado). Imagem removida passa no formato e dá 404: tela apagada + aviso no console. Nomes e versões ficam no catálogo (`useClubCatalog`), só nos chunks da UI — chunk da cena não carrega catálogo.
 

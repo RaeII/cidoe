@@ -25,7 +25,7 @@ Cadastro, login, perfil da conta e indicações continuam reais, conectados ao b
 
 Recompensa por indicação também real: etapas contam cadastros indicados, sem contribuição; usuário escolhe item no `RewardDialog` → [[primeiros-inscritos]]. Indicação no passe exige contribuição real — aqui não avança.
 
-[[evento-times|Evento dos times]] também real: link `/?time=<slug>` → time gravado no back (`/club/me`, 1ª escolha + 1 troca) → imagens do time (catálogo da API, admin em `/dale/times` → [[evento-times-admin]]) na aba Telão. Telão montado segue local, como o resto da aparência.
+[[evento-times|Evento dos times]] também real: link `/?time=<slug>` → time gravado no back (`/club/me`, 1ª escolha + 1 troca) → imagens do time (catálogo da API, admin em `/dale/times` → [[evento-times-admin]]) na aba Telão, com faixa opcional de nome ou apelido do time. Telão montado segue local, como o resto da aparência.
 
 ### Dados da cidade
 
@@ -126,7 +126,7 @@ scripts/
   encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-club-event.mjs         ← evento dos times: contrato com o back (slug, key do telão, teto de imagens), key → URL, catálogo (busca, troca por posição) e todos os estados do modal; sem servidor/navegador
-  check-admin-clubs-ui.mjs     ← painel /dale/times no app (Chrome + CDP, dev server): evento, times, imagens (recorte/miniatura), copiar link, excluir; API do painel simulada; MOBILE=1, SHOTS=pasta → [[evento-times-admin]]
+  check-admin-clubs-ui.mjs     ← painel /dale/times no app (Chrome + CDP, dev server): evento, times, apelido, imagens (recorte/miniatura), copiar link, excluir; API do painel simulada; MOBILE=1, SHOTS=pasta → [[evento-times-admin]]
   fixtures/telao.webp          ← escudo 256 px de teste: imagem do telão simulada (check-led-screen-ui, check-admin-clubs-ui) e padrão do `render-building --screen`
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-reward-notifications.mjs ← requests, sessão, respostas atrasadas e confirmação dos avisos; sem servidor/navegador
@@ -151,12 +151,12 @@ scripts/
   check-scene-stats.mjs        ← feedback público, loading síncrono, diagnóstico admin e controles de distância frente/trás; sem navegador
   check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-draw-calls.mjs ← grupos por material, triângulos, picking, cache, transparência e dispose; sem navegador/GPU → [[scene-builders#Agrupamento por material (mobile)]]
-  render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`; `--screen <lado>` = telão + close) → [[novo-edificio]]
+  render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`; `--screen <lado>` = telão + close, `--screen-label` = faixa do nome) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
-  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão e ciclo do canvas com GPU simulada; sem servidor/navegador
-  check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes), ciclo, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
-  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, ciclo, Trocar time, evento desligado; conta, catálogo e imagens simulados; MOBILE=1, SHOTS=pasta
+  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão (faixa do nome inclusa) e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes, com e sem faixa do nome), ciclo, faixa e nome/apelido, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
+  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, faixa do nome (apelido; time sem apelido = nome), ciclo, Trocar time, evento desligado; conta, catálogo e imagens simulados; MOBILE=1, SHOTS=pasta
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
   check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
@@ -656,7 +656,7 @@ flowchart LR
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
 | Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
-| Telão de LED (posição, shader, ciclo, imagens do evento) | [[scene-builders#createLedScreenMesh.ts]] · [[scene-managers#Telões de LED]] · [[scene-textures#Imagens do telão]] |
+| Telão de LED (posição, shader, ciclo, imagens do evento, faixa do nome) | [[scene-builders#createLedScreenMesh.ts]] · [[scene-managers#Telões de LED]] · [[scene-textures#Imagens do telão]] |
 | Evento dos times: link `?time=`, modal, troca única, nada por cima | [[evento-times]] · [[html-components#ClubEventDialog.tsx]] · `src/lib/clubs.ts` |
 | Adicionar time, imagens, ligar/desligar o evento, copiar link | [[evento-times-admin]] · `src/pages/admin/Clubs.tsx` (painel `/dale/times`) |
 | Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |

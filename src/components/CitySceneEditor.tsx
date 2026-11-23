@@ -427,6 +427,7 @@ export function CitySceneEditor() {
         hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
         screenSide: existing?.screenSide ?? "front",
         screenImages: existing?.screenImages ?? [],
+        screenLabel: existing?.screenLabel ?? "none",
       };
     },
     [buildingCustomizations, buildingSettings.color],
@@ -506,6 +507,7 @@ export function CitySceneEditor() {
           hologramOpacity: existing?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY,
           screenSide: existing?.screenSide ?? "front",
           screenImages: existing?.screenImages ?? [],
+          screenLabel: existing?.screenLabel ?? "none",
           ...patch,
         };
         next.set(donationId, updated);

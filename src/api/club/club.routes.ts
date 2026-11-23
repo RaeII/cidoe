@@ -6,8 +6,8 @@ export type MyClub = { club: string | null; canChange: boolean };
 /** Imagem do telão: `key` ("<slug>/<n>") é o que o edifício grava. */
 export type ClubImage = { key: string; url: string };
 
-/** Time do catálogo. Inativo: fora da lista e do link; quem já torce mantém as imagens. */
-export type ClubCatalogEntry = { slug: string; name: string; isActive: boolean; thumbUrl: string; images: ClubImage[] };
+/** Time do catálogo. Inativo: fora da lista e do link; quem já torce mantém as imagens. `nickname` null = sem apelido. */
+export type ClubCatalogEntry = { slug: string; name: string; nickname: string | null; isActive: boolean; thumbUrl: string; images: ClubImage[] };
 
 /** `isActive` = evento ligado. Só times com imagem. */
 export type ClubCatalog = { isActive: boolean; clubs: ClubCatalogEntry[] };

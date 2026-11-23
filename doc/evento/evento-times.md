@@ -63,7 +63,7 @@ Cadastro dentro do modal → onboarding aparece **depois** que o evento fecha. `
 
 ## Telão
 
-Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] só existe com time no catálogo: todas as imagens dele (até 12), rótulo = nome do time, `N/máx` (máx = `min(4, imagens)`). `Trocar time` ao lado de `Remover telão` enquanto troca livre **e** evento ligado. Troca gravada → modal passa `remap` (`remapScreenImages`) e `handleClubChosen` (editor) leva todo telão montado para a **mesma posição** do time novo (2ª imagem → 2ª imagem, ordem mantida; sem par no time novo → sai) e salva. Mesma regra do servidor. Telão nunca mistura times.
+Aba **Telão** do [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] só existe com time no catálogo: todas as imagens dele (até 12), rótulo = nome do time, `N/máx` (máx = `min(4, imagens)`). **Nome**: faixa embaixo da imagem com nome ou apelido (`screenLabel`; apelido só aparece se o time tem — admin cadastra quando quiser). Grava só a escolha: texto vem do catálogo, então troca de time e apelido novo chegam sozinhos. `Trocar time` ao lado de `Remover telão` enquanto troca livre **e** evento ligado. Troca gravada → modal passa `remap` (`remapScreenImages`) e `handleClubChosen` (editor) leva todo telão montado para a **mesma posição** do time novo (2ª imagem → 2ª imagem, ordem mantida; sem par no time novo → sai) e salva. Mesma regra do servidor. Telão nunca mistura times.
 
 Key gravada = `"<slug>/<n>"`, `n` = número estável da imagem (não a posição: admin remove imagem e os números ficam com buraco). Imagem removida pelo admin some dos telões do banco (main); key local órfã (beta) dá 404 → tela apagada.
 

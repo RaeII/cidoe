@@ -44,6 +44,8 @@ export type BuildingShape =
 
 /** Fachada do telão. Frente = +Z, direita = +X, fundos = −Z, esquerda = −X. */
 export type ScreenSide = "front" | "right" | "back" | "left";
+/** Faixa embaixo da imagem do telão: nome ou apelido do time (texto vem do catálogo). */
+export type ScreenLabel = "none" | "name" | "nickname";
 
 export type BuildingCustomization = {
   color: string;
@@ -65,6 +67,8 @@ export type BuildingCustomization = {
   screenSide: ScreenSide; // fachada do telão de LED
   /** Keys das imagens do telão ([[scene-textures#Imagens do telão]]), na ordem de exibição. [] = sem telão. */
   screenImages: string[];
+  /** Faixa do nome no telão. Apelido que o time não tem (mais) mostra o nome. */
+  screenLabel: ScreenLabel;
 };
 
 export const SCREEN_SIDES: readonly ScreenSide[] = ["front", "right", "back", "left"];

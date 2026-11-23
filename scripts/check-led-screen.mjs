@@ -1,6 +1,7 @@
 /**
- * Telão de LED: posição contra a geometria REAL de cada formato (raycast), ciclo de
- * imagens, foco, noite e descarte. Sem navegador, servidor ou GPU.
+ * Telão de LED: posição contra a geometria REAL de cada formato (raycast), com e sem faixa
+ * do nome, ciclo de imagens, nome/apelido pelo catálogo, foco, noite e descarte. Sem
+ * navegador, servidor ou GPU.
  *
  * Uso: node scripts/check-led-screen.mjs
  */
@@ -8,12 +9,16 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { build } from "esbuild";
 
-// DOM mínimo: canvas da textura (64×64) e <img> do ImageLoader, que nunca carrega aqui.
+// DOM mínimo: canvas das texturas (imagem e faixa do nome; guarda o texto escrito) e <img> do
+// ImageLoader, que nunca carrega aqui.
 globalThis.document = {
-  createElement: () => ({
-    width: 0, height: 0,
-    getContext: () => ({ fillRect() {}, drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(4) }) }),
-  }),
+  createElement: () => {
+    const ctx = {
+      fillRect() {}, drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+      measureText: (text) => ({ width: text.length * 9 }), fillText(text) { ctx.drawn = text; },
+    };
+    return { width: 0, height: 0, getContext: () => ctx };
+  },
   createElementNS: () => ({ addEventListener() {}, removeEventListener() {}, set src(_) {} }),
 };
 
@@ -28,8 +33,8 @@ const bundle = await build({
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, computeLedScreenPlacement,
-  createLedScreenMesh, tickLedScreen, setLedScreenOpacity, setLedScreenNight, disposeLedScreenMesh,
-  getSignBand, getYachthouseTowerFootprints, LED_SCREEN_SLIDE_SECONDS, LED_SCREEN_FADE_SECONDS } = api;
+  createLedScreenMesh, tickLedScreen, setLedScreenOpacity, setLedScreenNight, disposeLedScreenMesh, getScreenLabelText,
+  getSignBand, getYachthouseTowerFootprints, LED_SCREEN_SLIDE_SECONDS, LED_SCREEN_FADE_SECONDS, LED_SCREEN_GRID, LED_SCREEN_LABEL_ROWS } = api;
 
 // Mesmo setter que o manager chama no sync: nº de andares pela altura.
 const HEIGHT_SETTERS = {
@@ -63,9 +68,9 @@ for (const shape of BUILDING_SHAPES) {
       : getSignBand(shape, width, depth, height);
     const signBottom = (shape === "yachthouse" ? tower.tiers[0].topY / 2 : height / 2) + band.centerY - band.height / 2;
 
-    for (const side of SIDES) {
-      const label = `${shape} ${width}×${depth}×${height} ${side}`;
-      const placement = computeLedScreenPlacement({ width, depth, height, side, shape });
+    for (const [side, labeled] of SIDES.flatMap((side) => [[side, false], [side, true]])) {
+      const label = `${shape} ${width}×${depth}×${height} ${side}${labeled ? " com nome" : ""}`;
+      const placement = computeLedScreenPlacement({ width, depth, height, side, shape, labeled });
       // Prédio médio ou maior sempre ganha telão; o muito baixo pode não ter fachada livre.
       if (!placement) {
         assert.ok(height < 1.5, `${label}: sem telão`);
@@ -73,11 +78,12 @@ for (const shape of BUILDING_SHAPES) {
         continue;
       }
       placed++;
-      const { size, centerY, normal, tangent, centerT, faceDist } = placement;
+      const { size, height: tall, centerY, normal, tangent, centerT, faceDist } = placement;
       assert.ok(size >= 0.16 - 1e-9 && size <= Math.max(width, depth), `${label}: lado ${size}`);
-      assert.ok(centerY - size / 2 >= 0, `${label}: telão abaixo do chão`);
-      assert.ok(centerY + size / 2 <= height + 1e-6, `${label}: telão acima do topo`);
-      if (height >= 1.5) assert.ok(centerY + size / 2 <= signBottom + 1e-6, `${label}: invade o letreiro`);
+      assert.ok(Math.abs(tall / size - (labeled ? (LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS) / LED_SCREEN_GRID : 1)) < 1e-9, `${label}: proporção ${tall / size}`);
+      assert.ok(centerY - tall / 2 >= 0, `${label}: telão abaixo do chão`);
+      assert.ok(centerY + tall / 2 <= height + 1e-6, `${label}: telão acima do topo`);
+      if (height >= 1.5) assert.ok(centerY + tall / 2 <= signBottom + 1e-6, `${label}: invade o letreiro`);
 
       // Entre o fundo do gabinete e a frente, nada do prédio: raio vem de fora até o plano
       // de trás do gabinete em 7×7 pontos da área dele (cantos inclusos).
@@ -87,7 +93,7 @@ for (const shape of BUILDING_SHAPES) {
       for (let i = 0; i <= 6; i++) {
         for (let j = 0; j <= 6; j++) {
           const u = centerT + (i / 6 - 0.5) * size * 0.999;
-          const y = centerY + (j / 6 - 0.5) * size * 0.999;
+          const y = centerY + (j / 6 - 0.5) * tall * 0.999;
           origin.set(normal.x * (back + 5) + tangent.x * u, y, normal.z * (back + 5) + tangent.z * u);
           raycaster.set(origin, direction);
           const hit = raycaster.intersectObject(building)[0];
@@ -102,7 +108,7 @@ for (const shape of BUILDING_SHAPES) {
   }
 }
 assert.ok(placed > BUILDING_SHAPES.length * LOTS.length * SIDES.length * 0.85, `poucos telões: ${placed}`);
-console.log(`Telão: ${placed} posições sem atravessar a geometria real, rentes à parede e abaixo do letreiro (${skipped} prédios baixos sem fachada livre).`);
+console.log(`Telão: ${placed} posições (com e sem faixa do nome) sem atravessar a geometria real, rentes à parede e abaixo do letreiro (${skipped} prédios baixos sem fachada livre).`);
 
 // Gabinete com braços até a parede, painel à frente e clarão atrás; yaw da fachada.
 const tapered = createLedScreenMesh({ width: 2, depth: 2, height: 12, side: "right", shape: "tapered", imageUrls: ["a.webp", "b.webp", "c.webp"] });
@@ -151,6 +157,49 @@ tapered.textures[1].addEventListener("dispose", () => { textureDisposed = true; 
 disposeLedScreenMesh(tapered);
 assert.equal(textureDisposed, false, "descarte do telão levou a textura compartilhada");
 console.log("Telão: braços, yaw, textura única por imagem, ciclo global, foco, noite e descarte OK.");
+
+// Faixa do nome: gabinete mais alto no mesmo passo de LED, texto em caixa alta, 1 textura por texto.
+const lot = { width: 2, depth: 2, height: 8, side: "front", shape: "default", imageUrls: ["a.webp"] };
+const plain = createLedScreenMesh(lot);
+const named = createLedScreenMesh({ ...lot, label: "Grêmio" });
+const uniforms = named.material.uniforms;
+assert.equal(plain.material.uniforms.uSplit.value, 0, "telão sem nome ganhou faixa");
+assert.ok(Math.abs(uniforms.uSplit.value - LED_SCREEN_LABEL_ROWS / (LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS)) < 1e-9);
+assert.deepEqual([uniforms.uGrid.value.x, uniforms.uGrid.value.y], [LED_SCREEN_GRID, LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS]);
+assert.ok(Math.abs(named.face.scale.x / LED_SCREEN_GRID - named.face.scale.y / (LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS)) < 1e-9, "LED da faixa não é quadrado");
+assert.ok(named.face.scale.y > named.face.scale.x && plain.face.scale.y === plain.face.scale.x);
+assert.equal(uniforms.uLabel.value.image.getContext("2d").drawn, "GRÊMIO");
+assert.equal(createLedScreenMesh({ ...lot, label: "Grêmio" }).material.uniforms.uLabel.value, uniforms.uLabel.value, "textura do nome duplicada");
+// Texto que chega depois (catálogo): gabinete já nasce alto, só a textura muda.
+let resolveLabel;
+const later = createLedScreenMesh({ ...lot, label: new Promise((resolve) => { resolveLabel = resolve; }) });
+const blank = later.material.uniforms.uLabel.value;
+assert.equal(later.face.scale.y, named.face.scale.y, "gabinete mudou de tamanho esperando o nome");
+resolveLabel("Tricolor");
+await Promise.resolve();
+assert.equal(later.material.uniforms.uLabel.value.image.getContext("2d").drawn, "TRICOLOR");
+assert.notEqual(later.material.uniforms.uLabel.value, blank);
+
+// Nome ou apelido pelo catálogo (time = prefixo das keys): 1 pedido; falha não trava o próximo.
+const requests = [];
+const catalog = { data: { isActive: true, clubs: [
+  { slug: "gremio", name: "Grêmio", nickname: "Tricolor" }, { slug: "abc", name: "ABC", nickname: null }] } };
+globalThis.Request = class { constructor(url) { this.url = url; } };
+globalThis.ProgressEvent ??= class extends Event { constructor(type, init) { super(type); Object.assign(this, init); } }; // FileLoader
+globalThis.fetch = async (request) => {
+  requests.push(request.url);
+  return requests.length === 1 ? new Response("", { status: 500 }) : new Response(JSON.stringify(catalog));
+};
+assert.equal(getScreenLabelText(["gremio/1"], "none"), null);
+assert.equal(getScreenLabelText(["gremio/1"], undefined), null, "dado antigo ganhou faixa");
+assert.equal(getScreenLabelText([], "name"), null);
+assert.equal(await getScreenLabelText(["gremio/1"], "name"), null, "catálogo fora do ar");
+assert.equal(await getScreenLabelText(["gremio/2", "gremio/1"], "name"), "Grêmio");
+assert.equal(await getScreenLabelText(["gremio/1"], "nickname"), "Tricolor");
+assert.equal(await getScreenLabelText(["abc/1"], "nickname"), "ABC", "time sem apelido não caiu no nome");
+assert.equal(await getScreenLabelText(["sumiu/1"], "name"), null);
+assert.deepEqual(requests, ["/api/club/catalog", "/api/club/catalog"], "catálogo pedido de novo");
+console.log("Telão: faixa do nome (gabinete, passo do LED, texto, textura única, texto que chega depois) e nome/apelido pelo catálogo OK.");
 
 // Manager real: pedido do painel → telão na cena, troca de lado, key sem arquivo, ciclo,
 // reflexo, culling, foco sem composição, noite, filtro e descarte.
@@ -208,6 +257,12 @@ manager.updateDonationCustomization(1, { ...base, screenSide: "back", screenImag
 assert.equal(screens().length, 1, "troca de lado deixou telão velho");
 assert.ok(!scene.children.includes(first));
 assert.ok(Math.abs(manager.getScreenYaw(1) - Math.PI) < 1e-9);
+// Faixa do nome liga e desliga recriando (gabinete muda de altura); valor inválido = sem faixa.
+manager.updateDonationCustomization(1, { ...base, screenSide: "back", screenImages: ["a"], screenLabel: "nickname" });
+assert.equal(screens().length, 1, "faixa do nome deixou telão velho");
+assert.ok(faceOf(screens()[0]).material.uniforms.uSplit.value > 0, "faixa do nome não recriou o telão");
+manager.updateDonationCustomization(1, { ...base, screenSide: "back", screenImages: ["a"], screenLabel: "apelido" });
+assert.equal(faceOf(screens()[0]).material.uniforms.uSplit.value, 0, "faixa inválida desenhou nome");
 
 // Dado salvo sem os campos novos (antes do telão) e key sem arquivo: sem telão, sem erro.
 const { screenSide: _side, screenImages: _images, ...legacy } = base;
@@ -271,4 +326,4 @@ assert.equal(screens().length, 0, "remover telão deixou o grupo");
 manager.updateDonationCustomization(2, { ...base, screenImages: ["a"] });
 manager.dispose();
 assert.equal(screens().length, 0);
-console.log("Telão no manager: pedido, lado, dado legado, teto, ciclo, reflexo, culling, foco, noite, rebuild, filtro e descarte OK.");
+console.log("Telão no manager: pedido, lado, faixa do nome, dado legado, teto, ciclo, reflexo, culling, foco, noite, rebuild, filtro e descarte OK.");

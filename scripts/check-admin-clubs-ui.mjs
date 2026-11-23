@@ -6,7 +6,7 @@
 // servidor nem banco. Confere: números do evento, liga/desliga, busca, copiar link (área de
 // transferência), ativar/desativar time, criar time (slug sugerido pelo nome) → imagens na hora
 // (várias de uma vez, recorte quadrado 256 px + miniatura 96 px em WebP pelo canvas), trocar,
-// remover com confirmação, arquivo inválido, renomear, excluir, sem rolagem lateral e console limpo.
+// remover com confirmação, arquivo inválido, apelido (criar, editar, remover), renomear, excluir, sem rolagem lateral e console limpo.
 //
 // Precisa: dev server (http://localhost:5173) e Google Chrome. Variáveis: URL, CHROME, MOBILE=1
 // (390×844) e SHOTS=pasta pra salvar telas (conferência visual — apagar depois).
@@ -125,7 +125,7 @@ const SEED = readFileSync(FIXTURE);
 let version = 1;
 const bytes = new Map(); // "slug/n" → { image, thumb }
 const image = (slug, number) => ({ number, url: `/api/club/images/${slug}/${number}?v=${version}`, thumbUrl: `/api/club/images/${slug}/${number}/thumb?v=${version}` });
-const team = (slug, name, count, isActive, fans) => ({ slug, name, isActive, fans, createdAt: now, images: Array.from({ length: count }, (_, i) => image(slug, i + 1)) });
+const team = (slug, name, count, isActive, fans, nickname = null) => ({ slug, name, nickname, isActive, fans, createdAt: now, images: Array.from({ length: count }, (_, i) => image(slug, i + 1)) });
 const state = {
   isActive: true, participants: 3, changesUsed: 1,
   clubs: [team("flamengo", "Flamengo", 3, true, 2), team("gremio", "Grêmio", 3, true, 1), team("santos", "Santos", 3, false, 0), team("sem-imagem", "Sem Imagem", 0, true, 0)],
@@ -145,7 +145,7 @@ function adminApi(method, path, body) {
   if (path === "/api/admin/club-event" && method === "PUT") { state.isActive = input.isActive; return [200, { data: { isActive: state.isActive } }]; }
   if (path === "/api/admin/club-event/clubs" && method === "POST") {
     if (findClub(input.slug) || state.clubs.some((club) => club.name.toLowerCase() === input.name.toLowerCase())) return [409, { message: "Já existe um time com esse slug ou nome." }];
-    const club = team(input.slug, input.name, 0, input.isActive, 0);
+    const club = team(input.slug, input.name, 0, input.isActive, 0, input.nickname ?? null);
     state.clubs.push(club);
     return [201, { data: club }];
   }
@@ -283,9 +283,11 @@ assert.equal(await evaluate(`document.querySelector("#club-slug").value`), "sao-
 await typeInto("#club-slug", "Inválido!");
 assert.equal(await evaluate(`[...${dialog}.querySelectorAll("button[type=submit]")][0].disabled`), true, "slug inválido liberou salvar");
 await typeInto("#club-slug", "sao-jose-teste");
+await typeInto("#club-nickname", "  Zequinha ");
 await click("Salvar", dialog);
 await waitFor(`${dialog}?.querySelector("h2")?.textContent === "Editar time"`, "time criado vira edição");
 assert.match(await evaluate(`${dialog}.innerText`), /Time cadastrado\. Adicione as imagens\./);
+assert.equal(findClub("sao-jose-teste").nickname, "Zequinha", "apelido não foi aparado no envio");
 assert.match(await evaluate(`${dialog}.innerText`), /https:\/\/cidoe\.com\.br\/\?time=sao-jose-teste/);
 await choose("Adicionar imagem", [FIXTURE, WIDE]);
 await waitFor(`${dialog}.querySelectorAll('section[aria-labelledby="club-images"] li').length === 2`, "duas imagens enviadas");
@@ -321,9 +323,12 @@ console.log("Criar time: slug sugerido, imagens (várias, recorte quadrado, mini
 await click("Editar São José Teste");
 await waitFor(`${dialog}?.querySelector("h2")?.textContent === "Editar time"`, "editor de edição");
 await typeInto("#club-name", "São José Renomeado");
+assert.equal(await evaluate(`document.querySelector("#club-nickname").value`), "Zequinha", "edição sem o apelido gravado");
+await typeInto("#club-nickname", "");
 await click("Salvar", dialog);
 await waitFor(`!${dialog} && document.body.innerText.includes("São José Renomeado")`, "renomeado");
 assert.equal(findClub("sao-jose-teste").name, "São José Renomeado");
+assert.equal(findClub("sao-jose-teste").nickname, null, "apelido apagado não virou null (remover)");
 await click("Excluir Flamengo");
 await waitFor(`${dialog}?.innerText.includes("2 torcedores ficam sem time")`, "confirmação com torcedores");
 await click("Excluir time", dialog);
@@ -331,5 +336,5 @@ await waitFor(`document.body.innerText.includes("Flamengo foi excluído.") && ![
 await waitFor(`[...document.querySelectorAll("dl > div")][0]?.innerText.replace(/\\s+/g, " ").trim() === "Participantes 1"`, "números recarregados");
 await shot("2-final");
 assert.deepEqual(problems, [], `console com problema:\n${problems.join("\n")}`);
-console.log("Renomear, excluir com aviso de torcedores, números recarregados e console limpo OK.");
+console.log("Apelido (aparado, editado, removido), renomear, excluir com aviso de torcedores, números recarregados e console limpo OK.");
 process.exit(0);

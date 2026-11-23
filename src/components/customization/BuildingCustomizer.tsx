@@ -5,7 +5,7 @@ import { Tabs } from "radix-ui";
 import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import { formatUnlockCta } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
-import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenSide, type TextureSettings } from "@/scene/types";
+import { SCREEN_MAX_IMAGES, type BuildingCustomization, type BuildingShape, type EdgeLightType, type RooftopType, type ScreenLabel, type ScreenSide, type TextureSettings } from "@/scene/types";
 import { useClubCatalog } from "@/components/hooks/useClubCatalog";
 import { clubImages, findClub } from "@/lib/clubs";
 import { CustomizationImage } from "./CustomizationImage";
@@ -283,6 +283,13 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
     const max = Math.min(SCREEN_MAX_IMAGES, screenImages.length);
     const full = chosen.length >= max;
     const toggle = (key: string) => onChange({ screenImages: chosen.includes(key) ? chosen.filter((item) => item !== key) : [...chosen, key] });
+    // Faixa do nome: apelido só se o time tem; o que o time perdeu aparece como nome (a cena faz igual).
+    const labelOptions: ReadonlyArray<{ value: ScreenLabel; label: string }> = [
+      { value: "none", label: "Nenhum" },
+      { value: "name", label: team?.name ?? "" },
+      ...(team?.nickname ? [{ value: "nickname" as const, label: team.nickname }] : []),
+    ];
+    const screenLabel = customization.screenLabel === "nickname" && !team?.nickname ? "name" : customization.screenLabel;
     return <>
       <div className="space-y-2">
         <p className="flex items-baseline justify-between gap-3">
@@ -304,6 +311,17 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
         </div>
         <p className="text-xs leading-5 text-muted-foreground">Com mais de uma, o telão alterna nessa ordem.</p>
       </div>
+      {chosen.length > 0 && <fieldset className="space-y-2">
+        <legend className="mono-label">Nome</legend>
+        <div className={cn("grid gap-2", labelOptions.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
+          {labelOptions.map(({ value, label }) => (
+            <label key={value} className={cn("grid h-10 min-w-0 cursor-pointer place-items-center pixel pixel-thin text-sm font-semibold transition-colors has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-[-3px]", screenLabel === value ? "pixel-ink-verde bg-secondary" : "bg-card hover:bg-accent")}>
+              <input type="radio" name={`${screenIds}-label`} value={value} checked={screenLabel === value} onChange={() => onChange({ screenLabel: value })} className="sr-only" />
+              <span className="max-w-full truncate px-2">{label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>}
       <fieldset className="space-y-2">
         <legend className="mono-label">Lado</legend>
         <div className="grid grid-cols-4 gap-2">

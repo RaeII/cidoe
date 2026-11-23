@@ -9,6 +9,7 @@ import type {
   DonationEntry,
   EdgeLightType,
   RooftopType,
+  ScreenLabel,
   ScreenSide,
   TextureSettings,
 } from "../types";
@@ -46,6 +47,7 @@ import {
   createLedScreenMesh,
   disposeLedScreenMesh,
   disposeLedScreenSharedResources,
+  getScreenLabelText,
   setLedScreenNight,
   setLedScreenOpacity,
   tickLedScreen,
@@ -2965,11 +2967,11 @@ export function createDonationManager({
   };
 
   // --- Telões de LED ---
-  // Mapa: donationId → pedido (lado + keys) e o telão criado. Pedido fica mesmo sem telão
+  // Mapa: donationId → pedido (lado + keys + faixa do nome) e o telão criado. Pedido fica mesmo sem telão
   // (fachada sem trecho plano que caiba): o próximo rebuild tenta de novo se o prédio crescer.
   // Recriado em todo rebuild, como o LED de arestas: posição e tamanho dependem da altura e
   // do formato. Textura é por imagem, compartilhada (createLedScreenMesh): recriar é barato.
-  const screenMeshes = new Map<number, { entry: LedScreenEntry | null; side: ScreenSide; images: readonly string[] }>();
+  const screenMeshes = new Map<number, { entry: LedScreenEntry | null; side: ScreenSide; images: readonly string[]; label: ScreenLabel }>();
 
   // Dado do navegador ou do banco: lado inválido vira frente, key sem arquivo some e o teto vale.
   const normalizeScreen = (customization?: BuildingCustomization) => {
@@ -2977,12 +2979,13 @@ export function createDonationManager({
     const images = (Array.isArray(customization?.screenImages) ? customization?.screenImages ?? [] : [])
       .filter((key) => typeof key === "string" && getScreenImageUrl(key) !== null)
       .slice(0, SCREEN_MAX_IMAGES);
-    return { side, images };
+    const label: ScreenLabel = customization?.screenLabel === "name" || customization?.screenLabel === "nickname" ? customization.screenLabel : "none";
+    return { side, images, label };
   };
 
   const getScreenEntries = () => [...screenMeshes.values()].flatMap(({ entry }) => (entry ? [entry] : []));
 
-  const setScreen = (donationId: number, side: ScreenSide, images: readonly string[]) => {
+  const setScreen = (donationId: number, side: ScreenSide, images: readonly string[], label: ScreenLabel = "none") => {
     const existing = screenMeshes.get(donationId);
     if (existing?.entry) {
       scene.remove(existing.entry.group);
@@ -2998,8 +3001,9 @@ export function createDonationManager({
       side,
       shape: donationById.get(donationId)?.customization?.buildingShape ?? "default",
       imageUrls: images.map((key) => getScreenImageUrl(key)!),
+      label: getScreenLabelText(images, label),
     });
-    screenMeshes.set(donationId, { entry: entry || null, side, images });
+    screenMeshes.set(donationId, { entry: entry || null, side, images, label });
     if (!entry) return;
     scene.add(entry.group);
     // Group na base do edifício, como o LED de arestas.
@@ -3013,7 +3017,7 @@ export function createDonationManager({
   };
 
   const syncScreens = () => {
-    for (const [donationId, { side, images }] of [...screenMeshes]) setScreen(donationId, side, images);
+    for (const [donationId, { side, images, label }] of [...screenMeshes]) setScreen(donationId, side, images, label);
   };
 
   const updateCustomShapeColor = (donationId: number, color: string) => {
@@ -3656,11 +3660,11 @@ export function createDonationManager({
           }
         }
 
-        // Telão: lado ou imagens (ordem inclusa) mudaram → recria. Troca de formato já
-        // passou pelo rebuild (syncScreens) com o formato novo.
+        // Telão: lado, imagens (ordem inclusa) ou faixa do nome mudaram → recria. Troca de
+        // formato já passou pelo rebuild (syncScreens) com o formato novo.
         const screen = normalizeScreen(customization);
-        if (screen.side !== prevScreen.side || screen.images.join("\n") !== prevScreen.images.join("\n")) {
-          setScreen(donationId, screen.side, screen.images);
+        if (screen.side !== prevScreen.side || screen.label !== prevScreen.label || screen.images.join("\n") !== prevScreen.images.join("\n")) {
+          setScreen(donationId, screen.side, screen.images, screen.label);
         }
         if (focusedDonationId !== null) applyAccessoryFocus();
       };

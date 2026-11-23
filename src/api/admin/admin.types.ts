@@ -149,6 +149,8 @@ export interface AdminClubImage {
 export interface AdminClub {
   slug: string;
   name: string;
+  /** Apelido (faixa do telão). null = sem. */
+  nickname: string | null;
   isActive: boolean;
   /** Quantos escolheram este time. */
   fans: number;
@@ -167,6 +169,8 @@ export interface ClubEventOverview {
 export interface CreateClubInput {
   slug: string;
   name: string;
+  /** Vazio/null = sem apelido (no PUT, remove). */
+  nickname: string | null;
   isActive: boolean;
 }
 

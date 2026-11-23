@@ -66,7 +66,7 @@ export async function resizeImage(file: File, maxDimension = 400): Promise<strin
 
 /**
  * Imagem do telão (evento dos times): recorte central quadrado — o telão estica a imagem em
- * 64×64 LEDs — em 256 px + miniatura 96 px da lista. WebP; navegador sem encoder WebP (o canvas
+ * 128×128 LEDs — em 256 px + miniatura 96 px da lista. WebP; navegador sem encoder WebP (o canvas
  * devolve PNG no lugar) manda PNG. O servidor confere assinatura e tamanho.
  */
 export async function encodeClubImage(file: File): Promise<{ image: string; thumb: string }> {

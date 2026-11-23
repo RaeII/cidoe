@@ -31,7 +31,7 @@ const catalog = {
   colors: [{ ...option(3, "red", "Vermelho", true), value: "#ff0000" }],
   textures: [], rooftops: [], edgeLights: [], features: { sign: null, hologram: null },
 };
-const customization = { color: "#d4d4d4", buildingShape: "default", rooftopType: "none", edgeLightType: "none", textureKey: null, signText: "", signSides: 1, hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78, screenSide: "front", screenImages: [] };
+const customization = { color: "#d4d4d4", buildingShape: "default", rooftopType: "none", edgeLightType: "none", textureKey: null, signText: "", signSides: 1, hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78, screenSide: "front", screenImages: [], screenLabel: "none" };
 const props = { catalog, customization, textureSettings: {}, onChange: () => {} };
 const html = render(props);
 assert.match(html, /Formato livre/);
@@ -52,9 +52,9 @@ for (const feature of ["sign", "hologram"]) {
 
 // Telão: só com time do evento e só as imagens dele (catálogo da API); ordem nos selos; key de
 // outro time (troca) não conta mas ainda deixa remover; Trocar time só com troca e evento ligado.
-const team = (slug, name, count, isActive = true) => ({ slug, name, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
+const team = (slug, name, count, isActive = true, nickname = null) => ({ slug, name, nickname, isActive, thumbUrl: `/api/club/images/${slug}/1/thumb?v=1`,
   images: Array.from({ length: count }, (_, i) => ({ key: `${slug}/${i + 1}`, url: `/api/club/images/${slug}/${i + 1}?v=1` })) });
-const clubCatalog = { isActive: true, clubs: [team("gremio", "Grêmio", 3), team("flamengo", "Flamengo", 3), team("bahia", "Bahia", 6), team("santos", "Santos", 2, false)] };
+const clubCatalog = { isActive: true, clubs: [team("gremio", "Grêmio", 3, true, "Tricolor"), team("flamengo", "Flamengo", 3), team("bahia", "Bahia", 6), team("santos", "Santos", 2, false)] };
 globalThis.clubCatalog = clubCatalog;
 const screenCatalog = { ...catalog, shapes: [], colors: [] };
 for (const club of [undefined, null, "time-inexistente"]) {
@@ -70,6 +70,7 @@ assert.match(emptyScreen, /0\/3/);
 assert.equal(emptyScreen.match(/src="\/api\/club\/images\/gremio\/[1-3]\?v=1"/g)?.length, 3, "Três imagens do time");
 assert.doesNotMatch(emptyScreen, /club\/images\/(?!gremio)/, "Imagem de outro time");
 assert.doesNotMatch(emptyScreen, /Remover telão|Trocar time/, "Remover/Trocar sem telão nem troca");
+assert.doesNotMatch(emptyScreen, /<legend[^>]*>Nome</, "Escolha do nome sem imagem no telão");
 assert.match(emptyScreen, /checked="" value="front"/, "Lado padrão não é a frente");
 assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", onChangeClub: () => {} }), /Trocar time/);
 const many = render({ ...props, catalog: screenCatalog, club: "bahia" });
@@ -87,7 +88,15 @@ assert.match(fullScreen, /aria-pressed="false"[^>]*aria-label="Grêmio, imagem 2
 assert.match(fullScreen, /checked="" value="back"/);
 assert.match(fullScreen, /Remover telão/);
 assert.match(render({ ...props, catalog: screenCatalog, club: "gremio", customization: { ...customization, screenImages: ["flamengo/1"] } }), /Remover telão/, "Telão só com imagem de outro time precisa poder sair");
-console.log("Telão: aba por time do catálogo, imagens, teto, ordem, troca de time, lado, remover, trocar e evento desligado OK.");
+// Faixa do nome: Nenhum / nome / apelido (só se o time tem); apelido que sumiu aparece como nome.
+assert.match(fullScreen, /<legend[^>]*>Nome</);
+assert.match(fullScreen, /checked="" value="none"/, "Faixa do nome ligada por padrão");
+assert.match(fullScreen, /value="name"[^>]*\/><span[^>]*>Grêmio</);
+assert.match(fullScreen, /value="nickname"[^>]*\/><span[^>]*>Tricolor</);
+const noNickname = render({ ...props, catalog: screenCatalog, club: "flamengo", customization: { ...customization, screenImages: ["flamengo/1"], screenLabel: "nickname" } });
+assert.doesNotMatch(noNickname, /value="nickname"/, "Apelido oferecido para time sem apelido");
+assert.match(noNickname, /checked="" value="name"/, "Apelido que o time não tem não caiu no nome");
+console.log("Telão: aba por time do catálogo, imagens, teto, ordem, troca de time, lado, faixa do nome, remover, trocar e evento desligado OK.");
 
 // Executa a seleção real: bloqueado não emite patch; disponível atualiza só o campo escolhido.
 const source = await readFile(new URL("../src/components/customization/BuildingCustomizer.tsx", import.meta.url), "utf8");

@@ -28,13 +28,13 @@ Menu **Evento dos times** → `/dale/times`. Página `src/pages/admin/Clubs.tsx`
 
 ## Editor de time (dialog)
 
-- **Adicionar time**: nome + link (`?time=` + slug, sugerido do nome sem acento até editar; formato `^[a-z0-9]+(-[a-z0-9]+)*$`; **não muda depois**) + ativo. Salvar cria e o dialog vira edição (imagens só com time criado).
-- **Editar**: nome e ativo (Salvar fecha). Link na descrição + **Copiar link**.
+- **Adicionar time**: nome + apelido (opcional, até 30; vazio = sem) + link (`?time=` + slug, sugerido do nome sem acento até editar; formato `^[a-z0-9]+(-[a-z0-9]+)*$`; **não muda depois**) + ativo. Salvar cria e o dialog vira edição (imagens só com time criado).
+- **Editar**: nome, apelido (apagar = remove; telões com apelido passam a mostrar o nome) e ativo (Salvar fecha). Link na descrição + **Copiar link**.
 - **Imagens** (`N/12`): grade 3 colunas, 1ª com selo **Capa** (miniatura da lista do modal). Cada ação grava na hora:
   - **Adicionar imagem**: aceita várias, enviadas uma por vez na ordem; para no primeiro erro. Desabilita em 12.
   - **Trocar**: mesmo número → telões que usam a imagem mostram a nova (cena em ≤5 min, cache da API; painel/modais na hora pelo `?v=`).
   - **Remover**: lixeira → confirmação inline (**Remover**/**Cancelar**). Sai de todos os telões. Números não renumeram: capa passa para a primeira que sobrou.
-- Arquivo: JPG, PNG ou WebP até 10 MB, até 5000 px. `encodeClubImage` (`src/lib/image.ts`): recorte central quadrado (telão estica em 64×64 LEDs) → 256 px + miniatura 96 px, WebP pelo canvas (navegador sem encoder WebP manda PNG). Sem dependência de imagem no back; back confere assinatura × tipo e teto (300 KB / 60 KB).
+- Arquivo: JPG, PNG ou WebP até 10 MB, até 5000 px. `encodeClubImage` (`src/lib/image.ts`): recorte central quadrado (telão estica em 128×128 LEDs) → 256 px + miniatura 96 px, WebP pelo canvas (navegador sem encoder WebP manda PNG). Sem dependência de imagem no back; back confere assinatura × tipo e teto (300 KB / 60 KB).
 - Busy: fieldset desabilitado, sem fechar durante gravação.
 
 ## API
@@ -48,4 +48,4 @@ Cópia: `copyText` (`src/lib/clipboard.ts`, também no `SharePanel`): Clipboard 
 
 ## Verificação
 
-`node scripts/check-admin-clubs-ui.mjs` (dev server + Chrome; API do painel simulada com as regras do back; `MOBILE=1`, `SHOTS=pasta`): números, menu, liga/desliga, busca, copiar link (área de transferência real), ativar/desativar, criar com slug sugerido e slug inválido, várias imagens (PNG 600×300 sai 256×256 + 96×96 WebP), trocar, remover com confirmação, arquivo falso barrado no navegador, renomear, excluir com aviso de torcedores, sem rolagem lateral, console limpo. `node scripts/check-club-event.mjs` confere slug, key do telão e teto de imagens iguais ao back.
+`node scripts/check-admin-clubs-ui.mjs` (dev server + Chrome; API do painel simulada com as regras do back; `MOBILE=1`, `SHOTS=pasta`): números, menu, liga/desliga, busca, copiar link (área de transferência real), ativar/desativar, criar com slug sugerido e slug inválido, várias imagens (PNG 600×300 sai 256×256 + 96×96 WebP), trocar, remover com confirmação, arquivo falso barrado no navegador, apelido (aparado, editado, removido), renomear, excluir com aviso de torcedores, sem rolagem lateral, console limpo. `node scripts/check-club-event.mjs` confere slug, key do telão e teto de imagens iguais ao back.

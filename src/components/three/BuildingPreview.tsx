@@ -108,7 +108,7 @@ export function BuildingPreview({ customization, textureSettings }: {
     const previous = runtime.appearance;
     // Cor/tint/opacidade não recriam o modelo nem decodificam o GIF novamente.
     if (runtime.view && previous && runtime.textureSettings === textureSettings && runtime.texturesReady &&
-      (["buildingShape", "rooftopType", "edgeLightType", "signText", "signSides", "textureKey", "tilingScale", "textureTransform", "hologramImage", "screenSide", "screenImages"] as const)
+      (["buildingShape", "rooftopType", "edgeLightType", "signText", "signSides", "textureKey", "tilingScale", "textureTransform", "hologramImage", "screenSide", "screenImages", "screenLabel"] as const)
         .every((key) => previous[key] === customization[key])) {
       runtime.view.updateStyle(customization);
       runtime.renderNeeded = true;

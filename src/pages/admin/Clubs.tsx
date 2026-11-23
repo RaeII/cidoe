@@ -56,6 +56,7 @@ function ClubEditor({ club: initial, onClose, onChanged }: {
 }) {
   const [club, setClub] = useState(initial);
   const [name, setName] = useState(initial?.name ?? "");
+  const [nickname, setNickname] = useState(initial?.nickname ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(false);
   const [active, setActive] = useState(initial?.isActive ?? true);
@@ -82,11 +83,11 @@ function ClubEditor({ club: initial, onClose, onChanged }: {
     setError(null);
     try {
       if (club) {
-        onChanged(await updateClub(club.slug, { name: name.trim(), isActive: active }), "Time atualizado.");
+        onChanged(await updateClub(club.slug, { name: name.trim(), nickname: nickname.trim() || null, isActive: active }), "Time atualizado.");
         onClose();
       } else {
         // Fica aberto, já como edição: imagens só entram com o time criado.
-        const created = await createClub({ slug, name: name.trim(), isActive: active });
+        const created = await createClub({ slug, name: name.trim(), nickname: nickname.trim() || null, isActive: active });
         setClub(created);
         setStatus("Time cadastrado. Adicione as imagens.");
         onChanged(created, "Time cadastrado.");
@@ -156,6 +157,11 @@ function ClubEditor({ club: initial, onClose, onChanged }: {
             <div className="space-y-2">
               <label htmlFor="club-name" className="block mono-label">Nome</label>
               <Input id="club-name" value={name} maxLength={60} required onChange={(event) => changeName(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="club-nickname" className="block mono-label">Apelido</label>
+              <Input id="club-nickname" value={nickname} maxLength={30} aria-describedby="club-nickname-help" onChange={(event) => setNickname(event.target.value)} />
+              <p id="club-nickname-help" className="text-xs text-muted-foreground">Opcional. O torcedor escolhe nome ou apelido no telão.</p>
             </div>
             {!club && (
               <div className="space-y-2">

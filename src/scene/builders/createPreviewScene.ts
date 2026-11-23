@@ -18,7 +18,7 @@ import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType }
 import type { FacadeTextureSet } from "../textures/facadeTextureLoader";
 import { createSignMesh, disposeSignMesh } from "./createSignMesh";
 import { createHologramMesh, disposeHologramMesh, positionHologram, setHologramImage, setHologramOpacity, setHologramTint, tickHologram } from "./createHologramMesh";
-import { createLedScreenMesh, disposeLedScreenMesh, tickLedScreen } from "./createLedScreenMesh";
+import { createLedScreenMesh, disposeLedScreenMesh, getScreenLabelText, tickLedScreen } from "./createLedScreenMesh";
 import { getScreenImageUrl } from "../textures/screenImageManifest";
 import { setEmpireBuildingMeshColor } from "./createEmpireBuildingMesh";
 import { getResidentialRoofOffset, RESIDENTIAL_ROOFTOP_SCALE, setResidentialStoneMaps } from "./createResidentialBuildingMesh";
@@ -195,8 +195,11 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
       }).catch((error: unknown) => { if (!disposed) console.warn("Falha ao carregar holograma da prévia", error); });
     }
     // Mesma regra da cena: key sem arquivo some. Group na base do prédio.
-    const screenUrls = (customization.screenImages ?? []).flatMap((key) => getScreenImageUrl(key) ?? []);
-    screen = createLedScreenMesh({ width: 1, depth: 1, height, side: customization.screenSide ?? "front", shape, imageUrls: screenUrls });
+    const screenKeys = (customization.screenImages ?? []).filter((key) => getScreenImageUrl(key) !== null);
+    screen = createLedScreenMesh({
+      width: 1, depth: 1, height, side: customization.screenSide ?? "front", shape,
+      imageUrls: screenKeys.map((key) => getScreenImageUrl(key)!), label: getScreenLabelText(screenKeys, customization.screenLabel),
+    });
     if (screen) {
       screen.group.position.y = -height / 2;
       root.add(screen.group);

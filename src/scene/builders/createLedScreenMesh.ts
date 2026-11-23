@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import type { BuildingShape, ScreenSide } from "../types";
+import type { BuildingShape, ScreenLabel, ScreenSide } from "../types";
 import { getSignBand } from "./createSignMesh";
 import { getOctagonalFootprintPoints, getOctagonalGeometry } from "./createOctagonalBuildingMesh";
 import { getSetbackFootprintScaleAtHeightRatio, getSetbackGeometry } from "./createSetbackBuildingMesh";
@@ -23,10 +23,15 @@ import type { FloorKitSpec } from "./createBuildingFloorKit";
 // o clarão que a tela joga na própria fachada. Um telão = 2 draw calls (+1 de noite).
 
 /** LEDs por lado = resolução da textura: 1 texel por LED, Nearest de perto, mip de longe. */
-export const LED_SCREEN_GRID = 64;
+export const LED_SCREEN_GRID = 128;
 /** Tempo de cada imagem no ciclo, e da troca em cascata no começo dele. */
 export const LED_SCREEN_SLIDE_SECONDS = 7;
 export const LED_SCREEN_FADE_SECONDS = 0.8;
+/** Faixa do nome: fileiras de LED embaixo da imagem, no mesmo passo (texto de ~10 LEDs). */
+export const LED_SCREEN_LABEL_ROWS = 20;
+const LABEL_ASPECT = (LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS) / LED_SCREEN_GRID;
+const LABEL_COLOR = "#f4f1ea";
+const CATALOG_URL = "/api/club/catalog"; // mesma origem das imagens (getScreenImageUrl)
 
 const SAMPLES = 40;          // alturas testadas na faixa livre da fachada
 const FINE_SAMPLES = 16;     // dentro da janela escolhida, pro afastamento final
@@ -46,11 +51,15 @@ export type LedScreenParams = {
   height: number;
   side: ScreenSide;
   shape: BuildingShape;
+  /** Com faixa do nome: gabinete mais alto (imagem quadrada + LED_SCREEN_LABEL_ROWS fileiras). */
+  labeled?: boolean;
 };
 
 export type LedScreenPlacement = {
-  /** Lado externo do gabinete (quadrado, como as imagens). */
+  /** Largura externa do gabinete (imagem quadrada). */
   size: number;
+  /** Altura externa máxima: = size sem faixa do nome, size × LABEL_ASPECT com ela. */
+  height: number;
   /** Altura do centro, com a base do edifício em 0. */
   centerY: number;
   /** Normal da fachada (XZ) e tangente (eixo X local do painel). */
@@ -310,8 +319,9 @@ function depthAlong(points: Point[], n: Point, t: Point, u: number): number | nu
  * letreiro: o telão não muda de lugar quando ele aparece). Escolhe por tamanho com bônus de
  * altura (HEIGHT_WEIGHT). null = fachada sem trecho plano de `MIN_SIZE`.
  */
-export function computeLedScreenPlacement({ width, depth, height, side, shape }: LedScreenParams): LedScreenPlacement | null {
+export function computeLedScreenPlacement({ width, depth, height, side, shape, labeled = false }: LedScreenParams): LedScreenPlacement | null {
   if (!(width > 0 && depth > 0 && height > 0)) return null;
+  const aspect = labeled ? LABEL_ASPECT : 1;
   let yLow = Math.max(0.05, height * 0.08, getGroundTop(shape, height) + height * 0.01);
   let signBottom: number;
   let signHeight: number;
@@ -327,7 +337,7 @@ export function computeLedScreenPlacement({ width, depth, height, side, shape }:
     signHeight = band.height;
   }
   let yHigh = Math.min(height, signBottom - signHeight * 0.3);
-  if (yHigh - yLow < MIN_SIZE) yHigh = Math.min(height, yLow + MIN_SIZE);
+  if (yHigh - yLow < MIN_SIZE * aspect) yHigh = Math.min(height, yLow + MIN_SIZE * aspect);
 
   const tolerance = DIST_TOLERANCE * Math.max(width, depth);
   const samples = Array.from({ length: SAMPLES + 1 }, (_, i) => {
@@ -358,27 +368,29 @@ export function computeLedScreenPlacement({ width, depth, height, side, shape }:
       minYaw = Math.min(minYaw, sample.yaw);
       maxYaw = Math.max(maxYaw, sample.yaw);
       if (minWidth <= 0 || maxDist - minDist > tolerance || maxYaw - minYaw > YAW_TOLERANCE) break;
-      const size = Math.min(head.y - sample.y, minWidth * WIDTH_FILL);
+      const size = Math.min((head.y - sample.y) / aspect, minWidth * WIDTH_FILL);
       // Telão no alto aparece de longe: altura pesa junto com o tamanho. Empate (±2%) fica
       // com a mais alta, que já vem primeiro.
-      const score = size * (1 + HEIGHT_WEIGHT * (head.y - size / 2) / height);
+      const score = size * (1 + HEIGHT_WEIGHT * (head.y - (size * aspect) / 2) / height);
       if (!best || score > best.score * 1.02) best = { size, top: head.y, score };
     }
   }
   if (!best || best.size < MIN_SIZE * 0.999) return null;
 
-  const bottom = best.top - best.size;
-  const centerY = best.top - best.size / 2;
+  const tall = best.size * aspect;
+  const bottom = best.top - tall;
+  const centerY = best.top - tall / 2;
   const normal = getSideNormal(shape, side, width, depth, height, centerY);
   const mid = getFacadePolygonAt(shape, width, depth, height, centerY, side)!;
   let faceDist = -Infinity;
   for (let i = 0; i <= FINE_SAMPLES; i++) {
-    const y = bottom + (best.size * i) / FINE_SAMPLES;
+    const y = bottom + (tall * i) / FINE_SAMPLES;
     const points = getFacadePolygonAt(shape, width, depth, height, y, side);
     if (points) faceDist = Math.max(faceDist, supportFace(points, normal).dist, measuredDist(shape, side, width, depth, height, y));
   }
   return {
     size: best.size,
+    height: tall,
     centerY,
     normal,
     tangent: tangentOf(normal),
@@ -395,6 +407,10 @@ const UNIT_PLANE = new THREE.PlaneGeometry(1, 1);
 /** 1 = dia, 0 = noite. Um objeto em todos os materiais: setLedScreenNight muda todos de uma vez. */
 const DAYLIGHT = { value: 1 };
 const GRID = { value: new THREE.Vector2(LED_SCREEN_GRID, LED_SCREEN_GRID) };
+const GRID_LABELED = { value: new THREE.Vector2(LED_SCREEN_GRID, LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS) };
+/** Faixa sem texto (só o fundo da imagem) enquanto o nome não chega ou time sem nome no catálogo. */
+const BLANK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
+BLANK.needsUpdate = true;
 let nightMode = false;
 
 type ScreenTexture = THREE.CanvasTexture & { userData: { average: THREE.Color } };
@@ -450,6 +466,66 @@ function getScreenTexture(url: string): ScreenTexture {
   return texture;
 }
 
+const labelCache = new Map<string, THREE.CanvasTexture>();
+
+/**
+ * Nome na faixa, 1 texel por LED como a imagem: caixa alta, centralizado, encolhe pra caber.
+ * Fundo transparente (o shader pinta o fundo da imagem da vez); alfa pré-multiplicado pro mip.
+ */
+function getLabelTexture(text: string): THREE.CanvasTexture {
+  const cached = labelCache.get(text);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.width = LED_SCREEN_GRID;
+  canvas.height = LED_SCREEN_LABEL_ROWS;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const upper = text.toLocaleUpperCase("pt-BR");
+    const max = LED_SCREEN_GRID - 8;
+    ctx.font = "700 13px sans-serif";
+    const width = ctx.measureText(upper).width;
+    // Nome comprido: fonte menor até 9 px; o resto o maxWidth do fillText aperta.
+    if (width > max) ctx.font = `700 ${Math.max(9, Math.floor((13 * max) / width))}px sans-serif`;
+    ctx.fillStyle = LABEL_COLOR;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(upper, LED_SCREEN_GRID / 2, LED_SCREEN_LABEL_ROWS / 2 + 1, max);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.premultiplyAlpha = true;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.anisotropy = 4;
+  labelCache.set(text, texture);
+  return texture;
+}
+
+type CatalogClub = { slug: string; name: string; nickname: string | null };
+let catalogClubs: Promise<Map<string, CatalogClub>> | null = null;
+
+/**
+ * Texto da faixa do nome: nome ou apelido do time (= prefixo das keys) no catálogo da API;
+ * apelido que o time não tem cai no nome. null = sem faixa. Catálogo: um pedido por página,
+ * só quando algum telão tem faixa (FileLoader passa pelo DefaultLoadingManager: chegou, o
+ * runtime redesenha). Falhou: faixa apagada, o próximo telão tenta de novo. Nunca rejeita.
+ */
+export function getScreenLabelText(imageKeys: readonly string[], label: ScreenLabel | undefined): Promise<string | null> | null {
+  if ((label !== "name" && label !== "nickname") || imageKeys.length === 0) return null;
+  const slug = imageKeys[0].split("/")[0];
+  catalogClubs ??= new THREE.FileLoader().setResponseType("json").loadAsync(CATALOG_URL).then(
+    (body) => new Map((body as unknown as { data: { clubs: CatalogClub[] } }).data.clubs.map((club) => [club.slug, club])),
+    () => {
+      catalogClubs = null;
+      return new Map<string, CatalogClub>();
+    },
+  );
+  return catalogClubs.then((clubs) => {
+    const club = clubs.get(slug);
+    return club ? (label === "nickname" && club.nickname) || club.name : null;
+  });
+}
+
 const FACE_VERTEX = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vViewPosition;
@@ -468,6 +544,8 @@ const FACE_VERTEX = /* glsl */ `
 const FACE_FRAGMENT = /* glsl */ `
   uniform sampler2D uMapA;
   uniform sampler2D uMapB;
+  uniform sampler2D uLabel;
+  uniform float uSplit; // fração de baixo com a faixa do nome (0 = sem)
   uniform float uMix;
   uniform float uOpacity;
   uniform float uDaylight;
@@ -496,7 +574,16 @@ const FACE_FRAGMENT = /* glsl */ `
     // Troca em cascata, linha a linha de LED, de cima pra baixo.
     float row = 1.0 - (id.y + 0.5) / uGrid.y;
     float swap = clamp(uMix * 1.4 - row * 0.4, 0.0, 1.0);
-    vec3 color = mix(texture2D(uMapA, vUv).rgb, texture2D(uMapB, vUv).rgb, swap);
+    // Imagem em cima (quadrada), nome embaixo: as duas no mesmo passo de LED. Amostra as
+    // duas e escolhe por step (texture2D dentro de if quebra o mip na borda).
+    vec2 imageUv = vec2(vUv.x, (vUv.y - uSplit) / (1.0 - uSplit));
+    vec3 color = mix(texture2D(uMapA, imageUv).rgb, texture2D(uMapB, imageUv).rgb, swap);
+    // Fundo da faixa = texel do canto da imagem da vez (fundo dela; troca junto na cascata).
+    // Coord constante = derivada 0 = mip 0: cor exata do texel.
+    vec2 corner = vec2(0.5) / uGrid.x;
+    vec3 background = mix(texture2D(uMapA, corner).rgb, texture2D(uMapB, corner).rgb, swap);
+    vec4 label = texture2D(uLabel, vec2(vUv.x, vUv.y / max(uSplit, 1e-4)));
+    color = mix(color, background * (1.0 - label.a) + label.rgb, 1.0 - step(uSplit, vUv.y));
 
     // Diodo: quadrado arredondado aceso + luz que vaza no louver preto em volta.
     vec2 q = abs(local) - 0.2;
@@ -551,16 +638,18 @@ const SPILL_FRAGMENT = /* glsl */ `
   }
 `;
 
-function createFaceMaterial(texture: THREE.Texture): THREE.ShaderMaterial {
+function createFaceMaterial(texture: THREE.Texture, labeled: boolean): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uMapA: { value: texture },
       uMapB: { value: texture },
+      uLabel: { value: BLANK },
+      uSplit: { value: labeled ? LED_SCREEN_LABEL_ROWS / (LED_SCREEN_GRID + LED_SCREEN_LABEL_ROWS) : 0 },
       uMix: { value: 0 },
       uOpacity: { value: 1 },
       uDaylight: DAYLIGHT,
-      uGrid: GRID,
+      uGrid: labeled ? GRID_LABELED : GRID,
     },
     vertexShader: FACE_VERTEX,
     fragmentShader: FACE_FRAGMENT,
@@ -593,27 +682,35 @@ function createSpillMaterial(texture: ScreenTexture, core: number): THREE.Shader
 /**
  * Telão na fachada `side`. Group na BASE do edifício (y = 0 no chão), como o LED de
  * arestas. null = sem imagem válida ou fachada sem trecho plano que caiba um telão.
+ * `label`: faixa do nome embaixo da imagem (texto, ou promessa dele: getScreenLabelText).
+ * Com faixa o gabinete já nasce alto; o texto entra quando chega.
  */
-export function createLedScreenMesh(params: LedScreenParams & { imageUrls: readonly string[] }): LedScreenEntry | null {
+export function createLedScreenMesh(
+  params: LedScreenParams & { imageUrls: readonly string[]; label?: string | Promise<string | null> | null },
+): LedScreenEntry | null {
   if (params.imageUrls.length === 0) return null;
-  const placement = computeLedScreenPlacement(params);
+  const labeled = params.label != null;
+  const placement = computeLedScreenPlacement({ ...params, labeled });
   if (!placement) return null;
   const { size, centerY, normal, tangent, centerT, faceDist } = placement;
 
   const bezel = THREE.MathUtils.clamp(size * 0.022, 0.01, 0.04);
   const active = size - bezel * 2;
+  // Altura ativa no passo do LED da largura: fileiras da faixa do mesmo tamanho das da imagem.
+  const activeHeight = labeled ? active * LABEL_ASPECT : active;
+  const cabinet = activeHeight + bezel * 2;
   const thickness = THREE.MathUtils.clamp(size * 0.045, 0.025, 0.07);
   const backDist = faceDist + THREE.MathUtils.clamp(size * 0.015, 0.012, 0.03);
   const frontDist = backDist + thickness;
 
   // Frame local: X = tangente, Y = altura, Z = normal. `mount` gira pro yaw da fachada.
   const parts: THREE.BufferGeometry[] = [
-    new THREE.BoxGeometry(size, size, thickness).translate(centerT, centerY, backDist + thickness / 2),
+    new THREE.BoxGeometry(size, cabinet, thickness).translate(centerT, centerY, backDist + thickness / 2),
   ];
   // Braços: dois em cima, dois embaixo, do fundo do gabinete até a parede.
   const arm = THREE.MathUtils.clamp(size * 0.03, 0.018, 0.045);
   const overlap = 0.008;
-  for (const rowY of [centerY + size * 0.34, centerY - size * 0.34]) {
+  for (const rowY of [centerY + cabinet * 0.34, centerY - cabinet * 0.34]) {
     const points = getFacadePolygonAt(params.shape, params.width, params.depth, params.height, rowY, params.side);
     if (!points) continue;
     for (const u of [-size * 0.32, size * 0.32]) {
@@ -627,19 +724,24 @@ export function createLedScreenMesh(params: LedScreenParams & { imageUrls: reado
   for (const part of parts) part.dispose();
 
   const textures = params.imageUrls.map(getScreenTexture);
-  const material = createFaceMaterial(textures[0]);
+  const material = createFaceMaterial(textures[0], labeled);
+  const setLabel = (text: string | null) => {
+    if (text) material.uniforms.uLabel.value = getLabelTexture(text);
+  };
+  if (typeof params.label === "string") setLabel(params.label);
+  else params.label?.then(setLabel);
   const spillMaterial = createSpillMaterial(textures[0], (size / 2) / (size * SPILL_SCALE));
 
   const frame = new THREE.Mesh(frameGeometry, FRAME_MATERIAL);
   frame.name = "ledScreenFrame";
   const face = new THREE.Mesh(UNIT_PLANE, material);
   face.name = "ledScreenFace";
-  face.scale.set(active, active, 1);
+  face.scale.set(active, activeHeight, 1);
   face.position.set(centerT, centerY, frontDist + FACE_GAP);
   // Clarão na parede, atrás do gabinete. Só de noite.
   const spill = new THREE.Mesh(UNIT_PLANE, spillMaterial);
   spill.name = "ledScreenSpill";
-  spill.scale.set(size * SPILL_SCALE, size * SPILL_SCALE, 1);
+  spill.scale.set(size * SPILL_SCALE, cabinet * SPILL_SCALE, 1);
   spill.position.set(centerT, centerY, faceDist + 0.006);
   spill.renderOrder = 5;
   spill.visible = nightMode;
@@ -703,6 +805,9 @@ export function disposeLedScreenMesh(entry: LedScreenEntry): void {
 export function disposeLedScreenSharedResources(): void {
   for (const texture of textureCache.values()) texture.dispose();
   textureCache.clear();
+  for (const texture of labelCache.values()) texture.dispose();
+  labelCache.clear();
+  BLANK.dispose();
   UNIT_PLANE.dispose();
   FRAME_MATERIAL.dispose();
 }

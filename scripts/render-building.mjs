@@ -11,6 +11,7 @@
  *   --screen <lado>                telão (front|right|back|left) com o escudo do Grêmio (scripts/fixtures/telao.webp);
  *                                  3ª vista vira close dele (LEDs, gabinete, braços)
  *   --screen-image <imagem>        imagem do telão no lugar da padrão
+ *   --screen-label <texto>         faixa do nome embaixo da imagem (nome ou apelido do time)
  *   --ref <imagem>                 referência ao lado das vistas
  *   --color <hex>                  cor da customização (aplicada como no manager)
  *   --slot <i>=<hex>[,metal[,rough]]  sobrescreve o material do slot i (calibrar autoral; repetível)
@@ -77,7 +78,7 @@ const VIEWS = [
 const FOV = 30;
 const hex = (value) => (value.startsWith("#") ? value : "#" + value);
 
-function render({ shape, height, width, sign, screen, screenImage, color, slots, tile }) {
+function render({ shape, height, width, sign, screen, screenImage, screenLabel, color, slots, tile }) {
   if (!BUILDING_SHAPES.includes(shape)) {
     throw new Error("formato desconhecido: " + shape + "\\nconhecidos: " + BUILDING_SHAPES.join(", "));
   }
@@ -129,7 +130,7 @@ function render({ shape, height, width, sign, screen, screenImage, color, slots,
     scene.add(signGroup);
   }
   // Manager posiciona o telão na base do edifício.
-  const screenEntry = screen && createLedScreenMesh({ width, depth: width, height, side: screen, shape, imageUrls: [screenImage] });
+  const screenEntry = screen && createLedScreenMesh({ width, depth: width, height, side: screen, shape, imageUrls: [screenImage], label: screenLabel });
   if (screen && !screenEntry) throw new Error("fachada sem trecho plano pro telão: " + shape + " " + screen);
   if (screenEntry) scene.add(screenEntry.group);
 
@@ -219,6 +220,7 @@ const { values, positionals: [shape] } = parseArgs({
     sign: { type: "string" },
     screen: { type: "string" },
     "screen-image": { type: "string" },
+    "screen-label": { type: "string" },
     ref: { type: "string" },
     color: { type: "string" },
     slot: { type: "string", multiple: true, default: [] },
@@ -226,7 +228,7 @@ const { values, positionals: [shape] } = parseArgs({
   },
 });
 if (!shape) {
-  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--width n] [--sign texto] [--screen lado] [--screen-image img] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
+  console.error("uso: node scripts/render-building.mjs <formato> [--height n] [--width n] [--sign texto] [--screen lado] [--screen-image img] [--screen-label texto] [--ref img] [--color hex] [--slot i=hex[,metal[,rough]]] [--out png]");
   process.exit(1);
 }
 const browser = BROWSERS.find((path) => path && existsSync(path));
@@ -270,7 +272,7 @@ try {
   const asset = (name) => pathToFileURL(join(ROOT, "src/assets/environment", name)).href;
   const config = {
     shape, height, width, sign: values.sign, color: values.color, slots: values.slot, tile: TILE,
-    screen: values.screen, screenImage: screenImage && pathToFileURL(screenImage).href,
+    screen: values.screen, screenImage: screenImage && pathToFileURL(screenImage).href, screenLabel: values["screen-label"],
   };
   writeFileSync(join(work, "index.html"), `<!doctype html>
 <body style="margin:0;display:flex;background:#fff">

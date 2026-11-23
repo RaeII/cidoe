@@ -111,7 +111,7 @@ export async function createClub(input: CreateClubInput) {
   return data.data;
 }
 
-export async function updateClub(slug: string, input: Partial<Pick<CreateClubInput, "name" | "isActive">>) {
+export async function updateClub(slug: string, input: Partial<Pick<CreateClubInput, "name" | "nickname" | "isActive">>) {
   const { data } = await http.put<{ data: AdminClub }>(`/admin/club-event/clubs/${slug}`, input);
   return data.data;
 }
