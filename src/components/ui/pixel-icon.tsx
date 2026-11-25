@@ -32,6 +32,12 @@ export const PixelChevronDown = pixelIcon("PixelChevronDown", "0 0 7 4", 14, 8, 
 /** Cursor de menu ▸ — marca a opção ativa. */
 export const PixelArrow = pixelIcon("PixelArrow", "0 0 4 7", 6, 10, "M0 0h1v7h-1zM1 1h1v5h-1zM2 2h1v3h-1zM3 3h1v1h-1z")
 export const PixelHeart = pixelIcon("PixelHeart", "0 0 8 6", 16, 12, "M1 0h2v1h-2zM5 0h2v1h-2zM0 1h8v2h-8zM1 3h6v1h-6zM2 4h4v1h-4zM3 5h2v1h-2z")
+/** Cadeado: opção ou recurso bloqueado. Fechadura vazada mostra o fundo. */
+export const PixelLock = pixelIcon("PixelLock", "0 0 7 8", 11, 12, "M2 0h3v1h-3zM1 1h1v2h-1zM5 1h1v2h-1zM0 3h7v5h-7zM3 5h1v2h-1z")
+export const PixelUpload = pixelIcon("PixelUpload", "0 0 8 8", 12, 12, "M3 0h2v1h-2zM2 1h4v1h-4zM1 2h6v1h-6zM3 3h2v3h-2zM0 6h1v1h-1zM7 6h1v1h-1zM0 7h8v1h-8z")
+export const PixelInfo = pixelIcon("PixelInfo", "0 0 5 6", 10, 12, "M2 0h2v1h-2zM1 2h3v1h-3zM2 3h2v2h-2zM1 5h4v1h-4z")
+/** Imagem (moldura + morro), uma cor: espaço reservado para imagem do usuário. */
+export const PixelImage = pixelIcon("PixelImage", "0 0 10 8", 20, 16, "M0 0h10v1h-10zM0 1h1v6h-1zM9 1h1v6h-1zM0 7h10v1h-10zM6 2h2v2h-2zM2 5h1v1h-1zM1 6h3v1h-3zM5 4h1v1h-1zM4 5h3v1h-3zM3 6h6v1h-6z")
 export const PixelPaw = pixelIcon("PixelPaw", "0 0 9 8", 14, 12, "M2 0h2v2h-2zM5 0h2v2h-2zM0 2h2v2h-2zM7 2h2v2h-2zM3 3h3v1h-3zM2 4h5v1h-5zM1 5h7v2h-7zM2 7h2v1h-2zM5 7h2v1h-2z")
 export const PixelBuilding = pixelIcon(
   "PixelBuilding",

@@ -43,6 +43,7 @@ Tons de apoio:
 |---|---|---|
 | `tinta` | `#1E2A1B` | Texto e contorno (verde a 15% de luz) |
 | `tinta-2` | `#4A5446` | Texto secundário (`muted-foreground`) |
+| `tinta-claro` | `#2E3A2B` | Grupo sobre tinta: seletor Aparência/Informações na base escura do [[html-components#BuildingManageDialog.tsx\|personalizador]] (fundo escuro do DS 6.7) |
 | `verde-700` | `#3A5134` | Bisel verde, estado pressionado, texto ghost |
 | `verde-hover` | `#5A7B50` | Hover do botão primário |
 | `verde-100` | `#DCE4D5` | Seleção, hover, prefixo de campo (`accent`, `secondary`) |
@@ -152,7 +153,7 @@ Chamar atenção: sequência curta (~2s) com `motion`, transições suaves (ease
 
 ### 5 · Ícones em pixel
 
-Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo` (exceção: logo oficial em `<img>`, verde-oliva no claro / branca no `.dark`), `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
+Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelLock` (bloqueado), `PixelUpload` (enviar arquivo), `PixelInfo`, `PixelImage` (espaço para imagem do usuário), `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo` (exceção: logo oficial em `<img>`, verde-oliva no claro / branca no `.dark`), `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
 
 Lucide segue onde não há ícone pixel; terminação reta via CSS global (`.lucide`).
 
@@ -273,7 +274,7 @@ Logo de ONG (e imagem de holograma no [[html-components#BuildingCustomizer.tsx|p
 | Valor rápido | Botões lado a lado (`flex-1 min-w-16`, gap 6px) `pixel pixel-thin bevel-edge`, 13px bold, `pt-3 pb-[15px]`, sem sombra dura; ativo = verde com `bevel-verde-700` | — |
 | Quantidade | Grupo `pixel pixel-thin`: botões −/+ 48px `bg-secondary` + número 24px 600 em `bg-card` (72px). **Não implementado** — hover do DS (`#C9D5C0`) não tem token; criar antes de usar | — |
 | Abas | `tab text-[13px]` (+ `menu-cursor pl-6` para ▸); lista sem fundo, `border-b` | `tab` no CSS |
-| Barra em anel | Categorias em loop infinito na base do painel, 56 px, hairline em cima. Janela fixa no centro `bg-secondary` + régua verde 4px marca a ativa (15px bold `foreground`); vizinhas 20% menores, 4 px mais baixas, `muted-foreground`; demais somem. Sem degradê nas pontas | `BuildingCustomizer.tsx` |
+| Barra em anel | Design `PersonalizarPredio`. Categorias em loop infinito na base escura (`bg-tinta`) do painel, 50 px, nomes 15px 800 `papel` com 14 px entre eles. Janela âmbar fixa no centro (`pixel pixel-ink-papel bevel-ambar-700 bg-ambar`, 34 px) acompanha a largura do nome ativo e repete os nomes em tinta por dentro; foco de teclado vira a janela papel com contorno âmbar. Vizinhas menores e mais baixas, seta ▸ para fora (pisca até o 1º gesto); demais somem. Pontos embaixo: ativa 18 px âmbar, demais 6 px verde. Sem degradê nas pontas | `BuildingCustomizer.tsx` |
 | Linha de erro | `<p role="alert" class="flex gap-2 text-sm text-destructive"><ErrorMark />frase</p>` | `ui/pixel-icon.tsx` |
 | Selo | `Badge`: mono 11px, borda 2px. `default` verde, `secondary` papel, `reward` âmbar, `muted` verde-100 sem borda | `ui/badge.tsx` |
 | Dica | Tooltip tinta, mono 12px papel, rabicho em degrau | `ui/tooltip.tsx` |
@@ -373,6 +374,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Skeleton | — | `animate-pulse` em `bg-muted` (`/dale`) | placeholder de layout; não é spinner |
 | Foto da home | foto da ONG, mín. 1200px, legenda com crédito e ano | `cat_dog.jpeg`/`.webp` de banco de imagem, 1024px, sem legenda | ainda sem foto de ONG; crédito desconhecido — não inventar. Trocar quando houver |
 | Aviso de pré-lançamento na cena | placa de papel sólido, sem `white`/blur | texto `papel` sem placa nem desfoque, rodapé | pedido explícito: aviso mínimo, sem borda nem fundo; exceção restrita a [[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]] |
+| Painel de personalização | modal com bisel 6px | sem bisel embaixo (`bevel-w-0`) | design `PersonalizarPredio`: base escura (barra em anel + Concluir) é o pé do painel; bisel virava faixa clara sob ela. Restrito a [[html-components#BuildingManageDialog.tsx]] |
 | Imagem enviada pelo usuário | WebP, mín. 1200px | JPEG; edifício 800px, perfil 400px (`resizeImage`) | backend do perfil só aceita JPEG/PNG; Safari não gera WebP em `canvas`; JSON limitado a 1 MB |
 
 **Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo), arte da cidade no aviso de pré-lançamento (fachadas da cena + silhuetas do fundo). Logo oficial = PNG/WebP em `public/` (`logo.webp`, `logo-branca.webp`, `favicon-32.png`); admin usa via `CidoeLogo`.

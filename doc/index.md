@@ -154,7 +154,7 @@ scripts/
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`; `--screen <lado>` = telão + close, `--screen-label` = faixa do nome) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
-  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, aba Telão (faixa do nome inclusa) e ciclo do canvas com GPU simulada; sem servidor/navegador
+  check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, selo EM USO, lados do letreiro, passo da roda/trackpad (gesto na inércia, ruído, 16/50 ms), aba Telão (faixa do nome inclusa) e ciclo do canvas com GPU simulada; sem servidor/navegador
   check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes, com e sem faixa do nome), ciclo, faixa e nome/apelido, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
   check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, faixa do nome (apelido; time sem apelido = nome), ciclo, Trocar time, evento desligado; conta, catálogo e imagens simulados; MOBILE=1, SHOTS=pasta
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
@@ -236,7 +236,7 @@ src/
       RewardConfetti.tsx        ← celebração Canvas por abertura, carregamento lazy, paleta do DS e limpeza
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
-      BuildingCustomizer.tsx   ← menu reutilizável: barra de categorias em anel infinito embaixo, grade e prévia 3D; lazy na administração do edifício
+      BuildingCustomizer.tsx   ← menu reutilizável (design PersonalizarPredio): páginas deslizantes, base escura com barra em anel e janela âmbar, grade de 3 e prévia 3D; lazy na administração do edifício
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
       RewardExamples.tsx        ← exemplos locais dos dois modais reais, no Passe e nas recompensas por indicação
@@ -283,7 +283,7 @@ src/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
         SimulationNotice.tsx         ← faixa âmbar fixa "contribuições de teste" no rodapé dos modais
-      BuildingManageDialog.tsx   ← administração independente: informações + aparência/prévia 3D
+      BuildingManageDialog.tsx   ← administração independente: coluna de 416 px, modo Aparência/Informações + Concluir na base escura
       BuildingControls.tsx
       TextureControls.tsx
       ReflectionControls.tsx         ← aba reflexo: probe do envMap dos prédios
@@ -466,7 +466,7 @@ E entrega para:
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar (só dono) ou pelo lápis flutuante.
-- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e barra de categorias permanecem visíveis enquanto apenas as opções rolam. Barra embaixo em anel infinito (ativa sempre no centro, vizinhas menores e esmaecidas); arrastar itens ou barra, rolar, clicar ou setas trocam categoria, com loop nos dois sentidos. Duas colunas no tablet. Aparência salva automaticamente; **Concluir** no cabeçalho. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
+- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e barra de categorias permanecem visíveis enquanto apenas as opções rolam. Base escura com barra em anel infinito (janela âmbar no centro acompanha o nome ativo, vizinhas menores com seta, pontos embaixo); arrastar itens ou barra, rolar, clicar ou setas trocam categoria, com loop nos dois sentidos. Coluna única em qualquer tela. Aparência salva automaticamente; **Concluir** na base, ao lado de Aparência/Informações. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
 
@@ -479,7 +479,7 @@ Também gerencia:
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(entries)` (lote com formato sorteado)
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--edit-x`/`--edit-y` direto no estilo, sem re-render. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé. Wrapper sempre montado (`hidden`) guarda última posição. Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
-- Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay, prévia nem aviso âmbar; barra de categorias em anel embaixo, opções em 3 colunas; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
+- Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay, prévia nem aviso âmbar; barra de categorias em anel na base escura, opções em 3 colunas; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
 ### 3. Canvas 3D

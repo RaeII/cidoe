@@ -41,6 +41,8 @@ assert.match(html, /Doe.*50.*e faça 3 indicações para liberar/);
 assert.match(html, /disabled=""[^>]*>.*?Formato bloqueado/s, "Item bloqueado deve ficar desabilitado");
 assert.match(html, /data-state="inactive"[^>]*inert=""[^>]*>.*Vermelho/s, "Categoria vizinha monta inerte para o deslize no celular");
 assert.match(html, /role="tab"/, "Categorias devem permitir navegação por teclado");
+assert.match(html, /aria-pressed="true"[^>]*>[^]*?EM USO[^]*?Formato livre/, "Opção em uso marcada com o selo");
+assert.equal(html.match(/EM USO/g)?.length, 1, "Selo só na opção em uso");
 for (const feature of ["sign", "hologram"]) {
   const featureHtml = render({ ...props, catalog: { ...catalog, shapes: [], colors: [], features: { sign: null, hologram: null, [feature]: { isUnlocked: false, unlock: { donationMin: 100, referralMin: null } } } } });
   assert.match(featureHtml, /fieldset disabled=""/);
@@ -48,6 +50,7 @@ for (const feature of ["sign", "hologram"]) {
   const unlockedHtml = render({ ...props, catalog: { ...catalog, shapes: [], colors: [], features: { sign: null, hologram: null, [feature]: { isUnlocked: true, unlock: null } } } });
   assert.doesNotMatch(unlockedHtml, /fieldset disabled=""/, "Recurso liberado mantém os campos disponíveis");
   assert.match(unlockedHtml, feature === "sign" ? /Texto do letreiro/ : /Imagem ou GIF/);
+  if (feature === "sign") assert.match(unlockedHtml, /checked="" value="1"/, "Lados do letreiro como opções, 1 marcado");
 }
 
 // Telão: só com time do evento e só as imagens dele (catálogo da API); ordem nos selos; key de
@@ -113,6 +116,49 @@ assert.equal(patch.buildingShape, "default");
 state.select("color", catalog.colors[0]);
 assert.equal(patch.color, "#ff0000");
 console.log("Personalização: categorias, grade, requisitos de bloqueio, features e seleção disponíveis OK.");
+
+// Roda/trackpad: um gesto = um passo, inclusive gesto novo emendado na inércia do anterior (antes travava).
+const wheelFn = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "wheelStep");
+const wheelCtx = {};
+vm.runInNewContext(ts.transpileModule(`${wheelFn.getText(ast)}\nglobalThis.wheelStep = wheelStep;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, wheelCtx);
+// Gesto de trackpad do macOS a 60 Hz: dedo (subida até o pico) e inércia decaindo 5% por quadro, sem pausa.
+const swipeDeltas = (dir, peak = 26) => {
+  const deltas = [0.1, 0.25, 0.45, 0.7, 0.9, 1, 0.95, 0.85].map((f) => f * peak);
+  for (let d = deltas.at(-1) * 0.95; d > 0.3; d *= 0.95) deltas.push(d);
+  return deltas.map((d) => d * dir);
+};
+// `frame` = ms entre eventos: 16 (60 Hz) ou 50 (aparelho lento/eventos somados).
+const stepsAt = (frame, ...parts) => {
+  const state = { time: -Infinity, dir: 0, sizes: [], peak: 0, fell: false, armed: true, stepAt: -Infinity };
+  let time = 0;
+  const out = [];
+  for (const part of parts) {
+    if (typeof part === "number") { time += part; continue; } // pausa (ms)
+    for (const delta of part) { const step = wheelCtx.wheelStep(state, delta, time); if (step) out.push(step); time += frame; }
+  }
+  return out;
+};
+const steps = (...parts) => stepsAt(16, ...parts);
+// Ruído de coalescência do Chrome: ±30% por evento e eventos somados (2×) de vez em quando.
+let seed = 7;
+const noisy = (deltas) => deltas.map((d, i) => { seed = (seed * 16807) % 2147483647; return d * (0.7 + 0.6 * (seed / 2147483647)) * (i % 23 === 11 ? 2 : 1); });
+assert.deepEqual(steps(swipeDeltas(1)), [1], "Gesto com inércia anda uma categoria");
+assert.deepEqual(steps(swipeDeltas(1, 60)), [1], "Gesto forte não pula várias na inércia");
+assert.deepEqual(steps(noisy(swipeDeltas(1, 40))), [1], "Ruído na inércia não vira passo extra");
+assert.deepEqual(steps(swipeDeltas(1).slice(0, 22), 48, swipeDeltas(1)), [1, 1], "Gesto durante a inércia do anterior travava");
+assert.deepEqual(steps(swipeDeltas(1, 60).slice(0, 20), 32, swipeDeltas(1, 30)), [1, 1], "Gesto durante inércia ainda forte");
+assert.deepEqual(steps(swipeDeltas(1), 120, swipeDeltas(1)), [1, 1], "Gesto logo após a inércia travava");
+assert.deepEqual(steps(swipeDeltas(1).slice(0, 22), 48, swipeDeltas(-1)), [1, -1], "Volta durante a inércia");
+assert.deepEqual(steps(Array.from({ length: 40 }, (_, i) => [5, 7, 6, 8, 5, 7][i % 6])), [1], "Arrasto lento e longo = um passo");
+const slowStart = [...Array.from({ length: 25 }, (_, i) => i + 1), ...swipeDeltas(1).slice(8).map((d) => d * 0.96)];
+assert.deepEqual(steps(slowStart), [1], "Gesto que começa devagar (subida de 400 ms) = um passo");
+for (const frame of [16, 50]) {
+  assert.deepEqual(stepsAt(frame, swipeDeltas(1)), [1], `Um gesto, evento a cada ${frame} ms`);
+  assert.deepEqual(stepsAt(frame, swipeDeltas(1).slice(0, 22), 48, swipeDeltas(1)), [1, 1], `Gesto na inércia, evento a cada ${frame} ms`);
+  assert.deepEqual(stepsAt(frame, swipeDeltas(1).slice(0, 22), 48, swipeDeltas(-1)), [1, -1], `Volta na inércia, evento a cada ${frame} ms`);
+}
+assert.deepEqual(steps([100], 140, [100], 140, [-100]), [1, 1, -1], "Roda do mouse: um passo por clique espaçado (~6 por segundo)");
+console.log("Roda/trackpad: um passo por gesto, gesto emendado na inércia, volta, ruído e roda do mouse OK.");
 
 // Exercita o ciclo real do canvas com GPU simulada: render pausa e recursos fecham.
 const previewSource = await readFile(new URL("../src/components/three/BuildingPreview.tsx", import.meta.url), "utf8");

@@ -66,6 +66,8 @@
   --color-ambar-100: #f6e3bf;
   --color-tinta: #1e2a1b;
   --color-tinta-2: #4a5446;
+  /* Fundo de grupo sobre tinta (barra escura do personalizador; fundo escuro do DS 6.7). */
+  --color-tinta-claro: #2e3a2b;
 
   /* Canto em pixel substitui border-radius em tudo. `rounded-full` segue valendo. */
   --radius: 0px;
@@ -91,6 +93,11 @@
     from { clip-path: inset(0 100% 0 0); }
     to { clip-path: inset(0); }
   }
+  /* Setas da barra em anel do personalizador: piscam para fora até o primeiro gesto. */
+  --animate-arrow-l: arrow-l 900ms steps(1, end) infinite;
+  --animate-arrow-r: arrow-r 900ms steps(1, end) infinite;
+  @keyframes arrow-l { 50% { translate: -4px 0; } }
+  @keyframes arrow-r { 50% { translate: 4px 0; } }
 }
 
 :root {

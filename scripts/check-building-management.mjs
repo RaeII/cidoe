@@ -70,10 +70,9 @@ const bundle = await build({
     import { Button } from './src/components/ui/button';
     import { Dialog, DialogHeader, DialogTitle } from './src/components/ui/dialog';
     import { cn } from './src/lib/utils';
-    import { IS_PRELAUNCH } from './src/lib/legal';
     import { formatBRL } from './src/lib/unlock';
     import { Building2, MapPin } from 'lucide-react';
-    import { BlockLoader, ErrorMark, PixelBuilding, PixelClose } from './src/components/ui/pixel-icon';
+    import { BlockLoader, ErrorMark, PixelBuilding, PixelCheck, PixelInfo } from './src/components/ui/pixel-icon';
     import { AuthContext } from './src/hooks/useAuth';
     import { MyBuildingsNavigation } from './src/components/html/MyBuildingsNavigation';
     export { MyBuildingsNavigation };
@@ -82,8 +81,8 @@ const bundle = await build({
     const Loader2 = () => null;
     const noop = () => {};
     const scrollClass = ${JSON.stringify(constant("scrollClass"))};
-    const footerClass = ${JSON.stringify(constant("footerClass"))};
-    const tabClass = ${JSON.stringify(constant("tabClass"))};
+    const modeClass = ${JSON.stringify(constant("modeClass"))};
+    const finishClass = ${JSON.stringify(constant("finishClass"))};
     function Section({ buildingTab = 'information', ready = true, editBusy = false, dirty = false, error = null, side = false }) {
       const profileFormId = 'building-profile';
       const profileEdit = { ready, busy: editBusy, dirty, error };
@@ -155,18 +154,20 @@ assert.match(listHtml, /Edifício 1/);
 assert.match(listHtml, /Edifício 2/);
 assert.match(renderList([]), /Nenhum edifício ainda/);
 const informationHtml = render({});
-assert.match(informationHtml, /aria-selected="true"[^>]*>Informações<\/button>/);
+assert.match(informationHtml, /aria-label="Menu do edifício"/, "Modo (Aparência/Informações) na barra de baixo");
+assert.match(informationHtml, /aria-selected="true"[^>]*>(?:<svg[^]*?<\/svg>)?Informações<\/button>/);
 assert.match(informationHtml, />Nome</);
 assert.match(informationHtml, /Descrição/);
 assert.doesNotMatch(informationHtml, /<details|data-preview/, "Informações não ficam recolhidas nem depois da prévia");
-assert.match(informationHtml, /type="submit" form="building-profile"/);
+assert.match(informationHtml, />Concluir<\/button>/, "Sem alterações, Concluir fecha");
+assert.doesNotMatch(informationHtml, /type="submit"/);
+assert.match(render({ dirty: true }), /type="submit" form="building-profile"[^>]*>(?:<svg[^]*?<\/svg>)?Salvar</, "Perfil alterado vira Salvar");
 assert.match(render({ buildingTab: "appearance" }), /<form id="building-profile"/, "Alternar de aba não desmonta o perfil nem perde os campos");
 assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
 assert.doesNotMatch(render({ buildingTab: "appearance" }), /type="submit"/, "Aparência salva automaticamente, sem botão Salvar de perfil vazio");
 assert.match(render({ buildingTab: "appearance" }), />Concluir<\/button>/);
 assert.match(render({ buildingTab: "appearance", dirty: true }), /type="submit" form="building-profile"/, "Informações editadas continuam salváveis ao mudar para Aparência");
-assert.match(render({ buildingTab: "appearance", dirty: true }), /Informações não salvas/);
-for (const props of [{ ready: false }, { editBusy: true }]) {
+for (const props of [{ dirty: true, ready: false }, { dirty: true, editBusy: true }]) {
   assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
 }
 assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^]*?<span>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
