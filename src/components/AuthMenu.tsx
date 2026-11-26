@@ -15,6 +15,7 @@ import type { CustomizationCatalog } from "@/api/customizationApi";
 import type { RewardNotifications } from "@/components/hooks/useCustomizationCatalog";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { readPendingClub } from "@/lib/clubPending";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
 import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
@@ -56,10 +57,12 @@ type AuthMenuProps = {
   onAuthOpenChange: (open: boolean) => void;
   /** Segura o onboarding do 1º login enquanto outro fluxo ocupa a tela. */
   onboardingBlocked: boolean;
-  /** Evento dos times aberto (link `?time=` ou Trocar time no telão); `club` = slug do link. */
-  clubEvent: { club: string | null; pick?: boolean } | null;
+  /** Evento dos times aberto (link `?time=`, Trocar time no telão ou resgate); `club` = slug do link. */
+  clubEvent: { club: string | null; pick?: boolean; claim?: boolean } | null;
   onClubChosen: (remap: (keys: readonly string[]) => string[]) => void;
   onClubEventClose: () => void;
+  /** Abre o evento para resgatar o time que o visitante escolheu antes de entrar. */
+  onClubClaim: (club: string) => void;
 };
 
 /** Autenticação, onboarding do primeiro login, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
@@ -80,6 +83,7 @@ export function AuthMenu({
   clubEvent,
   onClubChosen,
   onClubEventClose,
+  onClubClaim,
 }: AuthMenuProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
@@ -169,6 +173,24 @@ export function AuthMenu({
     };
   }, [user]);
 
+  // Evento dos times: time que o visitante escolheu espera o login (`lib/clubPending`). Lido uma vez por
+  // login (ou sessão no boot); modal do evento já aberto nessa hora (login dentro dele, link) cuida
+  // sozinho. Lido na renderização, não em efeito: até o resgate abrir (tela livre: login fechado,
+  // nenhum fluxo do editor), segura os outros modais como se o evento já estivesse aberto, e o
+  // onboarding da conta nova não pisca antes.
+  const [pendingClaim, setPendingClaim] = useState<{ userId: number; club: string | null } | null>(null);
+  if (!user) {
+    if (pendingClaim) setPendingClaim(null);
+  } else if (pendingClaim?.userId !== user.id) {
+    setPendingClaim({ userId: user.id, club: clubEvent ? null : readPendingClub() });
+  } else if (clubEvent && pendingClaim.club) {
+    setPendingClaim({ userId: user.id, club: null });
+  }
+  const claimWaiting = (user && pendingClaim?.userId === user.id && pendingClaim.club) || null;
+  useEffect(() => {
+    if (claimWaiting && !clubEvent && !authOpen && !onboardingBlocked) onClubClaim(claimWaiting);
+  }, [claimWaiting, clubEvent, authOpen, onboardingBlocked, onClubClaim]);
+
   function closeVideo() {
     setIntroOpen(false);
     if (!isMobile) onAuthOpenChange(false);
@@ -241,12 +263,13 @@ export function AuthMenu({
 
   // Evento dos times fica por cima de tudo: indicação, conquistas e onboarding esperam ele fechar.
   // Mesma `key` nos dois retornos: login dentro do modal troca de ramo sem remontá-lo.
-  const clubEventOpen = clubEvent !== null;
+  const clubEventOpen = clubEvent !== null || claimWaiting !== null;
   const clubEventDialog = clubEvent && (
     <Suspense key="club-event" fallback={null}>
       <ClubEventDialog
         initialClub={clubEvent.club}
         startPicking={clubEvent.pick}
+        claim={clubEvent.claim}
         onChosen={onClubChosen}
         onViewMine={() => {
           onClubEventClose();

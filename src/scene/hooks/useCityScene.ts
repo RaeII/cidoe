@@ -36,7 +36,7 @@ type UseCitySceneOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
-  onFocusScreenPosition?: (x: number, y: number) => void;
+  onFocusScreenPosition?: (x: number, y: number, leftX: number) => void;
 };
 
 export function useCityScene({
@@ -106,8 +106,8 @@ export function useCityScene({
     },
   );
 
-  const handleFocusScreenPosition = useEffectEvent((x: number, y: number) => {
-    onFocusScreenPosition?.(x, y);
+  const handleFocusScreenPosition = useEffectEvent((x: number, y: number, leftX: number) => {
+    onFocusScreenPosition?.(x, y, leftX);
   });
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export function useCityScene({
           onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
           onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
           onBuildingClick: (donationId) => handleBuildingClick(donationId),
-          onFocusScreenPosition: (x, y) => handleFocusScreenPosition(x, y),
+          onFocusScreenPosition: (x, y, leftX) => handleFocusScreenPosition(x, y, leftX),
         });
       } catch (error) {
         console.warn("Cena 3D indisponível:", error);

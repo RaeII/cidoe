@@ -55,6 +55,10 @@
   --color-verde: #4e6b45;
   --color-verde-hover: #5a7b50;
   --color-verde-700: #3a5134;
+  /* Divisão por ONG no card do edifício (barra + bisel do selo de iniciais), do escuro ao claro; 200 = alça da folha. */
+  --color-verde-500: #6e8c63;
+  --color-verde-300: #9fb191;
+  --color-verde-200: #bccbb0;
   --color-verde-100: #dce4d5;
   --color-papel: #f2eee3;
   --color-papel-claro: #fbf9f3;
@@ -98,6 +102,11 @@
   --animate-arrow-r: arrow-r 900ms steps(1, end) infinite;
   @keyframes arrow-l { 50% { translate: -4px 0; } }
   @keyframes arrow-r { 50% { translate: 4px 0; } }
+  /* Card do edifício (design ModalPredioA), em degraus como sprite: folha sobe da base (mobile), placa entra ao lado do edifício (desktop). */
+  --animate-sheet-up: sheet-up 240ms steps(5, end) both;
+  @keyframes sheet-up { from { opacity: 0; translate: 0 48px; } }
+  --animate-card-pop: card-pop 200ms steps(4, end) both;
+  @keyframes card-pop { from { opacity: 0; translate: 16px 0; scale: 0.96; } }
 }
 
 :root {

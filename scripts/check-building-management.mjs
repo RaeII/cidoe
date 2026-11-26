@@ -393,7 +393,7 @@ assert.equal(triggerHidden({ infoBuildingId: 42 }), false, 'Edifício próprio: 
 assert.equal(triggerHidden({ infoBuildingId: 7 }), true, 'Edifício alheio: sem Simular contribuição');
 assert.equal(triggerHidden({ selectedBuildingId: 7 }), true, 'Personalizando edifício alheio: sem Simular contribuição');
 // Botão de editar flutuante: só com edifício em foco, abre Aparência.
-const editButton = editorSource.match(/hidden=\{([^}]+)\}\s*className="absolute z-30"[^]*?onClick=\{([^}]+\))\} title="Editar edifício"/);
+const editButton = editorSource.match(/hidden=\{([^}]+)\}\s*className="absolute [^"]*z-30[^"]*"[^]*?onClick=\{([^}]+\))\} title="Editar edifício"/);
 assert.ok(editButton, 'Botão de editar flutuante presente');
 const editHidden = (scope) => vm.runInNewContext(editButton[1], { booted: true, myBuildingsOpen: false, contributeOpen: false, infoBuildingId: 42, ...scope });
 assert.equal(editHidden({}), false, 'Edifício em foco mostra botão de editar');

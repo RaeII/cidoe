@@ -20,7 +20,7 @@ import { useDonations } from "./hooks/useDonations";
 import { useLocalSceneState } from "./hooks/useLocalCity";
 import { useOwnedDonationIds } from "./hooks/useOwnedDonationIds";
 import { useAuth } from "@/hooks/useAuth";
-import { saveDonationCustomization } from "../api/donationApi";
+import { fetchBuildingBeneficiaries, saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { InitialLoading } from "./html/InitialLoading";
@@ -140,8 +140,9 @@ export function CitySceneEditor() {
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditId, setProfileEditId] = useState<number | null>(null);
   // Evento dos times: link `?time=<slug>` abre o modal com a cidade pronta (AuthMenu monta no boot);
-  // Trocar time no telão reabre na lista. Slug validado no modal (lista de times fica no chunk dele).
-  const [clubEvent, setClubEvent] = useState<{ club: string | null; pick?: boolean } | null>(() => {
+  // Trocar time no telão reabre na lista; login com escolha guardada do visitante reabre para resgatar
+  // (`claim`). Slug validado no modal (lista de times fica no chunk dele).
+  const [clubEvent, setClubEvent] = useState<{ club: string | null; pick?: boolean; claim?: boolean } | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.has("time") ? { club: params.get("time") } : null;
   });
@@ -153,7 +154,9 @@ export function CitySceneEditor() {
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }, []);
   const openClubList = useCallback(() => setClubEvent({ club: null, pick: true }), []);
+  const claimClub = useCallback((club: string) => setClubEvent({ club, claim: true }), []);
   const [infoProfile, setInfoProfile] = useState<{ id: number; userId: number | undefined; profile: BuildingProfile | null } | null>(null);
+  const [infoSplit, setInfoSplit] = useState<{ id: number; shares: [number, number][] } | null>(null);
   // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
   const pendingFocusRef = useRef<number | null>(null);
 
@@ -274,11 +277,14 @@ export function CitySceneEditor() {
     [],
   );
 
-  // Botão de editar segue o edifício em foco sem re-render: runtime grava a posição no estilo.
-  const editButtonRef = useRef<HTMLDivElement>(null);
-  const handleFocusScreenPosition = useCallback((x: number, y: number) => {
-    editButtonRef.current?.style.setProperty("--edit-x", `${x}px`);
-    editButtonRef.current?.style.setProperty("--edit-y", `${y}px`);
+  // Botão de editar e placa de informações seguem o edifício em foco sem re-render: runtime grava a posição
+  // no contêiner da cena (sempre montado, guarda a última posição; filhos herdam as variáveis).
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const handleFocusScreenPosition = useCallback((x: number, y: number, leftX: number) => {
+    const style = sceneRef.current?.style;
+    style?.setProperty("--focus-x", `${x}px`);
+    style?.setProperty("--focus-y", `${y}px`);
+    style?.setProperty("--focus-left", `${leftX}px`);
   }, []);
 
   // Painel lateral de edição cobre a direita: a cena recentra o edifício na área livre.
@@ -356,18 +362,41 @@ export function CitySceneEditor() {
     return () => controller.abort();
   }, [infoBuildingId, showBuildingInfo, user?.id]);
 
-  // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
+  // Valor de cada ONG: snapshot só traz os ids. Uma ONG = valor todo; simulado tem a divisão local;
+  // do banco com várias ONGs, busca no clique (e de novo se o valor mudar depois de contribuir).
+  const infoDonation = useMemo(
+    () => (infoBuildingId === null ? undefined : donations.find((d) => d.id === infoBuildingId)),
+    [infoBuildingId, donations],
+  );
+  const splitId = infoDonation && infoDonation.id > 0 && infoDonation.ongIds.length > 1 && showBuildingInfo ? infoDonation.id : null;
+  const splitValue = infoDonation?.value;
+  useEffect(() => {
+    if (splitId === null) return;
+    const controller = new AbortController();
+    fetchBuildingBeneficiaries(splitId, controller.signal).then(
+      (shares) => {
+        if (!controller.signal.aborted) setInfoSplit({ id: splitId, shares });
+      },
+      () => {},
+    );
+    return () => controller.abort();
+  }, [splitId, splitValue]);
+
   const infoBuilding = useMemo(() => {
-    if (infoBuildingId === null) return null;
-    const donation = donations.find((d) => d.id === infoBuildingId);
-    if (!donation) return null;
-    const city = cities.find((c) => c.id === donation.cityId);
+    if (!infoDonation) return null;
+    const shares: [number, number][] = infoDonation.ongIds.length === 1
+      ? [[infoDonation.ongIds[0], infoDonation.value]]
+      : infoDonation.shares ?? (infoSplit?.id === infoDonation.id ? infoSplit.shares : []);
+    const values = new Map(shares);
     return {
-      value: donation.value,
-      ongName: ongs.filter((o) => donation.ongIds.includes(o.id)).map((o) => o.name).join(", "),
-      place: city ? `${city.name} · ${city.uf}` : undefined,
+      value: infoDonation.value,
+      // Maior parte primeiro, como a barra; sem divisão conhecida, valor fica de fora.
+      ongs: ongs
+        .filter((o) => infoDonation.ongIds.includes(o.id))
+        .map((ong) => ({ ...ong, value: values.get(ong.id) }))
+        .sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
     };
-  }, [infoBuildingId, donations, cities, ongs]);
+  }, [infoDonation, infoSplit, ongs]);
 
   // Meus edifícios: todos os registros próprios, incluindo os ocultos pelo filtro/teto.
   const myDonations = useMemo(() => {
@@ -620,7 +649,7 @@ export function CitySceneEditor() {
   return (
     <div ref={scrollRef} className={cn("h-svh w-full overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", myBuildingsOpen ? "overflow-y-hidden" : "overflow-y-auto")}>
     {/* svh: no mobile, h-screen (100vh) passa por baixo da barra do navegador e esconde os botões do rodapé. */}
-    <div id="city-scene" className="relative h-svh w-full overflow-hidden bg-background">
+    <div ref={sceneRef} id="city-scene" className="relative h-svh w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
         buildingSettings={buildingSettings}
@@ -672,6 +701,7 @@ export function CitySceneEditor() {
             clubEvent={clubEvent}
             onClubChosen={handleClubChosen}
             onClubEventClose={closeClubEvent}
+            onClubClaim={claimClub}
           />
         </div>
       </div>
@@ -782,9 +812,10 @@ export function CitySceneEditor() {
       )}
       {!contributeOpen && showBuildingInfo && infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
+          key={infoBuildingId}
+          donationId={infoBuildingId}
           value={infoBuilding.value}
-          ongName={infoBuilding.ongName}
-          place={infoBuilding.place}
+          ongs={infoBuilding.ongs}
           isOwn={infoIsOwn}
           onManage={infoIsOwn ? () => handleManageFromInfo() : undefined}
           profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
@@ -792,23 +823,19 @@ export function CitySceneEditor() {
           onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
       )}
-      {/* Sempre montado: guarda a última posição gravada pelo runtime. clamp mantém na tela, fora do HUD e do rodapé. */}
+      {/* Posição vem de --focus-x/--focus-y (runtime, no contêiner da cena). clamp mantém na tela, fora do HUD e do rodapé;
+          abaixo de 900px, acima da folha do card (metade de baixo). */}
       <div
-        ref={editButtonRef}
         hidden={!booted || myBuildingsOpen || contributeOpen || infoBuildingId === null}
-        className="absolute z-30"
-        style={{
-          left: "clamp(0.75rem, var(--edit-x) + 0.5rem, 100% - 3.75rem)",
-          top: "clamp(4.5rem, var(--edit-y) - 1.5rem, 100% - 8rem)",
-        }}
+        className="absolute top-[clamp(4.5rem,var(--focus-y)_-_1.5rem,50%_-_3.75rem)] left-[clamp(0.75rem,var(--focus-x)_+_0.5rem,100%_-_3.75rem)] z-30 min-[900px]:top-[clamp(4.5rem,var(--focus-y)_-_1.5rem,100%_-_8rem)]"
       >
         <Button size="icon-lg" onClick={() => handleManageFromInfo("appearance")} title="Editar edifício" aria-label="Editar edifício">
           <Pencil className="size-5" />
         </Button>
       </div>
-      {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. */}
+      {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. Abaixo de 900px a folha do card cobre o rodapé: fecha no X dela. */}
       {booted && myBuildingsOpen && currentMyBuilding && !contributeOpen && showBuildingInfo && selectedBuildingId === null && (
-        <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center sm:bottom-6">
+        <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center max-[899px]:hidden sm:bottom-6">
           <Button type="button" variant="outline" size="lg" className="pointer-events-auto has-[>svg]:px-3 max-sm:text-sm" onClick={() => setShowBuildingInfo(false)}>
             <PixelArrow className="rotate-180" />Voltar
           </Button>

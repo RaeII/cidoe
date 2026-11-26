@@ -267,7 +267,7 @@ Faixa fixa no rodapé (último filho `shrink-0` do `DialogContent`, fora da rola
 
 Pré-lançamento: perfil local tem prioridade (navegador → conta antiga → público). `fetchBuildingProfile` não consulta ID negativo; `saveBuildingProfile` salva no navegador, sem conta. Informações opcionais não publicadas. Título do diálogo: **Edifício**.
 
-`html/donate/`. **Imagem** (3:2, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
+`html/donate/`. **Imagem** (3:2, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Quem ergueu** (≤ 40), **Nome** (≤ 40), **Descrição** (textarea ≤ 160 + contador), **Site** (≤ 200, `inputMode=url`; `normalizeWebsite` no envio — sem esquema vira https, inválido = **Endereço inválido.** com `aria-invalid`). Ordem = ordem do card. Tudo opcional, público para quem clicar no edifício.
 
 - Imagem compacta no celular (112 px, moldura 2px), até 256 px no desktop (moldura 3px); botão = [[desingn-system-index#Estados (5.7)|imagem clicável]] (`raised press`, borda verde no hover); formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Administração usa duas colunas no desktop: imagem + textos. `compact` (sempre no [[#BuildingManageDialog.tsx]], coluna única de 416 px) força layout do celular em qualquer tela: miniatura + botão lado a lado, campos empilhados
 - Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
@@ -302,30 +302,44 @@ Visual = design **PersonalizarPredio** (sistema de design): coluna única, pági
 
 ### `ClubEventDialog.tsx`
 
-Modal do [[evento-times|evento dos times]] (`src/components/club/`), lazy, montado pelo `AuthMenu` quando `clubEvent` existe (link `?time=` ou **Trocar time**). Estilo de conquista igual ao `RewardDialog`: faixa âmbar no topo, título centrado, imagens do time em grade de 3 colunas (`pixel-thin bg-tinta`), botão `reward`. Catálogo (`useClubCatalog`): carregando = nada na tela; evento desligado = fecha sem aparecer; erro = tentar de novo.
+Modal do [[evento-times|evento dos times]] (`src/components/club/`), lazy, montado pelo `AuthMenu` quando `clubEvent` existe (link `?time=`, **Trocar time** ou resgate `claim` da escolha do visitante). Estilo de conquista igual ao `RewardDialog`: faixa âmbar no topo, título centrado, imagens do time em grade de 3 colunas (`pixel-thin bg-tinta`), botão `reward`. Catálogo (`useClubCatalog`): carregando = nada na tela; evento desligado = fecha sem aparecer; erro = tentar de novo.
 
-- Estados: carregando (`BlockLoader`), erro + **Tentar de novo**, login (imagens + `AuthPanel` embutido), oferta sem time (**"<Time> é seu time?"** → **Sim, é meu time** / **Escolher outro time**), troca com time e troca livre (**Deseja trocar seu time?** + "Esta é sua única troca."; `ClubCard` **Seu time** apagado/cinza → seta → **Novo time** moldura verde; **Trocar para X** (principal) / **Manter Y** (fecha) / **Escolher outro time**), lista (busca sem acento + grade 2 colunas com escudo 40 px, atual marcado, **Voltar** só com destino), já tem time (**"<Time> já é seu time"** + "As imagens já estão nas suas personalizações."; **Ver personalizações** = `onViewMine`; **Trocar time** se troca livre; fechar no X), conquista (**Imagens liberadas**, confete, cartões entram em mola).
+- Estados: carregando (`BlockLoader`; também durante o resgate automático), erro + **Tentar de novo**, login com a recompensa (só visitante que já disse sim: desktop = `SplitDialogContent` do [[#IntroVideoDialog.tsx]] com `ClubReward` à esquerda em `bg-secondary` + faixa âmbar, `AuthPanel` à direita; mobile = `ClubReward` como título/descrição + **Entrar** + **Escolher outro time**, depois `AuthPanel` sozinho), oferta sem time (visitante também; **Sim** do visitante guarda em `cidoe:club-pending` → [[evento-times#Recompensa do visitante]]) (**"<Time> é seu time?"** → **Sim, é meu time** / **Escolher outro time**), troca com time e troca livre (**Deseja trocar seu time?** + "Esta é sua única troca."; `ClubCard` **Seu time** apagado/cinza → seta → **Novo time** moldura verde; **Trocar para X** (principal) / **Manter Y** (fecha) / **Escolher outro time**), lista (busca sem acento + grade 2 colunas com escudo 40 px, atual marcado, **Voltar** só com destino), já tem time (**"<Time> já é seu time"** + "As imagens já estão nas suas personalizações."; **Ver personalizações** = `onViewMine`; **Trocar time** se troca livre; fechar no X), conquista (**Imagens liberadas**, confete, cartões entram em mola).
 - Foco inicial no próprio modal: busca da lista não abre teclado do celular sozinha. Lista rola dentro do modal (`--viewport-height` desconta teclado).
 - Não fecha durante gravação (X, Esc, fora). Copy enxuta: regra da troca única só na confirmação da troca.
 - Check: `scripts/check-club-event.mjs` (todos os estados) e `scripts/check-led-screen-ui.mjs` (app real).
 
 ### `BuildingInfoModal.tsx`
 
-Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
+Card do edifício clicado. Design `ModalPredioA` ("placa ancorada"), mesma estrutura e informações. Sem dim: cena segue interativa. `key={infoBuildingId}` no editor: trocar de edifício remonta (lista fechada, altura solta).
 
-Na visualização dedicada de **Meus edifícios**, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco, com a interface geral oculta. O card começa fechado; **Ver como visitante** no rodapé o abre. Fora desse modo, clique em edifício abre informações e fechar limpa o foco.
+- **Mobile (< 900px)** — folha presa à base (`border-t-3` tinta, alça `verde-200`), sobe em degraus (`animate-sheet-up`). Altura máx. 50% (design: tela − 24px): câmera centraliza topo do edifício em foco, que fica logo acima. Conteúdo rola dentro (`overscroll-contain`). Abrir as ONGs trava a altura da folha (não sobe); lista abre dentro e rolagem acompanha o fim; trava sai ao terminar de fechar. Lápis flutuante e **Voltar** de Meus edifícios respeitam a folha (ver [[index#2. Container Principal]]).
+- **Desktop (≥ 900px)** — placa 340px à esquerda do edifício, `top-32`, `pixel` sem sombra, entra com `animate-card-pop`. `left` = `clamp(1.5rem, --focus-left − 410px, …)` (ponta do rabicho ~50px do edifício); rabicho (seta pixel 6×9 ×3, papel com contorno tinta) na borda direita, `top` = `--focus-y` relativo à placa, preso dentro dela. Variáveis vêm do runtime ([[scene-runtime#Sistema de foco]]) gravadas no `#city-scene`: placa segue edifício sem re-render.
 
-Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Só dono (`infoIsOwn` no editor) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]] e link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Edifício alheio ou sem login: card só visualiza — menos informação na tela. Teste de edição beta segue pelo lápis flutuante ([[index#2. Container Principal]]). Regra em [[donation-api#Quem pode editar]].
+Ordem (tudo do perfil é opcional; sem dado, some a linha):
+
+1. Imagem do perfil 2:1, régua tinta embaixo, X tinta com contorno papel por cima.
+2. **Quem ergueu** (13px 700) + X (quando não há imagem).
+3. Nome (20px 800), descrição (15px, `muted-foreground`), site (15px 700 `verde-700`, sublinhado 2px; `target=_blank rel="noopener noreferrer nofollow ugc"`; texto = `websiteLabel`).
+4. Valor (20px 800; centavos só quando há) + botão **N ONG(s)** (`pixel-thin bevel-edge bevel-w-3`; aberto = verde, chevron vira). Sempre fechado ao abrir o card.
+5. Lista (`motion`): altura em mola (0,45 s, sem quique), "Para onde foi o dinheiro" + ✓ **Verificadas** (sempre), barra 10px com uma faixa por ONG (`flex` = valor; `verde-700`/`500`/`300`, repete) enchendo da esquerda em sequência, linhas entrando uma a uma. Linha: iniciais mono 10px (2 primeiras palavras em maiúscula: "Lar dos Bigodes" → LB) com bisel da cor da faixa, nome, valor + %, seta ▸. Sem link (página da ONG não existe). Fechar: altura 0,28 s + fade. Movimento reduzido: sem animação.
+6. Rodapé em texto 12px 600 sublinhado: visitante = **Denunciar** (`mailto:` de `LEGAL_EMAIL`, assunto "Denúncia · edifício {id}", corpo com Motivo/Contato — canal dos Termos); dono = **Editar informações** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]] e **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]].
+
+Dados: valor e ONGs do snapshot; valor de cada ONG = [[donation-api]] (`fetchBuildingBeneficiaries` no clique, só edifício do banco com várias ONGs; uma ONG = valor todo; simulado = `shares` local). Barra e valores só com a divisão inteira conhecida; antes disso, linha mostra só iniciais e nome. Perfil (quem ergueu, nome, descrição, imagem, site) de [[contribution-api]] (`fetchBuildingProfile` no clique; aparece quando chega). Placa não recebe foco (sem contorno âmbar ao clicar); Esc fecha (atalho global do editor). Regra de edição em [[donation-api#Quem pode editar]].
+
+Fora do design: foto do dono (design tem como opção, desligada), cidade da ONG (ONG não tem cidade no banco), link da linha da ONG.
+
+Na visualização dedicada de **Meus edifícios**, fechar o card (ou Esc) só esconde os detalhes e mantém navegação/foco, com interface geral oculta. Card começa fechado; **Ver como visitante** no rodapé abre. Fora desse modo, clique em edifício abre informações e fechar limpa foco.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
-| `value` | `number` | Valor da doação |
-| `ongName` | `string?` | Nome da ONG |
-| `place` | `string?` | `"Cidade · UF"` |
-| `isOwn` | `boolean` | Doação da sessão atual |
-| `onManage` | `() => void` opcional | Abre administração; ausente = só leitura |
-| `profile` | `BuildingProfile \| null` opcional | Imagem, nome, descrição |
-| `onEditProfile` | `() => void` opcional | Ausente = sem link de edição |
+| `donationId` | `number` | ID do edifício (assunto da denúncia) |
+| `value` | `number` | Valor total do edifício |
+| `ongs` | `(Ong & { value?: number })[]` | ONGs apoiadas, maior parte primeiro; `value` ausente = divisão desconhecida |
+| `isOwn` | `boolean` | Edifício da sessão: rodapé do dono em vez de Denunciar |
+| `onManage` | `() => void` opcional | Abre administração |
+| `profile` | `BuildingProfile \| null` opcional | Quem ergueu, nome, descrição, imagem, site |
+| `onEditProfile` | `() => void` opcional | Abre edição das informações |
 | `onClose` | `() => void` | Fecha e limpa o foco |
 
 ---
@@ -336,7 +350,7 @@ Visualização dedicada sobre a cidade, sem painel/modal de navegação. **Meus 
 
 - **Topo esquerdo** — card compacto com cantos de 14 px, contorno fino e `bg-background`, sem borda pixel/bisel. Número/total e valor na mesma linha; localização logo abaixo. No mobile: margem de 16 px, valor de 14 px, demais textos de 11 px e padding de 12 × 8 px. Largura ajustada ao conteúdo e limitada para livrar o X; valores longos podem passar para outra linha. Desktop mantém alinhamento com a seta (`md:left-1/4`) e valor de 16 px. Altura limitada acima das setas, com rolagem interna se necessário. Exceção visual solicitada para aliviar o HUD, registrada em [[desingn-system-index#Desvios conscientes]].
 - **Laterais** — botões de anterior/próximo flutuam na meia altura da cena, só com ícones e nomes acessíveis. Ciclo entre os próprios, independente de filtro/teto; com um só, setas desabilitadas.
-- **Rodapé** — **Personalizar** (primário) e **Ver como visitante** (`outline`, ícone olho, "visitante" em segunda linha menor), botões com fundo do DS, sem painel ao redor. Personalizar abre [[#BuildingManageDialog.tsx]] direto na aba Aparência. Ver como visitante abre [[#BuildingInfoModal.tsx]] e troca o rodapé por **Voltar** (seta), que fecha o card; fechar qualquer um retorna à navegação. Apenas um desses contextos aparece por vez.
+- **Rodapé** — **Personalizar** (primário) e **Ver como visitante** (`outline`, ícone olho, "visitante" em segunda linha menor), botões com fundo do DS, sem painel ao redor. Personalizar abre [[#BuildingManageDialog.tsx]] direto na aba Aparência. Ver como visitante abre [[#BuildingInfoModal.tsx]] e troca o rodapé por **Voltar** (seta), que fecha o card (< 900px: folha do card cobre rodapé, sem Voltar — fecha no X); fechar qualquer um retorna à navegação. Apenas um desses contextos aparece por vez.
 - **Interface geral** — `myBuildingsOpen` no `CitySceneEditor` oculta marca, menu da conta, indicação, contribuição, filtros, hover, controles/admin e seção abaixo da cidade; rolagem fica bloqueada. `AuthMenu` e `ContributeDialog` permanecem montados em wrappers `hidden` para preservar sessão e acompanhamento de Pix. Atalhos de ferramentas/ajuda não abrem painéis nesse modo.
 - **X**, clique no chão ou Esc com os detalhes fechados limpa foco e restaura câmera e componentes da cidade. Clicar em outro edifício também encerra o modo dedicado e abre as informações dele com a interface geral visível. Trocar conta/logout encerra seleção e foco pendente. Arrastar continua controlando a câmera sem fechar o modo.
 - `infoBuildingId` mantém o alvo e `showBuildingInfo` controla detalhes. `handleOpenDonation(id, false)` ativa o modo dedicado e revela/foca após rebuild. Durante a espera, **Localizando edifício…**, controles desabilitados e X disponível. Perfil só é buscado com detalhes abertos.
@@ -392,6 +406,7 @@ Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) sob demanda em
 - **Miniatura** — `poster="/video-cidoe-poster.jpg"`: JPEG público 720×1280, quadro real aos 14 s, copiado pelo Vite para `dist/`. URL estável e rastreável, aceita pelo Google como miniatura do vídeo. Ver [[seo#Vídeo de apresentação e miniatura]].
 - **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo e retorna à cidade. Login (Entrar/contribuição) = `AuthDialog` sem vídeo. Switch dia/noite e botão **Conheça o Cidoe** ficam escondidos no mobile (deslogado) para não empurrar a placa de indicação pra baixo; só **Entrar** aparece. Título `sr-only` "Cidoe".
 - **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. **Entrar**, contribuição e **Conheça o Cidoe** abrem este layout (`videoOpen = showIntro || (!isMobile && authOpen)`). Login concluído ou fechar → fecha vídeo e login.
+- **Moldura** — `SplitDialogContent` (exportado daqui): `media` à esquerda + `panel` à direita no desktop; mobile `media` + `footer`. Reaproveitado no login do [[#ClubEventDialog.tsx|evento dos times]] (recompensa no lugar do vídeo). Altura de tela cheia no mobile é só do vídeo (`className`).
 - **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar mantém código de indicação ([[referral#Captura e validação]]).
 - **Quando abre** (`AuthMenu`) — `introOpen` começa em `false`; só o botão de apresentação altera para `true`. Código `?ref=` é preservado para quando o visitante abrir o login.
 - **Armazenamento** — não lê nem grava `cidoe:intro-video-seen`; preferência obsoleta retirada da tabela da Política de Privacidade, sem apagar dados existentes do navegador.

@@ -46,6 +46,9 @@ Tons de apoio:
 | `tinta-claro` | `#2E3A2B` | Grupo sobre tinta: seletor Aparência/Informações na base escura do [[html-components#BuildingManageDialog.tsx\|personalizador]] (fundo escuro do DS 6.7) |
 | `verde-700` | `#3A5134` | Bisel verde, estado pressionado, texto ghost |
 | `verde-hover` | `#5A7B50` | Hover do botão primário |
+| `verde-500` | `#6E8C63` | 2ª faixa da divisão por ONG (barra + bisel das iniciais) no card do edifício |
+| `verde-300` | `#9FB191` | 3ª faixa da divisão por ONG |
+| `verde-200` | `#BCCBB0` | Alça da folha do card do edifício (mobile) |
 | `verde-100` | `#DCE4D5` | Seleção, hover, prefixo de campo (`accent`, `secondary`) |
 | `papel-claro` | `#FBF9F3` | Card, popover, campo (`card`) |
 | `papel-300` | `#D9D3C2` | Bisel claro (`edge`), bloco vazio (`muted`), hairline (`border`) |
@@ -125,7 +128,7 @@ Faixa de 4px no tom escuro na base dá volume. Soma com `pixel`.
 
 Altura: `bevel-w-3` (pequeno), padrão 4, `bevel-w-6` (modal). Compense o bisel no padding de baixo (`pb-1` a mais) para o conteúdo ficar centrado na área visível.
 
-Botão soma **sombra dura** na diagonal (`raised`, luz do canto superior esquerdo) e **afunda ao pressionar** (`press`: anda 4px, sombra zera, bisel não muda). Só botão usa `raised`/`press`. Exceção: aviso de pré-lançamento (design `ModalPreLancamento`) e modal de saída (design `ModalSaida`) usam `raised-modal` — mesma sombra a 12px, distância em `--drop` (anima 0→12px na entrada). Ver [[html-components#ProjectStatusDialog.tsx]] e [[html-components#ExitIntentDialog.tsx]].
+Botão soma **sombra dura** na diagonal (`raised`, luz do canto superior esquerdo) e **afunda ao pressionar** (`press`: anda 4px, sombra zera, bisel não muda). Só botão usa `raised`/`press`. Exceção: aviso de pré-lançamento (design `ModalPreLancamento`), modal de saída (design `ModalSaida`) usam `raised-modal` — mesma sombra a 12px, distância em `--drop` (anima 0→12px na entrada). Ver [[html-components#ProjectStatusDialog.tsx]] e [[html-components#ExitIntentDialog.tsx]].
 
 ### 3 · Cursor de menu ▸ — `menu-cursor`
 
@@ -309,7 +312,7 @@ HUD ocupa só os cantos. **Placa de papel sólido** garante leitura sobre qualqu
 | Placa de HUD | `pixel bevel-edge bg-background` (ou `bg-card`), `px-4 py-2.5 pb-3` |
 | Nível/XP | `CidoeLogo` + `mono-label` + `BlockBar size="sm"` |
 | Contador | Placa + ícone pixel + número em mono 14px |
-| Info de edifício | Placa: kicker mono verde ("Edifício #12.847"), título 20px 600, meta `text-muted-foreground` |
+| Info de edifício | Design `ModalPredioA`: folha na base (mobile) / placa ao lado do edifício com rabicho (desktop). Quem ergueu 13px 700, título e valor 20px 800, site sublinhado `verde-700`, botão **N ONGs** abre divisão (barra em faixas `verde-700/500/300` + iniciais com bisel da mesma cor), Denunciar em texto 12px. Imagem 2:1 com régua tinta embaixo. Ver [[html-components#BuildingInfoModal.tsx]] |
 | CTA principal | Botão `default` `size="lg"` com ícone pixel, canto inferior |
 | Dica sobre cena | Tooltip tinta |
 
@@ -372,6 +375,9 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Título da home | até 96px | até 72px | divide linha com foto; "contribuição" não cabe |
 | Escuro com pegadas | pegada `#36452F` sobre `#2E3A2B` (fundo do 6.7) | sem padrão | escuro só no `/dale` |
 | Skeleton | — | `animate-pulse` em `bg-muted` (`/dale`) | placeholder de layout; não é spinner |
+| Iniciais e setas no card do edifício | mono ≥ 11px; ícone em escala inteira | iniciais mono 10px; chevron 9×6 e seta 5×9 | design `ModalPredioA` desenha assim; seguido à risca a pedido |
+| Folha do card no mobile | altura até a tela − 24px | até 50% | câmera centraliza o topo do edifício; com 50% ele fica à vista acima da folha (intenção do design) |
+| Imagem do edifício no card | `Photo` 3:2 com moldura | `<img>` 2:1 sangrando no topo, régua tinta de 3px embaixo, sem estados de carregando/erro | design `ModalPredioA`: folha baixa no mobile deixa edifício à vista; imagem é data URL local, carrega na hora |
 | Foto da home | foto da ONG, mín. 1200px, legenda com crédito e ano | `cat_dog.jpeg`/`.webp` de banco de imagem, 1024px, sem legenda | ainda sem foto de ONG; crédito desconhecido — não inventar. Trocar quando houver |
 | Aviso de pré-lançamento na cena | placa de papel sólido, sem `white`/blur | texto `papel` sem placa nem desfoque, rodapé | pedido explícito: aviso mínimo, sem borda nem fundo; exceção restrita a [[html-components#Aviso de pré-lançamento (CitySceneEditor.tsx)]] |
 | Painel de personalização | modal com bisel 6px | sem bisel embaixo (`bevel-w-0`) | design `PersonalizarPredio`: base escura (barra em anel + Concluir) é o pé do painel; bisel virava faixa clara sob ela. Restrito a [[html-components#BuildingManageDialog.tsx]] |

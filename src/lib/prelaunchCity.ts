@@ -40,6 +40,8 @@ function isValidLocalBuildings(value: unknown): value is LocalBuilding[] {
     && Number.isFinite(building.value) && building.value > 0 && Number.isSafeInteger(building.cityId)
     && Number.isSafeInteger(building.ongId) && Array.isArray(building.ongIds)
     && building.ongIds.every(Number.isSafeInteger) && building.city?.id === building.cityId
+    && (building.shares === undefined || (Array.isArray(building.shares)
+      && building.shares.every((share) => Array.isArray(share) && Number.isSafeInteger(share[0]) && Number.isFinite(share[1]))))
     && typeof building.city.name === "string" && typeof building.city.uf === "string");
 }
 
@@ -144,12 +146,18 @@ export function simulateContribution(userId: number, contribution: Contribution,
     // IDs negativos não colidem com os registros públicos do banco.
     donationId = Math.min(0, ...buildings.map((building) => building.id)) - 1;
     buildings.push({ id: donationId, value: cents / 100, cityId: city.id, city,
-      ongId: contribution.ongId, ongIds: [contribution.ongId] });
+      ongId: contribution.ongId, ongIds: [contribution.ongId], shares: [[contribution.ongId, cents / 100]] });
   } else {
     const building = buildings.find((item) => item.id === contribution.donationId);
     if (!building) throw new Error("Este edifício não pertence à sua simulação.");
     const total = Math.round(building.value * 100) + cents;
     if (!Number.isSafeInteger(total)) throw new Error("Valor acima do limite da simulação.");
+    // Divisão por ONG (como donation_beneficiary). Simulação antiga com várias ONGs e sem divisão segue sem.
+    if (building.shares || building.ongIds.length === 1) {
+      const shares = new Map(building.shares ?? [[building.ongIds[0], building.value]]);
+      shares.set(contribution.ongId, (Math.round((shares.get(contribution.ongId) ?? 0) * 100) + cents) / 100);
+      building.shares = [...shares].sort((a, b) => b[1] - a[1]);
+    }
     building.value = total / 100;
     building.ongIds = [...new Set([...building.ongIds, contribution.ongId])];
     donationId = building.id;

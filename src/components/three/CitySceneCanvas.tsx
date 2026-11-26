@@ -46,8 +46,8 @@ export type CitySceneCanvasProps = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
-  /** Lateral do edifício em foco na tela (px do canvas), a cada frame desenhado. */
-  onFocusScreenPosition?: (x: number, y: number) => void;
+  /** Laterais direita (x) e esquerda (leftX) do edifício em foco na tela (px do canvas), a cada frame desenhado. */
+  onFocusScreenPosition?: (x: number, y: number, leftX: number) => void;
 };
 
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(

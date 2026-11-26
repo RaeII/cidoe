@@ -2,9 +2,12 @@
 // (Chrome headless + CDP).
 //
 // Objetivo:
-// 1. Evento: abre `?time=gremio` como visitante → modal único com as imagens e o login embutido →
-//    entra por código (dentro do modal) → "Grêmio é seu time?" → lista e volta → aceita → conquista →
-//    Continuar tira `?time` da URL. Nenhum outro modal abre por cima (onboarding do 1º login espera).
+// 1. Evento: abre `?time=gremio` como visitante → "Grêmio é seu time?" → lista e volta → "Sim" guarda
+//    a escolha (localStorage) → login com a recompensa (desktop ao lado; mobile antes, com Entrar) →
+//    entra por código dentro do modal → grava sozinho → conquista → Continuar tira `?time` da URL.
+//    Nenhum outro modal abre por cima (onboarding do 1º login espera).
+// 1b. Escolhe, fecha o modal (escolha fica) e entra depois pelo "Entrar" do topo: resgate abre sozinho
+//    → conquista; onboarding só depois, sem piscar antes.
 // 2. Telão: seleciona um edifício (fibra do React: clique na cena não funciona headless), abre
 //    "Editar edifício", aba Telão só com as 3 imagens do Grêmio, escolhe 2, o lado Direita e o apelido
 //    na faixa do nome. Confere gravação (ordem, lado e faixa), uma troca do ciclo e console sem erro.
@@ -177,38 +180,90 @@ const typeInto = (selector, value) => evaluate(`(() => {
 const clubTiles = `[...${top}.querySelectorAll('img[src^="/api/club/images/"]')].map((img) => img.getAttribute("src"))`;
 const assertAlone = async (step) => assert.equal(await evaluate(`${openDialogs}.length`), 1, `outro modal aberto junto (${step})`);
 
-await waitFor(`${title} === "Entrar"`, "modal do evento com login");
-assert.deepEqual(await evaluate(clubTiles), [1, 2, 3].map((n) => `/api/club/images/gremio/${n}?v=1`), "imagens do time do link no login");
-await assertAlone("login");
-await shot("0-evento-login");
-await typeInto("#auth-email", "torcedor@cidoe.test");
-await clickText("Continuar com E-mail");
-await waitFor(`document.querySelector("#auth-code")?.value === "123456"`, "código (dev) preenchido");
-await clickText("Continuar");
-await waitFor(`${title} === "Grêmio é seu time?"`, "oferta depois do login");
-await assertAlone("oferta (onboarding do 1º login espera)");
-await shot("1-evento-oferta");
+const pendingClub = `(() => { try { return JSON.parse(localStorage.getItem("cidoe:club-pending"))?.club ?? null; } catch { return "erro"; } })()`;
+const gremioTiles = [1, 2, 3].map((n) => `/api/club/images/gremio/${n}?v=1`);
+/** Visitante: oferta → Sim → login com a recompensa (mobile: recompensa → Entrar). */
+async function chooseAsGuest(step) {
+  await waitFor(`${title} === "Grêmio é seu time?"`, `oferta do visitante (${step})`);
+  assert.deepEqual(await evaluate(clubTiles), gremioTiles, "imagens do time do link na oferta");
+  await assertAlone(`oferta do visitante (${step})`);
+  await clickText("Sim, é meu time");
+  await waitFor(`${title} === "Grêmio"`, "recompensa esperando o login");
+  assert.equal(await evaluate(pendingClub), "gremio", "escolha do visitante não ficou guardada");
+  assert.deepEqual(await evaluate(clubTiles), gremioTiles, "recompensa sem as imagens do time");
+  if (MOBILE) {
+    assert.equal(await evaluate(`!!${top}.querySelector("#auth-email")`), false, "mobile: login junto da recompensa");
+    await shot(`${step}-recompensa`);
+    await clickText("Entrar");
+  }
+  await waitFor(`!!${top}.querySelector("#auth-email")`, "login do evento");
+  await assertAlone(`login do evento (${step})`);
+  await shot(`${step}-login`);
+}
+async function loginByCode() {
+  await typeInto("#auth-email", "torcedor@cidoe.test");
+  await clickText("Continuar com E-mail");
+  await waitFor(`document.querySelector("#auth-code")?.value === "123456"`, "código (dev) preenchido");
+  await clickText("Continuar");
+}
+
+await waitFor(`${title} === "Grêmio é seu time?"`, "oferta do visitante");
+await shot("0-evento-oferta");
 await clickText("Escolher outro time");
 await waitFor(`${title} === "Escolha seu time"`, "lista de times");
 assert.equal(await evaluate(`${top}.querySelectorAll("ul[aria-label='Times'] button").length`), ACTIVE_CLUBS, "lista só com os times ativos");
 await waitFor(`${top}.querySelector("ul[aria-label='Times'] img")?.complete`, "miniatura da lista");
-await shot("2-evento-lista");
+await shot("1-evento-lista");
 await clickText("Voltar");
-await waitFor(`${title} === "Grêmio é seu time?"`, "voltar para a oferta");
-await clickText("Sim, é meu time");
-await waitFor(`${title} === "Imagens liberadas"`, "conquista");
+await chooseAsGuest("2-evento");
+await loginByCode();
+// Já disse sim antes de entrar: grava sozinho, sem perguntar de novo.
+await waitFor(`${title} === "Imagens liberadas"`, "conquista direto depois do login");
 await assertAlone("conquista");
+assert.equal(api.club, "gremio");
+assert.equal(await evaluate(pendingClub), null, "escolha resgatada ficou guardada");
 await sleep(500);
 await shot("3-evento-conquista");
 await clickText("Continuar");
 await waitFor(`${openDialogs}.every((dialog) => dialog.querySelector("h2")?.textContent !== "Imagens liberadas")`, "modal fechado");
 assert.equal(new globalThis.URL(await evaluate("location.href")).searchParams.has("time"), false, "?time continua na URL");
-assert.equal(api.club, "gremio");
 // Onboarding do 1º login esperou o evento; agora aparece e é pulado.
 await waitFor(`${title} === "Complete seu perfil"`, "onboarding depois do evento");
 await clickText("Pular");
 await waitFor(`${openDialogs}.length === 0`, "onboarding fechado");
-console.log("Evento: login no modal, oferta, lista, conquista, URL limpa e onboarding depois OK.");
+console.log("Evento: oferta, lista, escolha guardada, login com a recompensa, resgate sozinho, URL limpa e onboarding depois OK.");
+
+// --- 1b. Escolhe, fecha e entra depois pelo topo: resgate abre sozinho, onboarding não pisca antes ---
+Object.assign(api, { loggedIn: false, onboarded: false, club: null, changes: 0 });
+await send("Page.navigate", { url: `${URL}?time=gremio` });
+await waitFor(`!document.querySelector(".ld") && !!document.querySelector("canvas")`, "cidade de novo", 60_000);
+await chooseAsGuest("4-fecha");
+await evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+await waitFor(`${openDialogs}.length === 0`, "modal do evento fechado");
+assert.equal(await evaluate(pendingClub), "gremio", "fechar o modal perdeu a escolha do visitante");
+assert.equal(new globalThis.URL(await evaluate("location.href")).searchParams.has("time"), false, "?time continua na URL");
+assert.equal(api.club, null, "visitante gravou no servidor");
+await evaluate(`(() => {
+  window.__dialogs = [];
+  const seen = () => { for (const d of document.querySelectorAll('[role="dialog"][data-state="open"]')) {
+    const t = d.querySelector("h2")?.textContent; if (t && !window.__dialogs.includes(t)) window.__dialogs.push(t); } };
+  new MutationObserver(seen).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state"] });
+})()`);
+await clickText("Entrar", "document");
+await waitFor(`!!document.querySelector("#auth-email")`, "login do topo");
+await loginByCode();
+await waitFor(`${title} === "Imagens liberadas"`, "resgate depois do login pelo topo");
+await assertAlone("resgate depois do login pelo topo");
+assert.equal(api.club, "gremio", "resgate não gravou");
+assert.equal(await evaluate(pendingClub), null, "escolha resgatada ficou guardada");
+await shot("5-resgate-topo");
+await clickText("Continuar");
+await waitFor(`${title} === "Complete seu perfil"`, "onboarding depois do resgate");
+const seenDialogs = await evaluate("window.__dialogs");
+assert.ok(seenDialogs.indexOf("Imagens liberadas") < seenDialogs.indexOf("Complete seu perfil"), `onboarding piscou antes do resgate: ${seenDialogs.join(" → ")}`);
+await clickText("Pular");
+await waitFor(`${openDialogs}.length === 0`, "onboarding fechado");
+console.log("Resgate: fecha como visitante (escolha fica), entra pelo topo, conquista sozinha, onboarding depois sem piscar OK.");
 
 // Seleciona pelo handler da cena e abre o editor (botão funciona mesmo escondido).
 await evaluate(`(() => {

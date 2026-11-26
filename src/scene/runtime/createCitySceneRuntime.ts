@@ -56,8 +56,8 @@ type CitySceneRuntimeOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
-  /** Lateral direita (na tela) do edifício em foco, em px do canvas. A cada frame desenhado com foco. */
-  onFocusScreenPosition?: (x: number, y: number) => void;
+  /** Laterais direita (x) e esquerda (leftX) na tela do edifício em foco, em px do canvas. A cada frame desenhado com foco. */
+  onFocusScreenPosition?: (x: number, y: number, leftX: number) => void;
 };
 
 export type CitySceneRuntime = {
@@ -520,10 +520,11 @@ export async function createCitySceneRuntime({
     else camera.setViewOffset(width, height, viewShift, 0, width, height);
   };
 
-  // Botão de editar preso ao edifício em foco: projeta a face que fica à direita na tela.
+  // Botão de editar (direita) e placa de informações (esquerda) presos ao edifício em foco: projeta as duas faces laterais na tela.
   let focusBox: THREE.Box3 | null = null;
   const focusRight = new THREE.Vector3();
   const focusAnchor = new THREE.Vector3();
+  const focusLeft = new THREE.Vector3();
   const emitFocusScreenPosition = () => {
     if (!focusBox || !onFocusScreenPosition) return;
     focusRight.setFromMatrixColumn(camera.matrixWorld, 0);
@@ -531,8 +532,13 @@ export async function createCitySceneRuntime({
     // Meia largura da caixa ao longo do eixo X da câmera; altura do alvo do foco (meio, se baixo).
     const reach = (focusBox.max.x - focusAnchor.x) * Math.abs(focusRight.x) + (focusBox.max.z - focusAnchor.z) * Math.abs(focusRight.z);
     focusAnchor.y = Math.max(focusBox.max.y - 5, focusAnchor.y);
+    focusLeft.copy(focusAnchor).addScaledVector(focusRight, -reach).project(camera);
     focusAnchor.addScaledVector(focusRight, reach).project(camera);
-    onFocusScreenPosition((focusAnchor.x + 1) / 2 * mount.clientWidth, (1 - focusAnchor.y) / 2 * mount.clientHeight);
+    onFocusScreenPosition(
+      (focusAnchor.x + 1) / 2 * mount.clientWidth,
+      (1 - focusAnchor.y) / 2 * mount.clientHeight,
+      (focusLeft.x + 1) / 2 * mount.clientWidth,
+    );
   };
   controls.addEventListener("start", cancelCameraAnimation);
 

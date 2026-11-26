@@ -256,6 +256,7 @@ const sections: LegalSection[] = [
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoe:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
             ["cidoe:analytics-consent", "Armazenamento local", "Lembrar se você aceitou ou recusou a análise", "Até você mudar a escolha ou limpar o navegador"],
+            ["cidoe:club-pending", "Armazenamento local", "Guardar o time escolhido no evento dos times antes de você entrar, para liberar as imagens quando entrar", "Até você entrar na conta, ou 30 dias"],
             ["_ga e _ga_*", "Cookies próprios de análise (Google Analytics), opcionais", "Distinguir visitantes e sessões após o aceite", "Até 2 anos, renovados com o uso"],
             ...(IS_PRELAUNCH
               ? [["cidoe:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento e lembrar que você já viu o aviso de pré-lançamento", "Até você limpar o navegador"]]

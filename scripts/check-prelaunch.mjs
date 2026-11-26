@@ -34,6 +34,10 @@ assert.equal(local.simulateContribution(2, contribution, city), -1, "IDs isolado
 local.simulateContribution(1, { donationId: id, ongId: 2, value: 5.2 });
 assert.equal(local.readLocalBuildings(1)[0].value, 10.3, "Soma em centavos");
 assert.equal(local.readLocalBuildings(1)[0].ongIds.join(), "1,2");
+assert.equal(JSON.stringify(local.readLocalBuildings(1)[0].shares), "[[2,5.2],[1,5.1]]", "Divisão por ONG (card do edifício), maior primeiro");
+local.simulateContribution(1, { donationId: id, ongId: 1, value: 0.1 + 4.9 });
+assert.equal(JSON.stringify(local.readLocalBuildings(1)[0].shares), "[[1,10.1],[2,5.2]]", "Mesma ONG soma em centavos");
+local.writeLocalValue(1, "buildings", local.readLocalBuildings(1).map((building) => ({ ...building, value: 10.3, shares: undefined })));
 assert.equal(local.readLocalBuildings(2)[0].value, 5.1, "Aumento não alcança outro usuário");
 local.saveLocalCustomization(id, { color: "#112233", signText: "Local" });
 const profile = { name: "Meu edifício", description: "Teste", image: "data:image/jpeg;base64,AA==" };

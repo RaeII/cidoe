@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ImagePlus } from "lucide-react";
 import {
   fetchBuildingProfile,
+  normalizeWebsite,
   saveBuildingProfile,
   type BuildingProfile,
 } from "@/api/contributionApi";
@@ -16,14 +17,15 @@ import { SimulationNotice } from "./SimulationNotice";
 
 const NAME_MAX = 40;
 const DESCRIPTION_MAX = 160;
-const EMPTY_PROFILE: BuildingProfile = { name: null, description: null, image: null };
+const WEBSITE_MAX = 200;
+const EMPTY_PROFILE: BuildingProfile = { name: null, owner: null, description: null, image: null, website: null };
 
 const labelClass = "mb-2 block mono-label text-foreground";
 const textareaClass = "field w-full min-w-0 resize-none px-3.5 py-3 text-base md:text-sm";
 /** Erro do DS: "!" + frase em âmbar escuro, sem vermelho. */
 
 /**
- * Imagem, nome e descrição do edifício — tudo opcional, público no card do edifício.
+ * Imagem, quem ergueu, nome, descrição e site do edifício — tudo opcional, público no card do edifício.
  * Carrega o perfil atual antes de liberar os campos: o save substitui tudo, então
  * começar vazio apagaria o que já existe.
  */
@@ -52,21 +54,28 @@ export function BuildingProfileForm({
 }) {
   const { user } = useAuth();
   const nameId = useId();
+  const ownerId = useId();
   const descriptionId = useId();
+  const websiteId = useId();
+  const websiteErrorId = useId();
   const counterId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [attempt, setAttempt] = useState(0);
   const [loadState, setLoadState] = useState<"loading" | "error" | "ready">("loading");
   const [initial, setInitial] = useState<BuildingProfile>(EMPTY_PROFILE);
   const [name, setName] = useState("");
+  const [owner, setOwner] = useState("");
   const [description, setDescription] = useState("");
+  const [website, setWebsite] = useState("");
+  const [websiteError, setWebsiteError] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const dirty = (name.trim() || null) !== initial.name ||
-    (description.trim() || null) !== initial.description || image !== initial.image;
+  const dirty = (name.trim() || null) !== initial.name || (owner.trim() || null) !== initial.owner ||
+    (description.trim() || null) !== initial.description || image !== initial.image ||
+    (website.trim() || null) !== initial.website;
 
   useEffect(() => {
     onEditStateChange?.({ dirty, busy: saving || imageBusy, ready: loadState === "ready", error: saveError ?? (loadState === "error" ? "Não foi possível carregar as informações." : null) });
@@ -80,8 +89,10 @@ export function BuildingProfileForm({
         const loaded = profile ?? EMPTY_PROFILE;
         setInitial(loaded);
         setName(loaded.name ?? "");
+        setOwner(loaded.owner ?? "");
         setDescription(loaded.description ?? "");
         setImage(loaded.image);
+        setWebsite(loaded.website ?? "");
         setLoadState("ready");
       },
       () => {
@@ -108,15 +119,22 @@ export function BuildingProfileForm({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (loadState !== "ready" || saving || imageBusy || disabled) return;
+    const normalizedWebsite = normalizeWebsite(website);
+    setWebsiteError(normalizedWebsite === undefined);
+    if (normalizedWebsite === undefined) return;
     const profile: BuildingProfile = {
       name: name.trim() || null,
+      owner: owner.trim() || null,
       description: description.trim() || null,
       image,
+      website: normalizedWebsite,
     };
     const changed =
       profile.name !== initial.name ||
+      profile.owner !== initial.owner ||
       profile.description !== initial.description ||
-      profile.image !== initial.image;
+      profile.image !== initial.image ||
+      profile.website !== initial.website;
     if (!changed) return onDone(profile);
 
     setSaving(true);
@@ -188,6 +206,12 @@ export function BuildingProfileForm({
         </div>
         <div className="min-w-0 space-y-5">
           <div>
+            <label htmlFor={ownerId} className={labelClass}>
+              Quem ergueu
+            </label>
+            <Input id={ownerId} maxLength={NAME_MAX} autoComplete="name" value={owner} onChange={(event) => setOwner(event.target.value)} />
+          </div>
+          <div>
             <label htmlFor={nameId} className={labelClass}>
               Nome
             </label>
@@ -211,6 +235,32 @@ export function BuildingProfileForm({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
+          </div>
+          <div>
+            <label htmlFor={websiteId} className={labelClass}>
+              Site
+            </label>
+            <Input
+              id={websiteId}
+              inputMode="url"
+              autoComplete="url"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={WEBSITE_MAX}
+              aria-invalid={websiteError || undefined}
+              aria-describedby={websiteError ? websiteErrorId : undefined}
+              value={website}
+              onChange={(event) => {
+                setWebsite(event.target.value);
+                setWebsiteError(false);
+              }}
+            />
+            {websiteError && (
+              <p id={websiteErrorId} role="alert" className="mt-2 flex gap-1.5 text-sm text-destructive">
+                <ErrorMark />
+                Endereço inválido.
+              </p>
+            )}
           </div>
         </div>
       </fieldset>

@@ -147,9 +147,9 @@ const handleBuildingClick = useEffectEvent(
   },
 );
 
-// Posição do botão de editar: px do canvas, a cada frame desenhado com foco.
-const handleFocusScreenPosition = useEffectEvent((x: number, y: number) => {
-  onFocusScreenPosition?.(x, y);
+// Laterais do edifício em foco (lápis à direita, placa de informações à esquerda): px do canvas, a cada frame desenhado com foco.
+const handleFocusScreenPosition = useEffectEvent((x: number, y: number, leftX: number) => {
+  onFocusScreenPosition?.(x, y, leftX);
 });
 ```
 

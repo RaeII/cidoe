@@ -49,6 +49,8 @@ Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais
 
 `ongId` = ONG original, mantida na tupla por compatibilidade. `beneficiaries`: `[donationId, ongIds][]`, só edifícios com várias ONGs. `DonationRecord.ongIds` usa complemento ou `[ongId]` no snapshot antigo/edifício com uma ONG. Edifício aparece no filtro de qualquer ONG apoiada; card/menu mostram todos os nomes. Valor/altura continuam usando total acumulado.
 
+Valor de cada ONG fica fora do snapshot: `fetchBuildingBeneficiaries(id, signal?)` → `GET /donation/:id/beneficiaries`, `[ongId, valor][]` maior primeiro (vazio = uma ONG, valor todo). Editor busca no clique só para edifício do banco com várias ONGs, e de novo se o valor mudar. Uma ONG = valor todo, sem request. Edifício simulado no pré-lançamento traz `DonationRecord.shares` (local, [[contribution-api]]). Uso: [[html-components#BuildingInfoModal.tsx]].
+
 `cities` (v6): só cidades com edifício ativo. Antes vinha o IBGE inteiro (5.571, 99,7% do payload: 165 KB → <1 KB em produção). Catálogo completo dos formulários = `/location/cities`. Pré-lançamento: seeds e edifícios locais trazem a própria cidade.
 
 `custom` saiu no v6: front não lia (cópia até 30 s velha). Personalização = `/donation/customizations`.

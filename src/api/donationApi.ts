@@ -9,6 +9,8 @@ export type DonationRecord = {
   cityId: number;
   ongId: number;
   ongIds: number[];
+  /** [ongId, valor]: só edifício simulado no pré-lançamento. Do banco vem por `fetchBuildingBeneficiaries`. */
+  shares?: [number, number][];
 };
 
 export type City = { id: number; name: string; uf: string };
@@ -88,6 +90,12 @@ export async function fetchDonationSnapshot(opts: SnapshotOptions = {}): Promise
       ongIds: beneficiaries.get(id) ?? [ongId],
     })),
   };
+}
+
+/** [ongId, valor] de cada ONG do edifício, maior primeiro. Vazio = uma ONG, com o valor todo. */
+export async function fetchBuildingBeneficiaries(donationId: number, signal?: AbortSignal): Promise<[number, number][]> {
+  const { data } = await http.get<{ data: [number, number][] }>(`/donation/${donationId}/beneficiaries`, { signal });
+  return data.data;
 }
 
 type Prefetch = {

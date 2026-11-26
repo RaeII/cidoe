@@ -125,7 +125,7 @@ scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
-  check-club-event.mjs         ← evento dos times: contrato com o back (slug, key do telão, teto de imagens), key → URL, catálogo (busca, troca por posição) e todos os estados do modal; sem servidor/navegador
+  check-club-event.mjs         ← evento dos times: contrato com o back (slug, key do telão, teto de imagens), key → URL, catálogo (busca, troca por posição), escolha guardada do visitante e todos os estados do modal (resgate, falhas); sem servidor/navegador
   check-admin-clubs-ui.mjs     ← painel /dale/times no app (Chrome + CDP, dev server): evento, times, apelido, imagens (recorte/miniatura), copiar link, excluir; API do painel simulada; MOBILE=1, SHOTS=pasta → [[evento-times-admin]]
   fixtures/telao.webp          ← escudo 256 px de teste: imagem do telão simulada (check-led-screen-ui, check-admin-clubs-ui) e padrão do `render-building --screen`
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
@@ -156,7 +156,7 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
   check-building-customizer.mjs ← customizador: render React, categorias, requisitos, bloqueios, selo EM USO, lados do letreiro, passo da roda/trackpad (gesto na inércia, ruído, 16/50 ms), aba Telão (faixa do nome inclusa) e ciclo do canvas com GPU simulada; sem servidor/navegador
   check-led-screen.mjs         ← telão: raycast na geometria real (15 formatos × 4 lados × 6 lotes, com e sem faixa do nome), ciclo, faixa e nome/apelido, foco, noite, descarte e manager; sem navegador/GPU → [[scene-builders#createLedScreenMesh.ts]]
-  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): login no modal, oferta, lista, conquista, nada por cima, aba do time, ordem, lado, faixa do nome (apelido; time sem apelido = nome), ciclo, Trocar time, evento desligado; conta, catálogo e imagens simulados; MOBILE=1, SHOTS=pasta
+  check-led-screen-ui.mjs      ← evento + telão no app (Chrome + CDP, dev server + API): oferta do visitante, escolha guardada, login com a recompensa, resgate sozinho (no modal e pelo Entrar do topo), lista, conquista, nada por cima, aba do time, ordem, lado, faixa do nome (apelido; time sem apelido = nome), ciclo, Trocar time, evento desligado; conta, catálogo e imagens simulados; MOBILE=1, SHOTS=pasta
   check-customization-access.mjs ← presente permanente, requisitos e sessão ausente; sem servidor/navegador
   check-helicopter.mjs         ← helicóptero do topo: triângulos, vidros por raycast, pás e folgas dos rotores; sem servidor/navegador
   check-local-email.mjs        ← card de envio local de e-mail: carregar, ativar/desativar, erro, retry e gravação pendente; sem servidor/navegador
@@ -227,7 +227,7 @@ src/
     Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
     club/
-      ClubEventDialog.tsx       ← evento dos times (lazy): login embutido, oferta, troca (atual → novo), lista, já é seu time (atalho Ver personalizações), conquista com confete → [[evento-times]]
+      ClubEventDialog.tsx       ← evento dos times (lazy): visitante escolhe → login com a recompensa (moldura do vídeo no desktop) → resgate sozinho; oferta, troca (atual → novo), lista, já é seu time (atalho Ver personalizações), conquista com confete → [[evento-times]]
       MyClubImages.tsx          ← aba Personalizações do GameMenu: "Seu time: X" + imagens do telão (lazy, só com time) → [[evento-times]]
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
@@ -256,7 +256,7 @@ src/
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações (+ seu time)/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos. `AuthPanel` = corpo reusável
-    IntroVideoDialog.tsx          ← vídeo sob demanda (mudo, loop, sem controles); mobile + "Acessar Cidoe", desktop + login à direita
+    IntroVideoDialog.tsx          ← vídeo sob demanda (mudo, loop, sem controles); mobile + "Acessar Cidoe", desktop + login à direita. Exporta `SplitDialogContent` (moldura reaproveitada no login do evento)
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
     CookieNotice.tsx              ← aviso de cookies: Recusar / Aceitar (GA só após aceite)
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
@@ -277,7 +277,7 @@ src/
       DonationLoadOverlay.tsx      ← card de carregamento dos rebuilds por filtro → [[html-components#DonationLoadOverlay.tsx]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Doações na cidade, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
-      BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; Administrar/nome e imagem só p/ dono
+      BuildingInfoModal.tsx          ← card só-leitura do prédio clicado (ModalPredioA: folha na base / placa ao lado do edifício); Administrar/nome e imagem só p/ dono
       MyBuildingsNavigation.tsx     ← modo dedicado: dados no topo, setas laterais, personalizar/detalhes no rodapé e X
       donate/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
@@ -302,6 +302,7 @@ src/
     clipboard.ts                   ← `copyText`: Clipboard API + fallback textarea (HTTP na rede local); SharePanel e painel
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
     clubs.ts                       ← helpers do catálogo do evento (time do link, imagens, busca só ativos, troca por posição); só nos chunks lazy → [[evento-times]]
+    clubPending.ts                 ← time escolhido pelo visitante antes de entrar (`cidoe:club-pending`, 30 dias) até um login resgatar → [[evento-times#Recompensa do visitante]]
     moneyInput.ts                  ← máscara monetária da contribuição: vírgula/2 casas sempre, milhar e colagem em reais
     pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
@@ -455,7 +456,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
-- `clubEvent` — modal do [[evento-times|evento dos times]] aberto (`?time=` do link ou **Trocar time**); `closeClubEvent` tira `?time` da URL; `handleClubChosen` migra telões montados para o time novo. Enquanto aberto, saída e aviso de pré-lançamento esperam
+- `clubEvent` — modal do [[evento-times|evento dos times]] aberto (`?time=` do link, **Trocar time** ou `claim` = resgate da escolha do visitante via `claimClub`); `closeClubEvent` tira `?time` da URL; `handleClubChosen` migra telões montados para o time novo. Enquanto aberto, saída e aviso de pré-lançamento esperam
 - `infoIsOwn` / `viewingOthers` — edifício em foco é do usuário? Alheio → só visualização: card sem Administrar e nome/imagem, sem **Simular contribuição**
 - `selectedBuildingId` — edifício em administração; beta: qualquer edifício, qualquer visitante (ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet/loft), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
@@ -478,7 +479,7 @@ Também gerencia:
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(entries)` (lote com formato sorteado)
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
-- Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--edit-x`/`--edit-y` direto no estilo, sem re-render. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé. Wrapper sempre montado (`hidden`) guarda última posição. Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
+- Botão de editar flutuante (lápis, "Editar edifício"): só com edifício clicado em foco (`infoBuildingId`), fora de Meus edifícios/contribuição. Fica na lateral direita do edifício na tela; runtime manda posição a cada frame (`onFocusScreenPosition`) e editor grava `--focus-x`/`--focus-y`/`--focus-left` no `#city-scene` (sempre montado, guarda última posição), sem re-render — lápis e placa do [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] herdam. `clamp` no CSS mantém na tela, abaixo do HUD e acima do rodapé; < 900px, acima da folha do card (metade de baixo). Clique → `BuildingManageDialog` na aba Aparência (`manageTab`). Cálculo: [[scene-runtime#Sistema de foco]]
 - Edição em tela ≥ 1024 px: `BuildingManageDialog` vira painel lateral logo à direita do centro, sem overlay, prévia nem aviso âmbar; barra de categorias em anel na base escura, opções em 3 colunas; alterações aparecem no edifício da cena. `onViewShiftChange` → `canvasRef.setViewShift(px)` desliza edifício para o lado do painel. Durante edição (`selectedBuildingId`): HUD do topo, gatilho de contribuição, seta da seção, engrenagem admin e etiqueta de hover somem; clique na cena não troca nem fecha edifício (órbita/zoom seguem). Abaixo de 1024 px: modal com prévia, como antes. [[html-components#BuildingManageDialog.tsx]]
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
@@ -658,6 +659,7 @@ flowchart LR
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
 | Telão de LED (posição, shader, ciclo, imagens do evento, faixa do nome) | [[scene-builders#createLedScreenMesh.ts]] · [[scene-managers#Telões de LED]] · [[scene-textures#Imagens do telão]] |
 | Evento dos times: link `?time=`, modal, troca única, nada por cima | [[evento-times]] · [[html-components#ClubEventDialog.tsx]] · `src/lib/clubs.ts` |
+| Recompensa do visitante (escolha antes do login, resgate depois) | [[evento-times#Recompensa do visitante]] · `src/lib/clubPending.ts` · `AuthMenu` (`onClubClaim`) |
 | Adicionar time, imagens, ligar/desligar o evento, copiar link | [[evento-times-admin]] · `src/pages/admin/Clubs.tsx` (painel `/dale/times`) |
 | Medir desempenho da cena / custo de um formato (antes e depois de mexer) | [[relatorio-desempenho-edificios]] · `scripts/measure-scene-performance.mjs` · `scripts/measure-building-geometry.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
